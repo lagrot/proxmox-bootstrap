@@ -20,6 +20,11 @@ HERMES_USER="${HERMES_USER:-hermes}"
 HERMES_HOME="${HERMES_HOME:-/home/hermes}"
 HERMES_BASE_DIR="${HERMES_BASE_DIR:-/opt/hermes}"
 
+HERMES_CT_MEMORY_MB="${HERMES_CT_MEMORY_MB:-4096}"
+HERMES_CT_SWAP_MB="${HERMES_CT_SWAP_MB:-0}"
+HERMES_CT_CORES="${HERMES_CT_CORES:-2}"
+HERMES_CT_CPUUNITS="${HERMES_CT_CPUUNITS:-2048}"
+
 VALIDATION_ERRORS=0
 VALIDATION_WARNINGS=0
 
@@ -128,6 +133,38 @@ if grep -q "^features: .*keyctl=1" <<< "${CT_CONFIG}"; then
   log_info "CT keyctl feature is enabled"
 else
   record_warn "CT keyctl feature is not enabled"
+fi
+
+log_info "Checking Hermes CT resource baseline..."
+
+if grep -q "^cores: ${HERMES_CT_CORES}$" <<< "${CT_CONFIG}"; then
+  log_info "CPU cores are ${HERMES_CT_CORES}"
+else
+  record_warn "CPU cores do not match expected value ${HERMES_CT_CORES}"
+fi
+
+if grep -q "^memory: ${HERMES_CT_MEMORY_MB}$" <<< "${CT_CONFIG}"; then
+  log_info "Memory is ${HERMES_CT_MEMORY_MB} MiB"
+else
+  record_warn "Memory does not match expected value ${HERMES_CT_MEMORY_MB} MiB"
+fi
+
+if grep -q "^swap: ${HERMES_CT_SWAP_MB}$" <<< "${CT_CONFIG}"; then
+  log_info "Swap is ${HERMES_CT_SWAP_MB} MiB"
+else
+  record_warn "Swap does not match expected value ${HERMES_CT_SWAP_MB} MiB"
+fi
+
+if grep -q "^cpuunits: ${HERMES_CT_CPUUNITS}$" <<< "${CT_CONFIG}"; then
+  log_info "CPU units are ${HERMES_CT_CPUUNITS}"
+else
+  record_warn "CPU units do not match expected value ${HERMES_CT_CPUUNITS}"
+fi
+
+if grep -q "^cpulimit:" <<< "${CT_CONFIG}"; then
+  record_warn "cpulimit is explicitly configured; expected no hard CPU limit"
+else
+  log_info "No explicit cpulimit configured"
 fi
 
 log_info "Checking network inside CT ${HERMES_CT_ID}..."
@@ -248,9 +285,9 @@ fi
 
 log_info "Checking whether Hermes service already exists..."
 if pct exec "${HERMES_CT_ID}" -- systemctl list-unit-files hermes-gateway.service --no-pager 2>/dev/null | grep -q "hermes-gateway.service"; then
-  record_warn "hermes-gateway.service already exists; Step 08 is supposed to be base LXC only"
+  log_info "hermes-gateway.service exists; this is expected after Step 08C/08F"
 else
-  log_info "hermes-gateway.service is not installed yet, as expected"
+  log_info "hermes-gateway.service is not installed yet; this is expected before Step 08C"
 fi
 
 log_info "======================================"
