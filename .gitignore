@@ -1,0 +1,53 @@
+# Logs
+logs/
+*.log
+
+# Temporary files
+*.tmp
+*.temp
+*.bak
+*.orig
+*.rej
+*~
+
+# Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+Session.vim
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Secrets and environment files
+.env
+.env.*
+*.key
+*.pem
+*.crt
+*.p12
+*.pfx
+secrets/
+credentials/
+tokens/
+
+# Proxmox / VM / container images
+*.qcow2
+*.raw
+*.vmdk
+*.img
+*.iso
+*.xz
+*.zst
+
+# Python/cache files
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Local runtime output
+tmp/
+cache/
+downloads/
