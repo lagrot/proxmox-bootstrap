@@ -159,6 +159,8 @@ chmod -R 775 /mnt/frigate
 | Step 09A | Hermes Slack mention integration | verified |
 | Step 09B | Hermes dashboard service | verified |
 | Step 09C | Hermes dashboard validation | verified |
+| Step 10A | Home Assistant reachability | verified |
+| Step 10B | Home Assistant to MQTT network path | verified |
 
 ## Service Decisions
 
@@ -315,10 +317,12 @@ qm status 100
 
 The next major work should be Home Assistant + MQTT + Frigate integration.
 
+Step 10 validation scripts should discover runtime IP addresses from Proxmox guest/container state. Do not hardcode LAN IPs into Step 10 scripts because the network may change later.
+
 Suggested scope:
 
-1. Verify Home Assistant is reachable.
-2. Verify MQTT broker is reachable from the Home Assistant network.
+1. Verify Home Assistant is reachable with `scripts/step10a-homeassistant-reachability.sh`. Completed.
+2. Verify the MQTT broker is reachable from the Home Assistant network path with `scripts/step10b-homeassistant-mqtt-network-validation.sh`. Completed.
 3. Configure the MQTT integration in Home Assistant.
 4. Enable MQTT in the Frigate config.
 5. Restart Frigate.
