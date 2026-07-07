@@ -52,6 +52,9 @@ lib/
 logs/
   Local runtime logs, not committed
 
+old/
+  Legacy scripts kept for reference, not part of the active workflow
+
 scripts/
   Deployment and validation steps
 ```
@@ -74,6 +77,15 @@ scripts/
 - `scripts/step08c-hermes-bootstrap.sh`
 - `scripts/step08d-hermes-validation.sh`
 - `scripts/step08f-hermes-gateway-validation.sh`
+- `scripts/step09b-hermes-dashboard-service.sh`
+- `scripts/step09c-hermes-dashboard-validation.sh`
+
+## Legacy scripts
+
+The `old/` directory contains scripts that are kept for historical reference but are not part of the current bootstrap path:
+
+- `old/setup-frigate-disk.sh`
+- `old/step1-host-validation.sh`
 
 ## Current verified milestones
 
