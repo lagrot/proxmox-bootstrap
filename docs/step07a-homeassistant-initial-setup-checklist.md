@@ -164,10 +164,10 @@ Download a copy to your workstation.
 
 | Service | Location | URL / Address |
 |---|---:|---|
-| Proxmox | host | https://192.168.0.223:8006 |
-| Home Assistant | VM 100 | http://192.168.0.218:8123 |
-| Frigate | CT 200 | https://192.168.0.224:8971 |
-| MQTT | CT 210 | 192.168.0.217:1883 |
+| Proxmox | host | `https://192.168.0.223:8006` |
+| Home Assistant | VM 100 | `http://192.168.0.218:8123` |
+| Frigate | CT 200 | `https://192.168.0.224:8971` |
+| MQTT | CT 210 | `192.168.0.217:1883` |
 
 ## 10. Current completion criteria
 
@@ -185,4 +185,3 @@ This step is complete when:
 ```text
 Step 07A - Home Assistant initial setup checklist: manual
 ```
-

@@ -8,11 +8,11 @@ This step is intentionally manual because it involves secrets.
 
 Do not store API keys in:
 
-- repo scripts
-- documentation
-- git
-- shell history if avoidable
-- shared logs
+- Repo scripts.
+- Documentation.
+- Git.
+- Shell history, if avoidable.
+- Shared logs.
 
 ## Current Hermes state
 
@@ -202,13 +202,11 @@ Step 08F - Hermes running service validation
 
 Step 08F should validate:
 
-```text
-CT 220 running
-Hermes CLI works
-Provider config exists
-No obvious secrets in repo
-hermes doctor result
-hermes-gateway.service enabled
-hermes-gateway.service active
-Recent service logs do not show obvious startup errors
-```
+- CT 220 is running.
+- Hermes CLI works.
+- Provider config exists.
+- No obvious secrets are in the repo.
+- `hermes doctor` result is healthy.
+- `hermes-gateway.service` is enabled.
+- `hermes-gateway.service` is active.
+- Recent service logs do not show obvious startup errors.
