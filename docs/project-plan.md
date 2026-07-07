@@ -329,7 +329,7 @@ Suggested scope:
 
 1. Verify Home Assistant is reachable with `scripts/step10a-homeassistant-reachability.sh`. Completed.
 2. Verify the MQTT broker is reachable from the Home Assistant network path with `scripts/step10b-homeassistant-mqtt-network-validation.sh`. Completed.
-3. Configure the MQTT integration in Home Assistant with `scripts/step10c-homeassistant-mqtt-integration.sh` plus Home Assistant UI/operator confirmation. Pending confirmation.
+3. Configure the MQTT integration in Home Assistant with the Home Assistant UI, then verify the stored MQTT config entry with `scripts/step10c-homeassistant-mqtt-integration.sh`. Pending.
 4. Enable MQTT in the Frigate config with `scripts/step10d-frigate-mqtt-config.sh`. Completed.
 5. Restart Frigate with `scripts/step10e-frigate-restart.sh`. Completed.
 6. Verify Frigate publishes to MQTT with `scripts/step10f-frigate-mqtt-validation.sh`. Completed.

@@ -76,6 +76,33 @@ ha_api_get() {
     "http://${ha_ip}:${HA_HTTP_PORT}${path}"
 }
 
+detect_ha_mqtt_config_entry() {
+  qm guest exec "${HA_VM_ID}" -- python3 -c '
+import json
+from pathlib import Path
+
+path = Path("/mnt/data/supervisor/homeassistant/.storage/core.config_entries")
+if not path.exists():
+    print("mqtt_entry=unknown")
+    raise SystemExit(0)
+
+data = json.loads(path.read_text())
+entries = data.get("data", {}).get("entries", [])
+mqtt_entries = [entry for entry in entries if entry.get("domain") == "mqtt"]
+
+if not mqtt_entries:
+    print("mqtt_entry=absent")
+    raise SystemExit(0)
+
+entry = mqtt_entries[0]
+entry_data = entry.get("data", {})
+print("mqtt_entry=present")
+print("mqtt_title=" + str(entry.get("title", "")))
+print("mqtt_host=" + str(entry_data.get("broker", entry_data.get("host", ""))))
+print("mqtt_port=" + str(entry_data.get("port", "")))
+' 2>/dev/null || true
+}
+
 log_info "Checking root access..."
 if [[ "${EUID}" -ne 0 ]]; then
   log_error "This script must be run as root"
@@ -156,6 +183,28 @@ else
   record_warn "HA_TOKEN is not set; this script cannot verify the MQTT integration through the Home Assistant API"
 fi
 
+log_info "Checking Home Assistant stored MQTT config entry..."
+MQTT_ENTRY_CHECK="$(detect_ha_mqtt_config_entry)"
+
+if grep -q 'mqtt_entry=present' <<< "${MQTT_ENTRY_CHECK}"; then
+  log_info "Home Assistant has an MQTT config entry"
+
+  MQTT_ENTRY_HOST="$(awk -F= '/^mqtt_host=/{print $2; exit}' <<< "${MQTT_ENTRY_CHECK}")"
+  MQTT_ENTRY_PORT="$(awk -F= '/^mqtt_port=/{print $2; exit}' <<< "${MQTT_ENTRY_CHECK}")"
+
+  if [[ -n "${MQTT_ENTRY_HOST}" ]]; then
+    log_info "Home Assistant MQTT entry host: ${MQTT_ENTRY_HOST}"
+  fi
+
+  if [[ -n "${MQTT_ENTRY_PORT}" ]]; then
+    log_info "Home Assistant MQTT entry port: ${MQTT_ENTRY_PORT}"
+  fi
+elif grep -q 'mqtt_entry=absent' <<< "${MQTT_ENTRY_CHECK}"; then
+  record_error "Home Assistant does not have an MQTT config entry yet"
+else
+  record_warn "Could not inspect Home Assistant MQTT config entries through the guest agent"
+fi
+
 log_info "Manual Home Assistant MQTT integration target:"
 log_info "Broker host: ${MQTT_IP}"
 log_info "Broker port: ${MQTT_PORT}"
@@ -164,7 +213,7 @@ log_info "Username/password: leave blank for current bootstrap Mosquitto config"
 if [[ -n "${HA_MQTT_INTEGRATION_CONFIRMED:-}" ]]; then
   log_info "HA_MQTT_INTEGRATION_CONFIRMED is set; recording MQTT integration as operator-confirmed"
 else
-  record_warn "After adding MQTT in Home Assistant, rerun with HA_MQTT_INTEGRATION_CONFIRMED=1 to record operator confirmation"
+  record_warn "After adding MQTT in Home Assistant, rerun this script to verify the config entry"
 fi
 
 log_info "=============================================="
@@ -176,13 +225,13 @@ log_info "Home Assistant URL: http://${HA_IP}:${HA_HTTP_PORT}"
 log_info "MQTT broker: ${MQTT_IP}:${MQTT_PORT}"
 
 if [[ "${VALIDATION_ERRORS}" -gt 0 ]]; then
-  log_error "Home Assistant MQTT integration check failed"
+  log_error "Home Assistant MQTT integration is not complete"
   exit 1
 fi
 
 if [[ "${VALIDATION_WARNINGS}" -gt 0 ]]; then
-  log_warn "Home Assistant MQTT integration still needs operator confirmation"
+  log_warn "Home Assistant MQTT integration completed with warnings"
   exit 0
 fi
 
-log_info "Home Assistant MQTT integration is operator-confirmed"
+log_info "Home Assistant MQTT integration is configured"
