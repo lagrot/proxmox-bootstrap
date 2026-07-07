@@ -81,6 +81,10 @@ scripts/
 - `scripts/step09c-hermes-dashboard-validation.sh`
 - `scripts/step10a-homeassistant-reachability.sh`
 - `scripts/step10b-homeassistant-mqtt-network-validation.sh`
+- `scripts/step10c-homeassistant-mqtt-integration.sh`
+- `scripts/step10d-frigate-mqtt-config.sh`
+- `scripts/step10e-frigate-restart.sh`
+- `scripts/step10f-frigate-mqtt-validation.sh`
 
 ## Legacy scripts
 
@@ -111,6 +115,10 @@ The `old/` directory contains scripts that are kept for historical reference but
 | Step 08F | Hermes gateway validation | verified |
 | Step 10A | Home Assistant reachability | verified |
 | Step 10B | Home Assistant to MQTT network path | verified |
+| Step 10C | Home Assistant MQTT integration | needs operator confirmation |
+| Step 10D | Frigate MQTT config | verified |
+| Step 10E | Frigate restart | verified |
+| Step 10F | Frigate MQTT publishing | verified |
 
 ## Hermes CT 220 baseline
 
