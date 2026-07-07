@@ -1,5 +1,4 @@
-
-i# Step 08E - Hermes Provider / Model / API-Key Configuration
+# Step 08E - Hermes Provider / Model / API-Key Configuration
 
 ## Purpose
 
@@ -213,4 +212,3 @@ hermes-gateway.service enabled
 hermes-gateway.service active
 Recent service logs do not show obvious startup errors
 ```
-
