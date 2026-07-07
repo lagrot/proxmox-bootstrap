@@ -248,7 +248,9 @@ pct_exec_or_print bash -c 'DEBIAN_FRONTEND=noninteractive apt-get install -y ca-
 
 # ------------------------------------------------------------
 # Configure Docker repository
-# ------------------------------------------------------------log_info "Configuring Docker apt repository..."
+# ------------------------------------------------------------
+
+log_info "Configuring Docker apt repository..."
 pct_exec_or_print bash -c 'install -m 0755 -d /etc/apt/keyrings'
 pct_exec_or_print bash -c 'curl -fsSL https://download.docker.com/linux/debian/gpg -o /etc/apt/keyrings/docker.asc'
 pct_exec_or_print bash -c 'chmod a+r /etc/apt/keyrings/docker.asc'

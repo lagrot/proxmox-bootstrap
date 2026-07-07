@@ -16,6 +16,7 @@ fi
 HERMES_CT_ID="${HERMES_CT_ID:-220}"
 HERMES_DASHBOARD_PORT="${HERMES_DASHBOARD_PORT:-9119}"
 HERMES_DASHBOARD_HOST="${HERMES_DASHBOARD_HOST:-0.0.0.0}"
+HERMES_SYSTEM_BIN="${HERMES_SYSTEM_BIN:-/usr/local/bin/hermes}"
 SERVICE_NAME="hermes-dashboard.service"
 require_root() {
   if [[ "${EUID}" -ne 0 ]]; then
@@ -55,19 +56,20 @@ main() {
 
   log_info "Installing ${SERVICE_NAME} inside CT ${HERMES_CT_ID}..."
 
-  pct exec "${HERMES_CT_ID}" -- bash -s -- "${HERMES_DASHBOARD_HOST}" "${HERMES_DASHBOARD_PORT}" << 'INNER'
+  pct exec "${HERMES_CT_ID}" -- bash -s -- "${HERMES_DASHBOARD_HOST}" "${HERMES_DASHBOARD_PORT}" "${HERMES_SYSTEM_BIN}" << 'INNER'
 set -Eeuo pipefail
 
 DASHBOARD_HOST="$1"
 DASHBOARD_PORT="$2"
+HERMES_SYSTEM_BIN="$3"
 
 if ! id hermes >/dev/null 2>&1; then
   echo "Hermes user does not exist." >&2
   exit 1
 fi
 
-if [[ ! -x /home/hermes/.hermes/hermes-agent/venv/bin/hermes ]]; then
-  echo "Hermes executable not found at /home/hermes/.hermes/hermes-agent/venv/bin/hermes" >&2
+if [[ ! -x "${HERMES_SYSTEM_BIN}" ]]; then
+  echo "Hermes executable not found at ${HERMES_SYSTEM_BIN}" >&2
   exit 1
 fi
 
@@ -85,10 +87,9 @@ WorkingDirectory=/home/hermes/.hermes
 Environment=HOME=/home/hermes
 Environment=USER=hermes
 Environment=LOGNAME=hermes
-Environment=PATH=/home/hermes/.hermes/hermes-agent/venv/bin:/home/hermes/.hermes/hermes-agent/node_modules/.bin:/home/hermes/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
-Environment=VIRTUAL_ENV=/home/hermes/.hermes/hermes-agent/venv
+Environment=PATH=/home/hermes/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 Environment=HERMES_HOME=/home/hermes/.hermes
-ExecStart=/home/hermes/.hermes/hermes-agent/venv/bin/hermes dashboard --host ${DASHBOARD_HOST} --port ${DASHBOARD_PORT} --no-open --skip-build
+ExecStart=${HERMES_SYSTEM_BIN} dashboard --host ${DASHBOARD_HOST} --port ${DASHBOARD_PORT} --no-open --skip-build
 Restart=always
 RestartSec=5
 KillMode=mixed
