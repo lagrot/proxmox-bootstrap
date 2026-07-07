@@ -4,12 +4,6 @@ Modular Proxmox VE homelab bootstrap framework for `nad9-1`.
 
 This repository contains Bash scripts, validation scripts, shared helper libraries, and documentation for building and maintaining the local Proxmox homelab environment.
 
-## Scope
-
-This repository currently documents and automates the `nad9-1` homelab environment.
-
-Some values, such as IP addresses, VM IDs, CT IDs, storage names, and mount paths, are environment-specific.
-
 ## Current architecture
 
 ```text
@@ -31,21 +25,15 @@ CT 220: hermes-agent
   Purpose: Hermes Agent / gateway / optional Web UI
   IP: 192.168.0.225
   Web UI: http://192.168.0.225:9119
-```
-
-## Project principles
-
-- One step at a time
-- Scripts must be readable and idempotent where practical
-- Validation scripts should verify deployment scripts
-- Keep secrets and API keys out of Git
-- Prefer Proxmox-native administration with `pct`, `qm`, and the Web UI
-- Use `pct enter` and `pct exec` instead of installing SSH into every LXC
-- Keep the setup simple and avoid unnecessary services
-
-## Repository layout
-
-```text
+Project principles
+One step at a time
+Scripts must be readable and idempotent where practical
+Validation scripts should verify deployment scripts
+Keep secrets and API keys out of Git
+Prefer Proxmox-native administration with pct, qm, and the Web UI
+Use pct enter and pct exec instead of installing SSH into every LXC
+Keep the setup simple and avoid unnecessary services
+Repository layout
 config/
   defaults.conf
 
@@ -60,31 +48,7 @@ logs/
 
 scripts/
   Deployment and validation steps
-```
-
-## Quick start
-
-Run scripts from the repository root:
-
-```bash
-cd ~/proxmox-bootstrap
-```
-
-Validate script syntax before running:
-
-```bash
-bash -n scripts/<script-name>.sh
-```
-
-Run validation scripts after deployment scripts:
-
-```bash
-bash scripts/step01-host-validation.sh
-```
-
-## Main scripts
-
-```text
+Main scripts
 scripts/step01-host-validation.sh
 scripts/step02-storage.sh
 scripts/step03-docker-lxc.sh
@@ -101,11 +65,7 @@ scripts/step08b-hermes-validation.sh
 scripts/step08c-hermes-bootstrap.sh
 scripts/step08d-hermes-validation.sh
 scripts/step08f-hermes-gateway-validation.sh
-```
-
-## Current verified milestones
-
-```text
+Current verified milestones
 Step 01   Host validation                         verified
 Step 02   Frigate storage                         verified
 Step 03   Docker LXC foundation                   verified
@@ -122,60 +82,36 @@ Step 08B  Hermes LXC validation                   verified
 Step 08C  Hermes bootstrap                        verified
 Step 08D  Hermes bootstrap validation             verified
 Step 08F  Hermes gateway validation               verified
-```
-
-## Hermes CT 220 baseline
-
-```text
+Hermes CT 220 baseline
 cores:     2
 cpuunits:  2048
 memory:    4096 MiB
 swap:      0 MiB
 features:  nesting=1,keyctl=1
 cpulimit:  not explicitly configured
-```
-
-## Common commands
+Common commands
 
 Validate Bash syntax:
 
-```bash
 bash -n scripts/<script-name>.sh
-```
 
 Run a validation script:
 
-```bash
 bash scripts/step08b-hermes-validation.sh
-```
 
 List containers and VMs:
 
-```bash
 pct list
 qm list
-```
 
 Enter Hermes CT:
 
-```bash
 pct enter 220
-```
 
 Run a command inside Hermes CT:
 
-```bash
 pct exec 220 -- systemctl status hermes-gateway.service --no-pager
-```
+Notes
 
-## Safety notes
+Do not commit secrets, API keys, .env files, logs, temporary backups, downloaded images, or generated runtime data.
 
-Review each script before running it.
-
-Some scripts create or modify Proxmox containers, VMs, storage, mount points, services, and configuration files. Do not run deployment scripts blindly on another host without reviewing `config/defaults.conf`.
-
-Secrets, API keys, tokens, `.env` files, and runtime logs must not be committed.
-
-## Notes
-
-Do not commit secrets, API keys, `.env` files, logs, temporary backups, downloaded images, or generated runtime data.
