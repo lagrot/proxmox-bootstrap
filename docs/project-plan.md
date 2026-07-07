@@ -161,6 +161,10 @@ chmod -R 775 /mnt/frigate
 | Step 09C | Hermes dashboard validation | verified |
 | Step 10A | Home Assistant reachability | verified |
 | Step 10B | Home Assistant to MQTT network path | verified |
+| Step 10C | Home Assistant MQTT integration | needs operator confirmation |
+| Step 10D | Frigate MQTT config | verified |
+| Step 10E | Frigate restart | verified |
+| Step 10F | Frigate MQTT publishing | verified |
 
 ## Service Decisions
 
@@ -192,11 +196,13 @@ Frigate runs in CT 200 through Docker Compose.
 
 Frigate serves HTTPS on port `8971` with a self-signed/default certificate, so validation uses `curl -k`.
 
-Current minimal Frigate config has MQTT disabled and no cameras:
+Current minimal Frigate config has MQTT enabled and no cameras:
 
 ```yaml
 mqtt:
-  enabled: false
+  enabled: true
+  host: <runtime-detected MQTT CT IP>
+  port: 1883
 
 cameras: {}
 ```
@@ -317,16 +323,16 @@ qm status 100
 
 The next major work should be Home Assistant + MQTT + Frigate integration.
 
-Step 10 validation scripts should discover runtime IP addresses from Proxmox guest/container state. Do not hardcode LAN IPs into Step 10 scripts because the network may change later.
+Step 10 validation scripts should discover runtime IP addresses from Proxmox guest/container state. Do not hardcode LAN IPs into Step 10 scripts because the network may change later. Frigate still requires a broker address in its own runtime config; rerun `scripts/step10d-frigate-mqtt-config.sh` if DHCP changes the MQTT CT address.
 
 Suggested scope:
 
 1. Verify Home Assistant is reachable with `scripts/step10a-homeassistant-reachability.sh`. Completed.
 2. Verify the MQTT broker is reachable from the Home Assistant network path with `scripts/step10b-homeassistant-mqtt-network-validation.sh`. Completed.
-3. Configure the MQTT integration in Home Assistant.
-4. Enable MQTT in the Frigate config.
-5. Restart Frigate.
-6. Verify Frigate publishes to MQTT.
+3. Configure the MQTT integration in Home Assistant with `scripts/step10c-homeassistant-mqtt-integration.sh` plus Home Assistant UI/operator confirmation. Pending confirmation.
+4. Enable MQTT in the Frigate config with `scripts/step10d-frigate-mqtt-config.sh`. Completed.
+5. Restart Frigate with `scripts/step10e-frigate-restart.sh`. Completed.
+6. Verify Frigate publishes to MQTT with `scripts/step10f-frigate-mqtt-validation.sh`. Completed.
 7. Add the Frigate integration in Home Assistant.
 8. Add the first camera to Frigate.
 9. Confirm camera/entities appear in Home Assistant.
