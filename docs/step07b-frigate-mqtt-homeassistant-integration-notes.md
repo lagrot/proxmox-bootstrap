@@ -8,10 +8,10 @@ It is a manual integration step in the Home Assistant and Frigate web UIs. It sh
 
 | Service | Location | Address |
 |---|---:|---|
-| Proxmox | host | https://192.168.0.223:8006 |
-| Home Assistant | VM 100 | http://192.168.0.218:8123 |
-| Frigate | CT 200 | https://192.168.0.224:8971 |
-| MQTT / Mosquitto | CT 210 | 192.168.0.217:1883 |
+| Proxmox | host | `https://192.168.0.223:8006` |
+| Home Assistant | VM 100 | `http://192.168.0.218:8123` |
+| Frigate | CT 200 | `https://192.168.0.224:8971` |
+| MQTT / Mosquitto | CT 210 | `192.168.0.217:1883` |
 
 ## Current architecture
 
@@ -36,11 +36,11 @@ Proxmox Host nad9-1
 
 Home Assistant should use external services instead of local add-ons:
 
-```text
-MQTT broker: external Mosquitto in CT 210
-Frigate:     external Frigate in CT 200
-HAOS:        Home Assistant OS VM 100
-```
+| Service | Deployment |
+|---|---|
+| MQTT broker | External Mosquitto in CT 210 |
+| Frigate | External Frigate in CT 200 |
+| HAOS | Home Assistant OS VM 100 |
 
 This keeps the system modular and easier to troubleshoot.
 
@@ -48,18 +48,14 @@ This keeps the system modular and easier to troubleshoot.
 
 Do not install these Home Assistant add-ons:
 
-```text
-Mosquitto broker add-on
-Frigate add-on
-```
+- Mosquitto broker add-on.
+- Frigate add-on.
 
 Reason:
 
-```text
-Mosquitto is already running in CT 210.
-Frigate is already running in CT 200.
-Home Assistant should connect to them using integrations.
-```
+- Mosquitto is already running in CT 210.
+- Frigate is already running in CT 200.
+- Home Assistant should connect to them using integrations.
 
 ## 2. Add MQTT integration in Home Assistant
 
@@ -99,13 +95,11 @@ bash scripts/step05b-mqtt-validation.sh
 
 Expected good result:
 
-```text
-Mosquitto service is active
-Mosquitto service is enabled
-Mosquitto is listening on TCP port 1883
-Local MQTT publish/subscribe test succeeded
-MQTT validation completed successfully
-```
+- Mosquitto service is active.
+- Mosquitto service is enabled.
+- Mosquitto is listening on TCP port 1883.
+- Local MQTT publish/subscribe test succeeded.
+- MQTT validation completed successfully.
 
 Current broker address:
 
@@ -221,13 +215,11 @@ cameras:
 
 Notes:
 
-```text
-Use the correct RTSP path for the camera model.
-Start with one camera only.
-Validate stability before adding more cameras.
-Avoid high FPS for detection.
-Use iGPU for decoding and Coral for detection.
-```
+- Use the correct RTSP path for the camera model.
+- Start with one camera only.
+- Validate stability before adding more cameras.
+- Avoid high FPS for detection.
+- Use iGPU for decoding and Coral for detection.
 
 ## 7. Validate MQTT topics from Frigate
 
@@ -247,12 +239,10 @@ frigate/...
 
 If there is no output:
 
-```text
-Check that Frigate MQTT is enabled.
-Check the broker IP.
-Check Frigate logs.
-Check that at least one camera is configured.
-```
+- Check that Frigate MQTT is enabled.
+- Check the broker IP.
+- Check Frigate logs.
+- Check that at least one camera is configured.
 
 Frigate logs:
 
@@ -283,23 +273,19 @@ If Home Assistant rejects the self-signed certificate or HTTPS endpoint, test wi
 
 After MQTT and Frigate are connected, Home Assistant may expose entities such as:
 
-```text
-Camera entities
-Motion sensors
-Object detection sensors
-Occupancy sensors
-Recording/event switches
-Diagnostic entities
-```
+- Camera entities.
+- Motion sensors.
+- Object detection sensors.
+- Occupancy sensors.
+- Recording/event switches.
+- Diagnostic entities.
 
 Exact names depend on:
 
-```text
-Camera names in Frigate config
-MQTT topic prefix
-Frigate integration behavior
-Enabled detectors and zones
-```
+- Camera names in Frigate config.
+- MQTT topic prefix.
+- Frigate integration behavior.
+- Enabled detectors and zones.
 
 ## 10. MQTT hardening later
 
@@ -339,12 +325,10 @@ This system is planned to run later behind a 4G/5G mobile router at the country 
 
 Important points:
 
-```text
-Do not expose Home Assistant, Frigate, MQTT, or Proxmox directly to the internet.
-Use VPN or a secure tunnel for remote access.
-Expect variable upload speed and latency on 4G/5G.
-Remote Frigate viewing depends more on upload stability than download speed.
-```
+- Do not expose Home Assistant, Frigate, MQTT, or Proxmox directly to the internet.
+- Use VPN or a secure tunnel for remote access.
+- Expect variable upload speed and latency on 4G/5G.
+- Remote Frigate viewing depends more on upload stability than download speed.
 
 Before moving the server, test:
 
@@ -355,31 +339,26 @@ ping -c 20 1.1.1.1
 
 Useful things to record at the country house:
 
-```text
-Download speed
-Upload speed
-Ping latency
-Packet loss
-Mobile router signal strength
-Whether connection is 4G, 5G NSA, or 5G SA
-```
+- Download speed.
+- Upload speed.
+- Ping latency.
+- Packet loss.
+- Mobile router signal strength.
+- Whether connection is 4G, 5G NSA, or 5G SA.
 
 ## 12. Completion criteria
 
 Step 07B is complete when:
 
-```text
-Home Assistant MQTT integration is connected to 192.168.0.217:1883.
-Frigate config has MQTT enabled.
-Frigate can publish to MQTT.
-At least one camera is configured in Frigate.
-Home Assistant can see Frigate/MQTT entities.
-No duplicate Mosquitto or Frigate add-ons were installed in Home Assistant.
-```
+- Home Assistant MQTT integration is connected to `192.168.0.217:1883`.
+- Frigate config has MQTT enabled.
+- Frigate can publish to MQTT.
+- At least one camera is configured in Frigate.
+- Home Assistant can see Frigate/MQTT entities.
+- No duplicate Mosquitto or Frigate add-ons were installed in Home Assistant.
 
 ## Status
 
 ```text
 Step 07B - Frigate / MQTT / Home Assistant integration notes: documentation
 ```
-

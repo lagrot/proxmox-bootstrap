@@ -35,14 +35,12 @@ Slack bot:    nad9hermes
 
 The following is verified:
 
-```text
-Hermes CLI works
-OpenRouter provider works
-Hermes one-shot model test works
-Hermes gateway service is active
-Hermes gateway service starts at boot
-Slack mention integration works
-```
+- Hermes CLI works.
+- OpenRouter provider works.
+- Hermes one-shot model test works.
+- Hermes gateway service is active.
+- Hermes gateway service starts at boot.
+- Slack mention integration works.
 
 Slack test:
 
@@ -152,11 +150,9 @@ The `hermes` user has limited sudo permissions for Hermes gateway management onl
 
 This is intentional:
 
-```text
-Do not give Hermes full root access.
-Do not give broad sudo access.
-Only allow specific gateway commands.
-```
+- Do not give Hermes full root access.
+- Do not give broad sudo access.
+- Only allow specific gateway commands.
 
 Useful allowed commands:
 
@@ -199,24 +195,25 @@ This is a later cleanup task.
 
 Later cleanup:
 
-```text
 Remove or disable generic Hermes slash commands such as:
-  /undo
-  /retry
-  /new
-  /start
-  /stop
-  /help
-  /update
-  /version
-  /model
+
+- `/undo`
+- `/retry`
+- `/new`
+- `/start`
+- `/stop`
+- `/help`
+- `/update`
+- `/version`
+- `/model`
 
 Keep:
-  @nad9hermes mentions
+
+- `@nad9hermes` mentions.
 
 Optional later:
-  /nad9hermes
-```
+
+- `/nad9hermes`
 
 Do not fix this now unless it becomes a real problem.
 
@@ -256,15 +253,13 @@ Do not continue expanding Hermes now.
 
 Avoid:
 
-```text
-No Web UI
-No per-user service conversion
-No more Slack app rebuilds unless needed
-No doctor-warning cleanup unless it blocks real use
-No OpenAI OAuth/Codex setup right now
-No xAI/web-search API key cleanup right now
-No slash-command cleanup right now
-```
+- No Web UI.
+- No per-user service conversion.
+- No more Slack app rebuilds unless needed.
+- No doctor-warning cleanup unless it blocks real use.
+- No OpenAI OAuth/Codex setup right now.
+- No xAI/web-search API key cleanup right now.
+- No slash-command cleanup right now.
 
 ## Current stopping point
 
@@ -272,11 +267,11 @@ Hermes is good enough and usable.
 
 Current milestone:
 
-```text
-Step 08E  Hermes provider/API config        verified
-Step 08F  Hermes gateway service            verified
-Step 09A  Slack mention integration         verified
-```
+| Step | Description | Status |
+|---|---|---|
+| Step 08E | Hermes provider/API config | verified |
+| Step 08F | Hermes gateway service | verified |
+| Step 09A | Slack mention integration | verified |
 
 ## Recommended next project step
 
@@ -300,14 +295,11 @@ Do not expose Hermes services directly to the internet.
 
 Do not expose:
 
-```text
-Hermes dashboard
-Hermes gateway internals
-Proxmox
-Home Assistant
-Frigate
-MQTT
-```
+- Hermes dashboard.
+- Hermes gateway internals.
+- Proxmox.
+- Home Assistant.
+- Frigate.
+- MQTT.
 
 When the server later moves to the country house with 4G/5G router, use VPN or a secure tunnel for remote access.
-

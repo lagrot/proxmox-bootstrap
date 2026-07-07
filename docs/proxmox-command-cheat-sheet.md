@@ -355,34 +355,32 @@ bash scripts/step08b-hermes-validation.sh
 
 ## Current verified project state
 
-```text
-Step 01   host validation                 verified
-Step 02   storage                         verified
-Step 03   Docker/LXC foundation           verified
-Step 03b  Docker bootstrap in CT 200      verified
-Step 03c  hardware passthrough            verified
-Step 04   Frigate deployment              verified
-Step 04B  Frigate validation              verified
-Step 05   MQTT LXC deployment             verified
-Step 05B  MQTT validation                 verified
-Step 06   Home Assistant OS VM            verified
-Step 06B  Home Assistant validation       verified
-Step 07A  Home Assistant setup checklist  documentation
-Step 07B  Frigate/MQTT/HA integration     documentation
-Step 08   Hermes Agent LXC base           verified
-Step 08B  Hermes LXC validation           verified
-Step 08C  Hermes bootstrap                verified
-```
+| Step | Description | Status |
+|---|---|---|
+| Step 01 | Host validation | verified |
+| Step 02 | Storage | verified |
+| Step 03 | Docker/LXC foundation | verified |
+| Step 03b | Docker bootstrap in CT 200 | verified |
+| Step 03c | Hardware passthrough | verified |
+| Step 04 | Frigate deployment | verified |
+| Step 04B | Frigate validation | verified |
+| Step 05 | MQTT LXC deployment | verified |
+| Step 05B | MQTT validation | verified |
+| Step 06 | Home Assistant OS VM | verified |
+| Step 06B | Home Assistant validation | verified |
+| Step 07A | Home Assistant setup checklist | documentation |
+| Step 07B | Frigate/MQTT/HA integration | documentation |
+| Step 08 | Hermes Agent LXC base | verified |
+| Step 08B | Hermes LXC validation | verified |
+| Step 08C | Hermes bootstrap | verified |
 
 ## Recommended admin model
 
 Use the Proxmox host as the main admin entry point:
 
-```text
-SSH to Proxmox host
-Then use pct enter / pct exec for LXC containers
-Use qm for VMs
-```
+- SSH to Proxmox host.
+- Then use `pct enter` / `pct exec` for LXC containers.
+- Use `qm` for VMs.
 
 Recommended:
 
@@ -392,4 +390,3 @@ pct enter 220
 ```
 
 Avoid installing SSH inside every LXC unless there is a specific need.
-
