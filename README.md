@@ -79,6 +79,8 @@ scripts/
 - `scripts/step08f-hermes-gateway-validation.sh`
 - `scripts/step09b-hermes-dashboard-service.sh`
 - `scripts/step09c-hermes-dashboard-validation.sh`
+- `scripts/step10a-homeassistant-reachability.sh`
+- `scripts/step10b-homeassistant-mqtt-network-validation.sh`
 
 ## Legacy scripts
 
@@ -107,6 +109,8 @@ The `old/` directory contains scripts that are kept for historical reference but
 | Step 08C | Hermes bootstrap | verified |
 | Step 08D | Hermes bootstrap validation | verified |
 | Step 08F | Hermes gateway validation | verified |
+| Step 10A | Home Assistant reachability | verified |
+| Step 10B | Home Assistant to MQTT network path | verified |
 
 ## Hermes CT 220 baseline
 
