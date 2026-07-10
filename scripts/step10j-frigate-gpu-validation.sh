@@ -244,7 +244,7 @@ case "${GPU_STATS_RESULT}" in
     record_warn "Frigate GPU telemetry source is present (${GPU_STATS_RESULT#EMPTY|}), but usage values are currently empty"
     ;;
   ERROR)
-    record_warn "Frigate reports error-gpu in /api/stats; Intel GPU telemetry is failing"
+    record_error "Frigate reports error-gpu in /api/stats; Intel GPU telemetry is failing"
     ;;
   *)
     record_warn "Frigate /api/stats does not report GPU telemetry"

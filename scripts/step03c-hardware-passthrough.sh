@@ -123,14 +123,25 @@ udevadm control --reload-rules
 udevadm trigger --subsystem-match=drm
 
 log_info "Configuring Intel GPU PMU access for Frigate metrics..."
-ensure_file_line "${GPU_STATS_SYSCTL_FILE}" "kernel.perf_event_paranoid=2"
-sysctl -w kernel.perf_event_paranoid=2 >/dev/null
+if grep -q '^kernel\.perf_event_paranoid=' "${GPU_STATS_SYSCTL_FILE}" 2>/dev/null; then
+  sed -i 's/^kernel\.perf_event_paranoid=.*/kernel.perf_event_paranoid=0/' "${GPU_STATS_SYSCTL_FILE}"
+  log_info "Updated kernel.perf_event_paranoid to 0"
+else
+  ensure_file_line "${GPU_STATS_SYSCTL_FILE}" "kernel.perf_event_paranoid=0"
+fi
+sysctl -w kernel.perf_event_paranoid=0 >/dev/null
 
-log_info "Configuring iGPU passthrough for CT ${CT_ID}..."
+log_info "Configuring all hardware passthrough entries for CT ${CT_ID}..."
 ensure_conf_line "lxc.cgroup2.devices.allow: c 226:* rwm"
 ensure_conf_line "lxc.mount.entry: /dev/dri dev/dri none bind,optional,create=dir"
 
-log_info "Restarting CT ${CT_ID} to apply passthrough config..."
+if [[ "${CORAL_PRESENT}" -eq 1 ]]; then
+  log_info "Configuring Coral USB passthrough for CT ${CT_ID}..."
+  ensure_conf_line "lxc.cgroup2.devices.allow: c 189:* rwm"
+  ensure_conf_line "lxc.mount.entry: /dev/bus/usb dev/bus/usb none bind,optional,create=dir"
+fi
+
+log_info "Restarting CT ${CT_ID} once to apply all passthrough settings..."
 if pct status "${CT_ID}" | grep -q "status: running"; then
   pct stop "${CT_ID}"
 fi
@@ -138,35 +149,29 @@ pct start "${CT_ID}"
 sleep 5
 
 log_info "Validating /dev/dri inside CT ${CT_ID}..."
-if pct exec "${CT_ID}" -- test -d /dev/dri; then
+if pct exec "${CT_ID}" -- test -e /dev/dri/renderD128; then
   pct exec "${CT_ID}" -- ls -l /dev/dri
 else
-  log_error "/dev/dri is not visible inside CT ${CT_ID}"
-  log_info "Relevant CT config:"
-  grep -E '^(lxc\.cgroup2\.devices\.allow|lxc\.mount\.entry):' "${CT_CONF}" || true
+  log_error "/dev/dri/renderD128 is not visible inside CT ${CT_ID}"
   exit 1
 fi
 
 if [[ "${CORAL_PRESENT}" -eq 1 ]]; then
-  log_info "Configuring Coral USB passthrough for CT ${CT_ID}..."
-  ensure_conf_line "lxc.cgroup2.devices.allow: c 189:* rwm"
-  ensure_conf_line "lxc.mount.entry: /dev/bus/usb dev/bus/usb none bind,optional,create=dir"
-
-  log_info "Restarting CT ${CT_ID} to apply Coral passthrough config..."
-  if pct status "${CT_ID}" | grep -q "status: running"; then
-    pct stop "${CT_ID}"
-  fi
-  pct start "${CT_ID}"
-  sleep 5
-
-  log_info "Validating /dev/bus/usb inside CT ${CT_ID}..."
-  if pct exec "${CT_ID}" -- test -d /dev/bus/usb; then
-    log_info "/dev/bus/usb is visible inside CT ${CT_ID}"
-    pct exec "${CT_ID}" -- find /dev/bus/usb -type c | head -20
-  else
+  log_info "Validating Coral USB access inside CT ${CT_ID}..."
+  if ! pct exec "${CT_ID}" -- test -d /dev/bus/usb; then
     log_error "/dev/bus/usb is not visible inside CT ${CT_ID}"
-    log_info "Relevant CT config:"
-    grep -E '^(lxc\.cgroup2\.devices\.allow|lxc\.mount\.entry):' "${CT_CONF}" || true
+    exit 1
+  fi
+
+  CORAL_USB_IDS="$(pct exec "${CT_ID}" -- lsusb 2>/dev/null | grep -E '1a6e:089a|18d1:9302' || true)"
+  if [[ -z "${CORAL_USB_IDS}" ]]; then
+    log_error "Coral USB identity is not visible inside CT ${CT_ID}"
+    exit 1
+  fi
+  log_info "Coral USB identity visible inside CT: ${CORAL_USB_IDS}"
+
+  if ! pct exec "${CT_ID}" -- find /dev/bus/usb -type c -perm -002 -print -quit | grep -q .; then
+    log_error "No writable USB device node is visible inside CT ${CT_ID}"
     exit 1
   fi
 fi

@@ -106,7 +106,11 @@ if ! pct exec "${CT_ID}" -- systemctl is-active --quiet docker; then
 fi
 
 log_info "Installing camera diagnostic dependency FFmpeg inside CT ${CT_ID}..."
-run_ct bash -c 'export DEBIAN_FRONTEND=noninteractive; apt-get update && apt-get install -y --no-install-recommends ffmpeg'
+if pct exec "${CT_ID}" -- bash -c 'command -v ffmpeg >/dev/null 2>&1'; then
+  log_info "FFmpeg is already installed inside CT ${CT_ID}"
+else
+  run_ct bash -c 'export DEBIAN_FRONTEND=noninteractive; apt-get update && apt-get install -y --no-install-recommends ffmpeg'
+fi
 
 log_info "Checking Frigate media mount inside CT ${CT_ID}..."
 if ! pct exec "${CT_ID}" -- test -d "${FRIGATE_MEDIA_DIR}"; then
@@ -248,8 +252,8 @@ run_ct bash -c "cd '${FRIGATE_APP_DIR}' && docker compose config >/dev/null"
 log_info "Pulling Frigate image..."
 run_ct bash -c "cd '${FRIGATE_APP_DIR}' && docker compose pull"
 
-log_info "Starting Frigate..."
-run_ct bash -c "cd '${FRIGATE_APP_DIR}' && docker compose up -d"
+log_info "Starting or recreating Frigate..."
+run_ct bash -c "cd '${FRIGATE_APP_DIR}' && docker compose up -d --force-recreate"
 
 if [[ "${DRY_RUN}" -eq 1 ]]; then
   log_info "Dry-run completed successfully"
