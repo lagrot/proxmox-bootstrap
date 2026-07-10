@@ -8,10 +8,10 @@ It is a manual integration step in the Home Assistant and Frigate web UIs. It sh
 
 | Service | Location | Address |
 |---|---:|---|
-| Proxmox | host | `https://192.168.0.223:8006` |
-| Home Assistant | VM 100 | `http://192.168.0.218:8123` |
-| Frigate | CT 200 | `https://192.168.0.224:8971` |
-| MQTT / Mosquitto | CT 210 | `192.168.0.217:1883` |
+| Proxmox | host | `https://192.168.8.10:8006` |
+| Home Assistant | VM 100 | `http://192.168.8.105:8123` |
+| Frigate | CT 200 | `https://192.168.8.104:8971` |
+| MQTT / Mosquitto | CT 210 | `192.168.8.103:1883` |
 
 ## Current architecture
 
@@ -71,7 +71,7 @@ MQTT
 Use:
 
 ```text
-Broker:   192.168.0.217
+Broker:   192.168.8.103
 Port:     1883
 Username: empty
 Password: empty
@@ -104,7 +104,7 @@ Expected good result:
 Current broker address:
 
 ```text
-192.168.0.217:1883
+192.168.8.103:1883
 ```
 
 ## 4. Prepare Frigate MQTT configuration
@@ -131,7 +131,7 @@ to:
 ```yaml
 mqtt:
   enabled: true
-  host: 192.168.0.217
+  host: 192.168.8.103
   port: 1883
 ```
 
@@ -175,7 +175,7 @@ Use this only as a starting template. Replace the RTSP URL with the real camera 
 ```yaml
 mqtt:
   enabled: true
-  host: 192.168.0.217
+  host: 192.168.8.103
   port: 1883
 
 ffmpeg:
@@ -264,7 +264,7 @@ Frigate
 Use the Frigate URL:
 
 ```text
-https://192.168.0.224:8971
+https://192.168.8.104:8971
 ```
 
 If Home Assistant rejects the self-signed certificate or HTTPS endpoint, test with the Frigate documentation and current integration behavior before changing the deployment. A later improvement could add a trusted certificate or reverse proxy.
@@ -350,7 +350,7 @@ Useful things to record at the country house:
 
 Step 07B is complete when:
 
-- Home Assistant MQTT integration is connected to `192.168.0.217:1883`.
+- Home Assistant MQTT integration is connected to `192.168.8.103:1883`.
 - Frigate config has MQTT enabled.
 - Frigate can publish to MQTT.
 - At least one camera is configured in Frigate.

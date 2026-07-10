@@ -6,6 +6,8 @@ This repository contains Bash scripts, validation scripts, shared helper librari
 
 ## Current architecture
 
+LAN service addresses are assigned by DHCP and pinned with router DHCP reservations.
+
 ```text
 Proxmox Host: nad9-1
 IP:           192.168.8.10
@@ -27,6 +29,15 @@ CT 220: hermes-agent
   IP: 192.168.8.102
   Web UI: http://192.168.8.102:9119
 ```
+
+## DHCP reservations
+
+| Guest | MAC | Reserved IP |
+|---|---|---:|
+| VM 100 Home Assistant | `bc:24:11:cf:06:ba` | `192.168.8.105` |
+| CT 200 docker-core / Frigate | `BC:24:11:B5:32:70` | `192.168.8.104` |
+| CT 210 mqtt-core | `BC:24:11:C1:CB:79` | `192.168.8.103` |
+| CT 220 hermes-agent | `BC:24:11:CB:82:7D` | `192.168.8.102` |
 
 ## Project principles
 

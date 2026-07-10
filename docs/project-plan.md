@@ -53,6 +53,15 @@ Network move note: this server has moved to the `192.168.8.0/24` network. Remote
 | Proxmox Tailscale name | `nad9-1` |
 | DNS on Proxmox host | Tailscale, `100.100.100.100` |
 
+LAN service addresses for VM 100 and CTs 200/210/220 are DHCP leases pinned with router DHCP reservations. The guests remain configured for DHCP; the router preserves the current addresses by MAC address.
+
+| Guest | MAC | Reserved IP |
+|---|---|---:|
+| VM 100 Home Assistant | `bc:24:11:cf:06:ba` | `192.168.8.105` |
+| CT 200 docker-core / Frigate | `BC:24:11:B5:32:70` | `192.168.8.104` |
+| CT 210 mqtt-core | `BC:24:11:C1:CB:79` | `192.168.8.103` |
+| CT 220 hermes-agent | `BC:24:11:CB:82:7D` | `192.168.8.102` |
+
 Verified remote access:
 
 - SSH to Proxmox over Tailscale from `rpi-1`: `ssh root@100.66.43.1`
@@ -361,7 +370,7 @@ qm status 100
 
 The next major work should be Home Assistant + MQTT + Frigate integration.
 
-Step 10 validation scripts should discover runtime IP addresses from Proxmox guest/container state. Do not hardcode LAN IPs into Step 10 scripts because the network may change later. Frigate still requires a broker address in its own runtime config; rerun `scripts/step10d-frigate-mqtt-config.sh` if DHCP changes the MQTT CT address.
+Step 10 validation scripts should discover runtime IP addresses from Proxmox guest/container state. The current LAN addresses are pinned by router DHCP reservations, but scripts should still avoid hardcoding LAN IPs where practical. Frigate still requires a broker address in its own runtime config; rerun `scripts/step10d-frigate-mqtt-config.sh` if the MQTT CT address changes.
 
 Suggested scope:
 

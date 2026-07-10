@@ -18,7 +18,7 @@ Container: CT 220
 Run user: hermes
 Port: 9119
 Bind: 0.0.0.0
-LAN URL: http://192.168.0.225:9119
+LAN URL: http://192.168.8.102:9119
 ```
 
 ## Scripts
@@ -49,7 +49,7 @@ pct exec 220 -- curl -I http://127.0.0.1:9119/
 From a LAN browser:
 
 ```text
-http://192.168.0.225:9119
+http://192.168.8.102:9119
 ```
 
 ## Security notes

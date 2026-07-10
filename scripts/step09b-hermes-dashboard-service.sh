@@ -45,6 +45,11 @@ ct_must_exist_and_run() {
   fi
 }
 
+detect_ct_eth0_ipv4() {
+  pct exec "${HERMES_CT_ID}" -- ip -4 -o addr show dev eth0 2>/dev/null \
+    | awk '{ split($4, addr, "/"); print addr[1]; exit }' || true
+}
+
 main() {
   log_info "======================================"
   log_info "STEP 09B - HERMES DASHBOARD SERVICE"
@@ -107,7 +112,12 @@ systemctl enable --now hermes-dashboard.service
 INNER
 
   log_info "Dashboard service installed and started."
-  log_info "LAN URL: http://192.168.0.225:${HERMES_DASHBOARD_PORT}"
+  HERMES_CT_IP="$(detect_ct_eth0_ipv4)"
+  if [[ -n "${HERMES_CT_IP}" ]]; then
+    log_info "LAN URL: http://${HERMES_CT_IP}:${HERMES_DASHBOARD_PORT}"
+  else
+    log_warn "Could not detect CT ${HERMES_CT_ID} LAN IP; dashboard listens on port ${HERMES_DASHBOARD_PORT}."
+  fi
   log_warn "Do not expose this service directly to the internet."
 }
 

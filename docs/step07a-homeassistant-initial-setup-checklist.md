@@ -5,7 +5,7 @@ This step is manual and should be completed in the Home Assistant web UI.
 Home Assistant URL:
 
 ```text
-http://192.168.0.218:8123
+http://192.168.8.105:8123
 ```
 
 ## 1. Create owner account
@@ -34,13 +34,13 @@ During onboarding, configure:
 From your workstation, confirm that this works:
 
 ```text
-http://192.168.0.218:8123
+http://192.168.8.105:8123
 ```
 
 From the Proxmox host, this has already been verified:
 
 ```bash
-curl http://192.168.0.218:8123
+curl http://192.168.8.105:8123
 ```
 
 Expected result:
@@ -79,7 +79,7 @@ MQTT
 Use:
 
 ```text
-Broker: 192.168.0.217
+Broker: 192.168.8.103
 Port:   1883
 Username: empty
 Password: empty
@@ -108,7 +108,7 @@ Do not add Frigate immediately until Frigate has at least one camera configured.
 Current Frigate URL:
 
 ```text
-https://192.168.0.224:8971
+https://192.168.8.104:8971
 ```
 
 Frigate is already running with:
@@ -164,10 +164,10 @@ Download a copy to your workstation.
 
 | Service | Location | URL / Address |
 |---|---:|---|
-| Proxmox | host | `https://192.168.0.223:8006` |
-| Home Assistant | VM 100 | `http://192.168.0.218:8123` |
-| Frigate | CT 200 | `https://192.168.0.224:8971` |
-| MQTT | CT 210 | `192.168.0.217:1883` |
+| Proxmox | host | `https://192.168.8.10:8006` |
+| Home Assistant | VM 100 | `http://192.168.8.105:8123` |
+| Frigate | CT 200 | `https://192.168.8.104:8971` |
+| MQTT | CT 210 | `192.168.8.103:1883` |
 
 ## 10. Current completion criteria
 
@@ -176,7 +176,7 @@ This step is complete when:
 - Home Assistant owner account exists.
 - Home Assistant web UI is reachable.
 - Correct location, time zone, and metric units are set.
-- MQTT integration is added using broker `192.168.0.217:1883`.
+- MQTT integration is added using broker `192.168.8.103:1883`.
 - Initial Home Assistant backup is created.
 - No unnecessary add-ons were installed.
 
