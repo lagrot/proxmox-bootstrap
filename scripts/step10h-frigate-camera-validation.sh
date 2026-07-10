@@ -186,27 +186,63 @@ case "${FRIGATE_HEALTH}" in
 esac
 
 if [[ -n "${CT_IP}" && -n "${FRIGATE_USERNAME}" && -n "${FRIGATE_PASSWORD}" ]]; then
-  API_CODE="$(
-    pct exec "${FRIGATE_CT_ID}" -- curl -k -s -o /tmp/frigate-api-config.out -w '%{http_code}' \
-      -u "${FRIGATE_USERNAME}:${FRIGATE_PASSWORD}" \
-      "https://127.0.0.1:${FRIGATE_WEB_PORT}/api/config" || true
+  # Frigate's authenticated port uses JWT authentication. Log in first and
+  # retain the returned HTTP-only cookie for the subsequent API request.
+  API_COOKIE_FILE="$(pct exec "${FRIGATE_CT_ID}" -- mktemp /tmp/frigate-api-cookie.XXXXXX)"
+  API_LOGIN_BODY_FILE="$(pct exec "${FRIGATE_CT_ID}" -- mktemp /tmp/frigate-api-login.XXXXXX)"
+  API_CONFIG_FILE="$(pct exec "${FRIGATE_CT_ID}" -- mktemp /tmp/frigate-api-config.XXXXXX)"
+
+  cleanup_api_files() {
+    pct exec "${FRIGATE_CT_ID}" -- rm -f \
+      "${API_COOKIE_FILE}" "${API_LOGIN_BODY_FILE}" "${API_CONFIG_FILE}" \
+      >/dev/null 2>&1 || true
+  }
+
+  # Ensure temporary files containing authentication material are removed even
+  # if a later command fails or the script is interrupted.
+  trap cleanup_api_files EXIT INT TERM
+
+  API_LOGIN_CODE="$(
+    pct exec "${FRIGATE_CT_ID}" -- bash -c \
+      'python3 -c '\''import json, sys; print(json.dumps({"user": sys.argv[1], "password": sys.argv[2]}))'\'' "$1" "$2" \
+        | curl -k -sS -o "$3" -w "%{http_code}" \
+        -c "$4" -H "Content-Type: application/json" \
+        --data-binary @- "https://127.0.0.1:'"${FRIGATE_WEB_PORT}"'/api/login"' \
+      bash "${FRIGATE_USERNAME}" "${FRIGATE_PASSWORD}" \
+      "${API_LOGIN_BODY_FILE}" "${API_COOKIE_FILE}" || true
   )"
 
-  case "${API_CODE}" in
-    200)
-      if pct exec "${FRIGATE_CT_ID}" -- grep -q "\"${CAMERA_NAME}\"" /tmp/frigate-api-config.out; then
-        log_info "Frigate API reports camera ${CAMERA_NAME}"
-      else
-        record_warn "Frigate API responded, but camera ${CAMERA_NAME} was not found in /api/config"
-      fi
-      ;;
-    401|403)
-      record_warn "Frigate API authentication failed; check FRIGATE_USERNAME and FRIGATE_PASSWORD"
-      ;;
-    *)
-      record_warn "Frigate API returned HTTP ${API_CODE}; skipping API camera verification"
-      ;;
-  esac
+  if [[ "${API_LOGIN_CODE}" == "200" ]]; then
+    API_CODE="$(
+      pct exec "${FRIGATE_CT_ID}" -- curl -k -sS \
+        -o "${API_CONFIG_FILE}" -w '%{http_code}' \
+        -b "${API_COOKIE_FILE}" \
+        "https://127.0.0.1:${FRIGATE_WEB_PORT}/api/config" || true
+    )"
+
+    case "${API_CODE}" in
+      200)
+        if pct exec "${FRIGATE_CT_ID}" -- grep -q "\"${CAMERA_NAME}\"" "${API_CONFIG_FILE}"; then
+          log_info "Frigate API reports camera ${CAMERA_NAME}"
+        else
+          record_warn "Frigate API responded, but camera ${CAMERA_NAME} was not found in /api/config"
+        fi
+        ;;
+      401|403)
+        record_warn "Frigate API session was rejected; check Frigate authentication and user role"
+        ;;
+      *)
+        record_warn "Frigate API returned HTTP ${API_CODE} after login; skipping API camera verification"
+        ;;
+    esac
+  elif [[ "${API_LOGIN_CODE}" == "401" || "${API_LOGIN_CODE}" == "403" ]]; then
+    record_warn "Frigate API login failed; check FRIGATE_USERNAME and FRIGATE_PASSWORD"
+  else
+    record_warn "Frigate API login returned HTTP ${API_LOGIN_CODE}; skipping API camera verification"
+  fi
+
+  cleanup_api_files
+  trap - EXIT INT TERM
 else
   record_warn "FRIGATE_USERNAME and FRIGATE_PASSWORD not set; skipping Frigate API verification"
 fi

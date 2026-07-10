@@ -185,6 +185,8 @@ services:
     image: ${FRIGATE_IMAGE}
     restart: unless-stopped
     privileged: true
+    cap_add:
+      - CAP_PERFMON
     shm_size: "512mb"
     stop_grace_period: 30s
     devices:
@@ -212,6 +214,10 @@ mqtt:
 
 ffmpeg:
   hwaccel_args: preset-vaapi
+
+telemetry:
+  stats:
+    intel_gpu_stats: true
 
 detectors:
   coral:

@@ -245,13 +245,25 @@ Frigate runs in CT 200 through Docker Compose.
 
 Frigate serves HTTPS on port `8971` with a self-signed/default certificate, so validation uses `curl -k`.
 
-Current minimal Frigate config has MQTT enabled and no cameras:
+Current minimal Frigate config has MQTT enabled, Intel VAAPI decode, Intel GPU telemetry, and USB Coral detection:
 
 ```yaml
 mqtt:
   enabled: true
   host: <runtime-detected MQTT CT IP>
   port: 1883
+
+ffmpeg:
+  hwaccel_args: preset-vaapi
+
+telemetry:
+  stats:
+    intel_gpu_stats: true
+
+detectors:
+  coral:
+    type: edgetpu
+    device: usb
 
 cameras: {}
 ```

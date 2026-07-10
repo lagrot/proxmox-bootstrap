@@ -16,6 +16,7 @@ log_info "======================================"
 
 CT_ID="${DOCKER_CT_ID:-200}"
 CT_CONF="/etc/pve/lxc/${CT_ID}.conf"
+GPU_STATS_SYSCTL_FILE="/etc/sysctl.d/99-frigate-gpu-stats.conf"
 CORAL_PRESENT=0
 
 log_info "Checking root access..."
@@ -25,7 +26,7 @@ if [[ "${EUID}" -ne 0 ]]; then
 fi
 
 log_info "Checking required commands..."
-for cmd in pct lspci lsusb grep udevadm; do
+for cmd in pct lspci lsusb grep udevadm sysctl; do
   if ! command -v "${cmd}" >/dev/null 2>&1; then
     log_error "Required command not found: ${cmd}"
     exit 1
@@ -63,6 +64,19 @@ ensure_udev_rule() {
   else
     printf '%s\n' "${rule}" >> "${rule_file}"
     log_info "Added udev rule: ${rule}"
+  fi
+}
+
+ensure_file_line() {
+  local file="$1"
+  local line="$2"
+
+  touch "${file}"
+  if grep -Fxq "${line}" "${file}"; then
+    log_info "Config already present: ${line}"
+  else
+    printf '%s\n' "${line}" >> "${file}"
+    log_info "Added config: ${line}"
   fi
 }
 
@@ -107,6 +121,10 @@ ensure_udev_rule "${GPU_UDEV_RULE_FILE}" 'SUBSYSTEM=="drm", KERNEL=="card0", MOD
 ensure_udev_rule "${GPU_UDEV_RULE_FILE}" 'SUBSYSTEM=="drm", KERNEL=="renderD128", MODE="0666"'
 udevadm control --reload-rules
 udevadm trigger --subsystem-match=drm
+
+log_info "Configuring Intel GPU PMU access for Frigate metrics..."
+ensure_file_line "${GPU_STATS_SYSCTL_FILE}" "kernel.perf_event_paranoid=2"
+sysctl -w kernel.perf_event_paranoid=2 >/dev/null
 
 log_info "Configuring iGPU passthrough for CT ${CT_ID}..."
 ensure_conf_line "lxc.cgroup2.devices.allow: c 226:* rwm"
