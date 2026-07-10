@@ -105,6 +105,9 @@ if ! pct exec "${CT_ID}" -- systemctl is-active --quiet docker; then
   exit 1
 fi
 
+log_info "Installing camera diagnostic dependency FFmpeg inside CT ${CT_ID}..."
+run_ct bash -c 'export DEBIAN_FRONTEND=noninteractive; apt-get update && apt-get install -y --no-install-recommends ffmpeg'
+
 log_info "Checking Frigate media mount inside CT ${CT_ID}..."
 if ! pct exec "${CT_ID}" -- test -d "${FRIGATE_MEDIA_DIR}"; then
   log_error "${FRIGATE_MEDIA_DIR} does not exist inside CT ${CT_ID}"

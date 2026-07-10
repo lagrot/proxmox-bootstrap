@@ -97,6 +97,8 @@ scripts/
 - `scripts/step10d-frigate-mqtt-config.sh`
 - `scripts/step10e-frigate-restart.sh`
 - `scripts/step10f-frigate-mqtt-validation.sh`
+- `scripts/step10g-frigate-tapo-c200-config.sh`
+- `scripts/step10h-frigate-camera-validation.sh`
 
 ## Remote access
 

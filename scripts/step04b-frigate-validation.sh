@@ -163,6 +163,14 @@ else
   record_error "/dev/bus/usb is not visible inside CT"
 fi
 
+log_info "Checking Coral USB device access..."
+CORAL_USB_IDS="$(pct exec "${CT_ID}" -- lsusb 2>/dev/null | grep -E '1a6e:089a|18d1:9302' || true)"
+if [[ -n "${CORAL_USB_IDS}" ]]; then
+  log_info "Coral USB device is enumerated inside CT"
+else
+  record_error "Coral USB device is not enumerated inside CT"
+fi
+
 log_info "Checking Frigate container state..."
 if pct exec "${CT_ID}" -- docker ps --format '{{.Names}}' | grep -qx 'frigate'; then
   log_info "Frigate container is running"
@@ -228,7 +236,7 @@ else
   RECENT_LOGS="$(pct exec "${CT_ID}" -- docker logs --since "${FRIGATE_STARTED_AT}" frigate 2>&1 || true)"
 fi
 
-if grep -qi 'permission denied' <<< "${RECENT_LOGS}"; then
+if grep -qiE '((ffmpeg|edgetpu|coral|/dev/dri|/dev/bus/usb).*(permission denied))|((permission denied).*(ffmpeg|edgetpu|coral|/dev/dri|/dev/bus/usb))' <<< "${RECENT_LOGS}"; then
   record_error "Frigate logs since current start contain: permission denied"
 else
   log_info "No permission denied errors found since current container start"
@@ -243,6 +251,14 @@ if grep -qi 'Attempting to load TPU as usb' <<< "${RECENT_LOGS}"; then
   log_info "Frigate is attempting to use USB Coral TPU"
 else
   record_warn "Current container logs do not show USB Coral TPU initialization"
+fi
+
+if grep -qi 'TPU found' <<< "${RECENT_LOGS}"; then
+  log_info "Frigate detected the USB Coral TPU"
+elif grep -qiE 'No EdgeTPU was detected|Failed to load delegate' <<< "${RECENT_LOGS}"; then
+  record_error "Frigate could not initialize the USB Coral TPU"
+else
+  record_warn "Current container logs do not confirm USB Coral TPU initialization"
 fi
 CT_IP="$(
   pct exec "${CT_ID}" -- hostname -I 2>/dev/null | awk '{print $1}' || true

@@ -26,6 +26,7 @@ Thumbs.db
 # Secrets and environment files
 .env
 .env.*
+config/local.conf
 *.key
 *.pem
 *.crt

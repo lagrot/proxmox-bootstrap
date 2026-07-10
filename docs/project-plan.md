@@ -211,6 +211,8 @@ chmod -R 775 /mnt/frigate
 | Step 10D | Frigate MQTT config | verified |
 | Step 10E | Frigate restart | verified |
 | Step 10F | Frigate MQTT publishing | verified |
+| Step 10G | Frigate Tapo C200 camera config automation | ready |
+| Step 10H | Frigate camera validation automation | ready |
 | Step 11 | Remote access with Tailscale | documented |
 
 ## Service Decisions
@@ -380,9 +382,10 @@ Suggested scope:
 4. Enable MQTT in the Frigate config with `scripts/step10d-frigate-mqtt-config.sh`. Completed.
 5. Restart Frigate with `scripts/step10e-frigate-restart.sh`. Completed.
 6. Verify Frigate publishes to MQTT with `scripts/step10f-frigate-mqtt-validation.sh`. Completed.
-7. Add the Frigate integration in Home Assistant.
-8. Add the first camera to Frigate.
-9. Confirm camera/entities appear in Home Assistant.
+7. Install FFmpeg in CT 200 as the camera-test dependency during Frigate deployment.
+8. Add the Frigate integration in Home Assistant.
+9. Add the first camera to Frigate.
+10. Confirm camera/entities appear in Home Assistant.
 
 Important rule: do not add new platform components until one camera is visible in Home Assistant through Frigate.
 

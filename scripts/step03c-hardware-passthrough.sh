@@ -25,7 +25,7 @@ if [[ "${EUID}" -ne 0 ]]; then
 fi
 
 log_info "Checking required commands..."
-for cmd in pct lspci lsusb grep; do
+for cmd in pct lspci lsusb grep udevadm; do
   if ! command -v "${cmd}" >/dev/null 2>&1; then
     log_error "Required command not found: ${cmd}"
     exit 1
@@ -54,6 +54,18 @@ ensure_conf_line() {
   fi
 }
 
+ensure_udev_rule() {
+  local rule_file="$1"
+  local rule="$2"
+
+  if grep -Fxq "${rule}" "${rule_file}" 2>/dev/null; then
+    log_info "udev rule already present: ${rule}"
+  else
+    printf '%s\n' "${rule}" >> "${rule_file}"
+    log_info "Added udev rule: ${rule}"
+  fi
+}
+
 log_info "Checking Intel iGPU on host..."
 if lspci | grep -Ei 'vga|display|3d' | grep -qi 'intel'; then
   log_info "Intel GPU detected"
@@ -78,6 +90,23 @@ if lsusb | grep -qiE 'google|coral|global unichip|18d1:9302|1a6e:089a'; then
 else
   log_warn "Coral USB TPU not detected by lsusb"
 fi
+
+if [[ "${CORAL_PRESENT}" -eq 1 ]]; then
+  log_info "Configuring writable udev permissions for both Coral USB identities..."
+  CORAL_UDEV_RULE_FILE="/etc/udev/rules.d/99-coral-edgetpu.rules"
+  ensure_udev_rule "${CORAL_UDEV_RULE_FILE}" 'SUBSYSTEM=="usb", ATTR{idVendor}=="1a6e", ATTR{idProduct}=="089a", MODE="0666"'
+  ensure_udev_rule "${CORAL_UDEV_RULE_FILE}" 'SUBSYSTEM=="usb", ATTR{idVendor}=="18d1", ATTR{idProduct}=="9302", MODE="0666"'
+
+  udevadm control --reload-rules
+  udevadm trigger --subsystem-match=usb
+fi
+
+log_info "Configuring writable udev permissions for Intel GPU device nodes..."
+GPU_UDEV_RULE_FILE="/etc/udev/rules.d/99-frigate-gpu.rules"
+ensure_udev_rule "${GPU_UDEV_RULE_FILE}" 'SUBSYSTEM=="drm", KERNEL=="card0", MODE="0666"'
+ensure_udev_rule "${GPU_UDEV_RULE_FILE}" 'SUBSYSTEM=="drm", KERNEL=="renderD128", MODE="0666"'
+udevadm control --reload-rules
+udevadm trigger --subsystem-match=drm
 
 log_info "Configuring iGPU passthrough for CT ${CT_ID}..."
 ensure_conf_line "lxc.cgroup2.devices.allow: c 226:* rwm"
@@ -125,4 +154,3 @@ if [[ "${CORAL_PRESENT}" -eq 1 ]]; then
 fi
 
 log_info "Hardware passthrough base validation completed successfully"
-
