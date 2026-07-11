@@ -284,6 +284,28 @@ Then verify in Home Assistant:
 Do not add additional Home Assistant platform components until one camera is
 visible through the Frigate integration.
 
+## 11. Run the end-to-end smoke test
+
+Run the smoke test from the Proxmox host:
+
+```bash
+bash scripts/step10n-frigate-homeassistant-smoketest.sh
+```
+
+The script runs four independent tracks in parallel:
+
+- Frigate container health, port 5000, and Tapo C200 configuration.
+- Home Assistant API access and required Frigate entities.
+- Recent recording segment output.
+- MQTT availability and a bounded live `frigate/events` capture.
+
+During the MQTT event window, move in front of the Tapo C200. Missing recent
+recordings or a missing event are reported as activity-dependent warnings; a
+broken service, missing entity, or unavailable API is an error.
+
+The smoke test is read-only and does not change Frigate, MQTT, or Home
+Assistant configuration.
+
 ## Troubleshooting
 
 ### Frigate cannot be found in Home Assistant

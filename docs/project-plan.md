@@ -218,6 +218,7 @@ chmod -R 775 /mnt/frigate
 | Step 10K | Home Assistant HACS bootstrap | verified |
 | Step 10L | Home Assistant Frigate integration and Tapo C200 entities | verified |
 | Step 10M | Home Assistant Frigate dashboard automation | verified |
+| Step 10N | Frigate/Home Assistant smoke test | ready |
 | Step 11 | Remote access with Tailscale | documented |
 
 ## Service Decisions

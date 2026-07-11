@@ -104,6 +104,7 @@ scripts/
 - `scripts/step10j-frigate-gpu-validation.sh`
 - `scripts/step10k-homeassistant-hacs-bootstrap.sh`
 - `scripts/step10m-homeassistant-frigate-dashboard.sh`
+- `scripts/step10n-frigate-homeassistant-smoketest.sh`
 
 ## Remote access
 
