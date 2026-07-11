@@ -19,6 +19,7 @@ FRIGATE_APP_DIR="${FRIGATE_APP_DIR:-/opt/frigate}"
 FRIGATE_CONFIG_DIR="${FRIGATE_CONFIG_DIR:-${FRIGATE_APP_DIR}/config}"
 FRIGATE_MEDIA_DIR="${FRIGATE_MEDIA_DIR:-/mnt/frigate}"
 FRIGATE_WEB_PORT="${FRIGATE_WEB_PORT:-8971}"
+FRIGATE_INTERNAL_PORT="${FRIGATE_INTERNAL_PORT:-5000}"
 
 VALIDATION_ERRORS=0
 VALIDATION_WARNINGS=0
@@ -220,6 +221,27 @@ if pct exec "${CT_ID}" -- bash -c "command -v curl >/dev/null 2>&1"; then
   esac
 else
   record_warn "curl is missing inside CT ${CT_ID}; skipping HTTPS endpoint validation"
+fi
+
+log_info "Checking Frigate internal HTTP endpoint..."
+if pct exec "${CT_ID}" -- bash -c "command -v curl >/dev/null 2>&1"; then
+  INTERNAL_HTTP_CODE="$(
+    pct exec "${CT_ID}" -- curl -s -o /dev/null -w '%{http_code}' "http://127.0.0.1:${FRIGATE_INTERNAL_PORT}" || true
+  )"
+
+  case "${INTERNAL_HTTP_CODE}" in
+    200|301|302|307|308|400|401|403)
+      log_info "Frigate internal HTTP endpoint responds on port ${FRIGATE_INTERNAL_PORT} with HTTP ${INTERNAL_HTTP_CODE}"
+      ;;
+    000|"")
+      record_warn "Frigate internal HTTP endpoint did not respond on port ${FRIGATE_INTERNAL_PORT}"
+      ;;
+    *)
+      record_warn "Frigate internal HTTP endpoint returned unexpected HTTP status: ${INTERNAL_HTTP_CODE}"
+      ;;
+  esac
+else
+  record_warn "curl is missing inside CT ${CT_ID}; skipping internal HTTP endpoint validation"
 fi
 
 log_info "Checking Frigate logs since current container start..."

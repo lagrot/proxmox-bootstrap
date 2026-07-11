@@ -42,6 +42,7 @@ FRIGATE_CONFIG_DIR="${FRIGATE_CONFIG_DIR:-${FRIGATE_APP_DIR}/config}"
 FRIGATE_MEDIA_DIR="${FRIGATE_MEDIA_DIR:-/mnt/frigate}"
 FRIGATE_IMAGE="${FRIGATE_IMAGE:-ghcr.io/blakeblackshear/frigate:stable}"
 FRIGATE_WEB_PORT="${FRIGATE_WEB_PORT:-8971}"
+FRIGATE_INTERNAL_PORT="${FRIGATE_INTERNAL_PORT:-5000}"
 
 run_host() {
   if [[ "${DRY_RUN}" -eq 1 ]]; then
@@ -206,6 +207,7 @@ services:
           size: 1000000000
     ports:
       - "${FRIGATE_WEB_PORT}:8971"
+      - "${FRIGATE_INTERNAL_PORT}:5000"
       - "8554:8554"
       - "8555:8555/tcp"
       - "8555:8555/udp"
@@ -294,4 +296,5 @@ else
   log_warn "curl is not installed inside CT ${CT_ID}; skipping HTTPS validation"
 fi
 log_info "Frigate deployment completed successfully"
-log_info "Frigate URL should be available at: https://<CT-IP>:${FRIGATE_WEB_PORT}"
+log_info "Frigate authenticated URL should be available at: https://<CT-IP>:${FRIGATE_WEB_PORT}"
+log_info "Frigate internal integration URL should be available at: http://<CT-IP>:${FRIGATE_INTERNAL_PORT}"
