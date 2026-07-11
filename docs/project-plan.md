@@ -20,7 +20,8 @@ It is meant to be durable project documentation. It should stay focused on the c
 | Item | Value |
 |---|---|
 | Hostname | `nad9-1` |
-| Proxmox IP | `192.168.0.223` |
+| Proxmox IP | `192.168.8.10` |
+| Proxmox Tailscale IP | `100.66.43.1` |
 | Proxmox VE | `9.2.3` |
 | Kernel observed | `7.0.14-3-pve` |
 | Hardware | Minisforum NAD9 |
@@ -39,13 +40,57 @@ Current Stockholm/fiber speed test observed:
 | Upload | 545.52 Mbit/s |
 | Ping | 9.7 ms |
 
-Future location note: this server may later move behind a 4G/5G router at the country house. Do not expose Proxmox, Home Assistant, Frigate, MQTT, Hermes, or the Hermes Web UI directly to the internet. Use VPN or a secure tunnel for remote access.
+Network move note: this server has moved to the `192.168.8.0/24` network. Remote access is through Tailscale; do not expose Proxmox, Home Assistant, Frigate, MQTT, Hermes, or the Hermes Web UI directly to the internet. See `docs/step11-remote-access-tailscale.md`.
+
+## Current Network And Remote Access
+
+| Item | Value |
+|---|---|
+| LAN subnet | `192.168.8.0/24` |
+| Proxmox LAN IP | `192.168.8.10/24` |
+| LAN gateway | `192.168.8.1` |
+| Proxmox Tailscale IP | `100.66.43.1` |
+| Proxmox Tailscale name | `nad9-1` |
+| DNS on Proxmox host | Tailscale, `100.100.100.100` |
+
+LAN service addresses for VM 100 and CTs 200/210/220 are DHCP leases pinned with router DHCP reservations. The guests remain configured for DHCP; the router preserves the current addresses by MAC address.
+
+| Guest | MAC | Reserved IP |
+|---|---|---:|
+| VM 100 Home Assistant | `bc:24:11:cf:06:ba` | `192.168.8.105` |
+| CT 200 docker-core / Frigate | `BC:24:11:B5:32:70` | `192.168.8.104` |
+| CT 210 mqtt-core | `BC:24:11:C1:CB:79` | `192.168.8.103` |
+| CT 220 hermes-agent | `BC:24:11:CB:82:7D` | `192.168.8.102` |
+
+Verified remote access:
+
+- SSH to Proxmox over Tailscale from `rpi-1`: `ssh root@100.66.43.1`
+- Proxmox Web UI over Tailscale: `https://100.66.43.1:8006`
+- Proxmox Web UI on LAN: `https://192.168.8.10:8006`
+- VS Code Remote SSH target: `nad9-1`
+
+Tailscale device roles:
+
+| Device | Tailscale IP | Tag | Intended access |
+|---|---|---|---|
+| `rpi-1` | `100.123.116.90` | `tag:trusted` | Full access / SSH jump host |
+| `hermes-iot` | `100.89.33.12` | `tag:iot` | Only `tag:iot` destinations |
+| `nad9-1` | `100.66.43.1` | `tag:server` | Server target, no access to `hermes-iot` |
+
+Remote access rules:
+
+- `group:admin` has full Tailscale access.
+- `tag:trusted` has full Tailscale access.
+- `tag:iot` can reach only `tag:iot` destinations.
+- `rpi-1` is only the SSH jump host; use `nad9-1` as the VS Code remote target.
+- `/root/.bashrc` on `nad9-1` must stay quiet for non-interactive SSH/SCP sessions.
 
 ## Current Architecture
 
 ```text
 Proxmox Host nad9-1
-IP: 192.168.0.223
+IP: 192.168.8.10
+Tailscale IP: 100.66.43.1
 
 ├── VM 100: Home Assistant OS
 │     └── Home Assistant Core / Supervisor
@@ -68,12 +113,13 @@ Current addresses:
 
 | Service | Location | Address |
 |---|---|---|
-| Proxmox | host | `https://192.168.0.223:8006` |
-| Home Assistant | VM 100 | `http://192.168.0.218:8123` |
-| Frigate | CT 200 | `https://192.168.0.224:8971` |
-| MQTT / Mosquitto | CT 210 | `192.168.0.217:1883` |
-| Hermes Agent | CT 220 | `192.168.0.225` |
-| Hermes Web UI | CT 220 | `http://192.168.0.225:9119` |
+| Proxmox | host | `https://192.168.8.10:8006` |
+| Proxmox via Tailscale | host | `https://100.66.43.1:8006` |
+| Home Assistant | VM 100 | `http://192.168.8.105:8123` |
+| Frigate | CT 200 | `https://192.168.8.104:8971` |
+| MQTT / Mosquitto | CT 210 | `192.168.8.103:1883` |
+| Hermes Agent | CT 220 | `192.168.8.102` |
+| Hermes Web UI | CT 220 | `http://192.168.8.102:9119` |
 | Slack bot | Slack | `nad9hermes` |
 
 ## Repository Layout
@@ -165,6 +211,11 @@ chmod -R 775 /mnt/frigate
 | Step 10D | Frigate MQTT config | verified |
 | Step 10E | Frigate restart | verified |
 | Step 10F | Frigate MQTT publishing | verified |
+| Step 10G | Frigate Tapo C200 camera config automation | ready |
+| Step 10H | Frigate camera validation automation | ready |
+| Step 10I | Frigate USB Coral TPU validation | verified |
+| Step 10J | Frigate Intel GPU/VAAPI validation | verified |
+| Step 11 | Remote access with Tailscale | documented |
 
 ## Service Decisions
 
@@ -175,7 +226,7 @@ chmod -R 775 /mnt/frigate
 - CT 200 is Frigate / Docker only.
 - CT 210 is MQTT only.
 - CT 220 is Hermes only.
-- Frigate MQTT remains disabled until the Home Assistant / MQTT / Frigate integration step.
+- Frigate MQTT is enabled for the Home Assistant / MQTT / Frigate integration step.
 - Do not add duplicate Mosquitto or Frigate add-ons inside Home Assistant.
 
 ## Current Services
@@ -188,21 +239,33 @@ Frigate runs in CT 200 through Docker Compose.
 |---|---|
 | CT ID | `200` |
 | Hostname | `docker-core` |
-| IP | `192.168.0.224` |
+| IP | `192.168.8.104` |
 | Image | `ghcr.io/blakeblackshear/frigate:stable` |
-| URL | `https://192.168.0.224:8971` |
+| URL | `https://192.168.8.104:8971` |
 | Media mount | `/mnt/frigate` |
 | Hardware | Intel iGPU and USB Coral TPU |
 
 Frigate serves HTTPS on port `8971` with a self-signed/default certificate, so validation uses `curl -k`.
 
-Current minimal Frigate config has MQTT enabled and no cameras:
+Current minimal Frigate config has MQTT enabled, Intel VAAPI decode, Intel GPU telemetry, and USB Coral detection:
 
 ```yaml
 mqtt:
   enabled: true
   host: <runtime-detected MQTT CT IP>
   port: 1883
+
+ffmpeg:
+  hwaccel_args: preset-vaapi
+
+telemetry:
+  stats:
+    intel_gpu_stats: true
+
+detectors:
+  coral:
+    type: edgetpu
+    device: usb
 
 cameras: {}
 ```
@@ -215,7 +278,7 @@ MQTT runs in CT 210 as native Mosquitto.
 |---|---|
 | CT ID | `210` |
 | Hostname | `mqtt-core` |
-| IP | `192.168.0.217` |
+| IP | `192.168.8.103` |
 | Port | `1883` |
 
 Current bootstrap Mosquitto config:
@@ -237,8 +300,8 @@ Home Assistant OS runs as VM 100.
 |---|---|
 | VM ID | `100` |
 | Name | `homeassistant` |
-| IP | `192.168.0.218` |
-| URL | `http://192.168.0.218:8123` |
+| IP | `192.168.8.105` |
+| URL | `http://192.168.8.105:8123` |
 | HAOS image | `haos_ova-18.0.qcow2.xz` |
 
 The onboarding page has been observed in a browser.
@@ -251,13 +314,13 @@ Hermes runs in CT 220.
 |---|---|
 | CT ID | `220` |
 | Hostname | `hermes-agent` |
-| IP | `192.168.0.225` |
+| IP | `192.168.8.102` |
 | User | `hermes` |
 | Hermes home | `/home/hermes/.hermes` |
 | Base dir | `/opt/hermes` |
 | Hermes CLI | `/usr/local/bin/hermes` |
 | Gateway service | `hermes-gateway.service` |
-| Web UI | `http://192.168.0.225:9119` |
+| Web UI | `http://192.168.8.102:9119` |
 | Slack bot | `nad9hermes` |
 
 CT 220 resource baseline:
@@ -323,7 +386,7 @@ qm status 100
 
 The next major work should be Home Assistant + MQTT + Frigate integration.
 
-Step 10 validation scripts should discover runtime IP addresses from Proxmox guest/container state. Do not hardcode LAN IPs into Step 10 scripts because the network may change later. Frigate still requires a broker address in its own runtime config; rerun `scripts/step10d-frigate-mqtt-config.sh` if DHCP changes the MQTT CT address.
+Step 10 validation scripts should discover runtime IP addresses from Proxmox guest/container state. The current LAN addresses are pinned by router DHCP reservations, but scripts should still avoid hardcoding LAN IPs where practical. Frigate still requires a broker address in its own runtime config; rerun `scripts/step10d-frigate-mqtt-config.sh` if the MQTT CT address changes.
 
 Suggested scope:
 
@@ -333,11 +396,23 @@ Suggested scope:
 4. Enable MQTT in the Frigate config with `scripts/step10d-frigate-mqtt-config.sh`. Completed.
 5. Restart Frigate with `scripts/step10e-frigate-restart.sh`. Completed.
 6. Verify Frigate publishes to MQTT with `scripts/step10f-frigate-mqtt-validation.sh`. Completed.
-7. Add the Frigate integration in Home Assistant.
-8. Add the first camera to Frigate.
-9. Confirm camera/entities appear in Home Assistant.
+7. Install FFmpeg in CT 200 as the camera-test dependency during Frigate deployment. Completed.
+8. Add the Frigate integration in Home Assistant.
+9. Add the first camera to Frigate.
+10. Confirm camera/entities appear in Home Assistant.
 
 Important rule: do not add new platform components until one camera is visible in Home Assistant through Frigate.
+
+## Remote Access
+
+Remote access is documented in `docs/step11-remote-access-tailscale.md`.
+
+Current verified access:
+
+- SSH to Proxmox over Tailscale from `rpi-1`: `ssh root@100.66.43.1`
+- Proxmox Web UI over Tailscale: `https://100.66.43.1:8006`
+- Proxmox Web UI on LAN: `https://192.168.8.10:8006`
+- VS Code Remote SSH target: `nad9-1`
 
 ## Later Tasks
 
@@ -348,4 +423,3 @@ Important rule: do not add new platform components until one camera is visible i
 - Improve Hermes gateway validation log checks if needed.
 - Configure OpenAI OAuth / Codex later if needed.
 - Configure web search / xAI later if needed.
-- Add remote access through VPN or a secure tunnel before the server moves behind mobile broadband.

@@ -10,6 +10,11 @@ source "${PROJECT_ROOT}/lib/common.sh"
 # shellcheck source=/dev/null
 source "${PROJECT_ROOT}/config/defaults.conf"
 
+if [[ -f "${PROJECT_ROOT}/config/local.conf" ]]; then
+  # shellcheck source=/dev/null
+  source "${PROJECT_ROOT}/config/local.conf"
+fi
+
 log_info "=============================================="
 log_info "STEP 10C - HOME ASSISTANT MQTT INTEGRATION"
 log_info "=============================================="
@@ -21,6 +26,7 @@ MQTT_PORT="${MQTT_PORT:-1883}"
 
 VALIDATION_ERRORS=0
 VALIDATION_WARNINGS=0
+HA_API_MQTT_PRESENT=0
 
 record_error() {
   log_error "$1"
@@ -174,10 +180,19 @@ if [[ -n "${HA_TOKEN:-}" ]]; then
     record_error "HA_TOKEN was provided, but the Home Assistant API check failed"
   fi
 
-  if ha_api_get "${HA_IP}" "/api/config" | grep -q '"components"'; then
+  HA_CONFIG_JSON="$(ha_api_get "${HA_IP}" "/api/config" || true)"
+
+  if grep -q '"components"' <<< "${HA_CONFIG_JSON}"; then
     log_info "Home Assistant API config endpoint is available"
   else
     record_warn "Could not confirm Home Assistant API config details"
+  fi
+
+  if grep -Eq '"mqtt"' <<< "${HA_CONFIG_JSON}"; then
+    HA_API_MQTT_PRESENT=1
+    log_info "Home Assistant API reports the MQTT integration is loaded"
+  else
+    record_error "Home Assistant API does not report the MQTT integration"
   fi
 else
   record_warn "HA_TOKEN is not set; this script cannot verify the MQTT integration through the Home Assistant API"
@@ -202,7 +217,11 @@ if grep -q 'mqtt_entry=present' <<< "${MQTT_ENTRY_CHECK}"; then
 elif grep -q 'mqtt_entry=absent' <<< "${MQTT_ENTRY_CHECK}"; then
   record_error "Home Assistant does not have an MQTT config entry yet"
 else
-  record_warn "Could not inspect Home Assistant MQTT config entries through the guest agent"
+  if [[ "${HA_API_MQTT_PRESENT}" -eq 1 ]]; then
+    log_info "Guest-agent storage inspection unavailable; MQTT was verified through the Home Assistant API"
+  else
+    record_warn "Could not inspect Home Assistant MQTT config entries through the guest agent"
+  fi
 fi
 
 log_info "Manual Home Assistant MQTT integration target:"
@@ -210,7 +229,9 @@ log_info "Broker host: ${MQTT_IP}"
 log_info "Broker port: ${MQTT_PORT}"
 log_info "Username/password: leave blank for current bootstrap Mosquitto config"
 
-if [[ -n "${HA_MQTT_INTEGRATION_CONFIRMED:-}" ]]; then
+if [[ "${HA_API_MQTT_PRESENT}" -eq 1 ]]; then
+  log_info "Home Assistant MQTT integration verified through the API"
+elif [[ -n "${HA_MQTT_INTEGRATION_CONFIRMED:-}" ]]; then
   log_info "HA_MQTT_INTEGRATION_CONFIRMED is set; recording MQTT integration as operator-confirmed"
 else
   record_warn "After adding MQTT in Home Assistant, rerun this script to verify the config entry"

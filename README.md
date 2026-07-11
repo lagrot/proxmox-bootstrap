@@ -6,26 +6,38 @@ This repository contains Bash scripts, validation scripts, shared helper librari
 
 ## Current architecture
 
+LAN service addresses are assigned by DHCP and pinned with router DHCP reservations.
+
 ```text
 Proxmox Host: nad9-1
-IP:           192.168.0.223
+IP:           192.168.8.10
+Tailscale:    100.66.43.1
 
 VM 100: Home Assistant OS
-  URL: http://192.168.0.218:8123
+  URL: http://192.168.8.105:8123
 
 CT 200: docker-core
   Purpose: Docker Compose / Frigate
-  Frigate URL: https://192.168.0.224:8971
+  Frigate URL: https://192.168.8.104:8971
 
 CT 210: mqtt-core
   Purpose: Mosquitto MQTT broker
-  MQTT: 192.168.0.217:1883
+  MQTT: 192.168.8.103:1883
 
 CT 220: hermes-agent
   Purpose: Hermes Agent / gateway / optional Web UI
-  IP: 192.168.0.225
-  Web UI: http://192.168.0.225:9119
+  IP: 192.168.8.102
+  Web UI: http://192.168.8.102:9119
 ```
+
+## DHCP reservations
+
+| Guest | MAC | Reserved IP |
+|---|---|---:|
+| VM 100 Home Assistant | `bc:24:11:cf:06:ba` | `192.168.8.105` |
+| CT 200 docker-core / Frigate | `BC:24:11:B5:32:70` | `192.168.8.104` |
+| CT 210 mqtt-core | `BC:24:11:C1:CB:79` | `192.168.8.103` |
+| CT 220 hermes-agent | `BC:24:11:CB:82:7D` | `192.168.8.102` |
 
 ## Project principles
 
@@ -85,6 +97,20 @@ scripts/
 - `scripts/step10d-frigate-mqtt-config.sh`
 - `scripts/step10e-frigate-restart.sh`
 - `scripts/step10f-frigate-mqtt-validation.sh`
+- `scripts/step10g-frigate-tapo-c200-config.sh`
+- `scripts/step10h-frigate-camera-validation.sh`
+- `scripts/step10i-frigate-tpu-validation.sh`
+- `scripts/step10j-frigate-gpu-validation.sh`
+
+## Remote access
+
+Remote access is documented in `docs/step11-remote-access-tailscale.md`.
+
+Current verified remote access:
+
+- Proxmox over Tailscale SSH: `ssh root@100.66.43.1`
+- Proxmox Web UI over Tailscale: `https://100.66.43.1:8006`
+- VS Code Remote SSH target: `nad9-1`
 
 ## Legacy scripts
 
@@ -119,6 +145,7 @@ The `old/` directory contains scripts that are kept for historical reference but
 | Step 10D | Frigate MQTT config | verified |
 | Step 10E | Frigate restart | verified |
 | Step 10F | Frigate MQTT publishing | verified |
+| Step 11 | Remote access with Tailscale | documented |
 
 ## Hermes CT 220 baseline
 

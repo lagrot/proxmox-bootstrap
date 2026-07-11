@@ -1,0 +1,20 @@
+# Local secret and site-specific overrides.
+# Copy to config/local.conf and fill in real values.
+# This file is intentionally safe to commit; do not put real secrets here.
+
+# Optional Frigate / Tapo camera defaults
+TAPO_CAMERA_NAME="tapo_c200"
+TAPO_CAMERA_IP="192.168.8.107"
+TAPO_CAMERA_USERNAME="admin"
+TAPO_CAMERA_PASSWORD=""
+TAPO_CAMERA_RTSP_PORT="554"
+TAPO_CAMERA_RECORD_STREAM_PATH="/stream1"
+TAPO_CAMERA_DETECT_STREAM_PATH="/stream2"
+TAPO_CAMERA_DETECT_WIDTH="640"
+TAPO_CAMERA_DETECT_HEIGHT="360"
+TAPO_CAMERA_DETECT_FPS="5"
+TAPO_CAMERA_ONVIF_PORT="2020"
+
+# Optional Frigate web UI credentials for API validation
+FRIGATE_USERNAME="admin"
+FRIGATE_PASSWORD=""

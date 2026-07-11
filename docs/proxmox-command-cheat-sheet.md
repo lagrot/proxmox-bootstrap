@@ -6,11 +6,11 @@ This cheat sheet is for the current homelab project on `nad9-1`.
 
 | Service | Type | ID | Name | Address |
 |---|---:|---:|---|---|
-| Proxmox host | host | - | nad9-1 | `192.168.0.223` |
-| Home Assistant OS | VM | 100 | homeassistant | `http://192.168.0.218:8123` |
-| Frigate | LXC | 200 | docker-core / frigate-core | `https://192.168.0.224:8971` |
-| MQTT / Mosquitto | LXC | 210 | mqtt-core | `192.168.0.217:1883` |
-| Hermes Agent | LXC | 220 | hermes-agent | `192.168.0.225` |
+| Proxmox host | host | - | nad9-1 | `192.168.8.10` |
+| Home Assistant OS | VM | 100 | homeassistant | `http://192.168.8.105:8123` |
+| Frigate | LXC | 200 | docker-core / frigate-core | `https://192.168.8.104:8971` |
+| MQTT / Mosquitto | LXC | 210 | mqtt-core | `192.168.8.103:1883` |
+| Hermes Agent | LXC | 220 | hermes-agent | `192.168.8.102` |
 
 ## Basic list commands
 
@@ -160,13 +160,13 @@ qm agent 100 network-get-interfaces
 Home Assistant URL:
 
 ```text
-http://192.168.0.218:8123
+http://192.168.8.105:8123
 ```
 
 Test from Proxmox host:
 
 ```bash
-curl -s -o /dev/null -w "%{http_code}\n" http://192.168.0.218:8123
+curl -s -o /dev/null -w "%{http_code}\n" http://192.168.8.105:8123
 ```
 
 Expected good result:
@@ -199,7 +199,7 @@ pct exec 200 -- bash -c 'cd /opt/frigate && docker compose restart frigate'
 Frigate URL:
 
 ```text
-https://192.168.0.224:8971
+https://192.168.8.104:8971
 ```
 
 Run validation:
@@ -232,7 +232,7 @@ pct exec 210 -- journalctl -u mosquitto --no-pager -n 80
 MQTT broker:
 
 ```text
-192.168.0.217:1883
+192.168.8.103:1883
 ```
 
 Local MQTT pub/sub test:
@@ -385,7 +385,7 @@ Use the Proxmox host as the main admin entry point:
 Recommended:
 
 ```bash
-ssh root@192.168.0.223
+ssh root@192.168.8.10
 pct enter 220
 ```
 
