@@ -19,6 +19,7 @@ VM 100: Home Assistant OS
 CT 200: docker-core
   Purpose: Docker Compose / Frigate
   Frigate URL: https://192.168.8.104:8971
+  Home Assistant integration URL: http://192.168.8.104:5000
 
 CT 210: mqtt-core
   Purpose: Mosquitto MQTT broker
@@ -101,10 +102,15 @@ scripts/
 - `scripts/step10h-frigate-camera-validation.sh`
 - `scripts/step10i-frigate-tpu-validation.sh`
 - `scripts/step10j-frigate-gpu-validation.sh`
+- `scripts/step10k-homeassistant-hacs-bootstrap.sh`
+- `scripts/step10m-homeassistant-frigate-dashboard.sh`
 
 ## Remote access
 
 Remote access is documented in `docs/step11-remote-access-tailscale.md`.
+
+The complete Frigate/Home Assistant integration procedure is documented in
+`docs/step10-frigate-homeassistant-integration.md`.
 
 Current verified remote access:
 
@@ -141,10 +147,16 @@ The `old/` directory contains scripts that are kept for historical reference but
 | Step 08F | Hermes gateway validation | verified |
 | Step 10A | Home Assistant reachability | verified |
 | Step 10B | Home Assistant to MQTT network path | verified |
-| Step 10C | Home Assistant MQTT integration | needs operator confirmation |
+| Step 10C | Home Assistant MQTT integration | verified |
 | Step 10D | Frigate MQTT config | verified |
 | Step 10E | Frigate restart | verified |
 | Step 10F | Frigate MQTT publishing | verified |
+| Step 10G | Frigate Tapo C200 camera configuration | verified |
+| Step 10H | Frigate camera validation | verified |
+| Step 10I | Frigate USB Coral TPU validation | verified |
+| Step 10J | Frigate Intel GPU/VAAPI validation | verified |
+| Step 10K | Home Assistant HACS bootstrap | verified |
+| Step 10L | Home Assistant Frigate integration and Tapo C200 entities | verified |
 | Step 11 | Remote access with Tailscale | documented |
 
 ## Hermes CT 220 baseline

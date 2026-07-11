@@ -207,14 +207,17 @@ chmod -R 775 /mnt/frigate
 | Step 09C | Hermes dashboard validation | verified |
 | Step 10A | Home Assistant reachability | verified |
 | Step 10B | Home Assistant to MQTT network path | verified |
-| Step 10C | Home Assistant MQTT integration | needs operator confirmation |
+| Step 10C | Home Assistant MQTT integration | verified |
 | Step 10D | Frigate MQTT config | verified |
 | Step 10E | Frigate restart | verified |
 | Step 10F | Frigate MQTT publishing | verified |
-| Step 10G | Frigate Tapo C200 camera config automation | ready |
-| Step 10H | Frigate camera validation automation | ready |
+| Step 10G | Frigate Tapo C200 camera config automation | verified |
+| Step 10H | Frigate camera validation automation | verified |
 | Step 10I | Frigate USB Coral TPU validation | verified |
 | Step 10J | Frigate Intel GPU/VAAPI validation | verified |
+| Step 10K | Home Assistant HACS bootstrap | verified |
+| Step 10L | Home Assistant Frigate integration and Tapo C200 entities | verified |
+| Step 10M | Home Assistant Frigate dashboard automation | verified |
 | Step 11 | Remote access with Tailscale | documented |
 
 ## Service Decisions
@@ -241,11 +244,12 @@ Frigate runs in CT 200 through Docker Compose.
 | Hostname | `docker-core` |
 | IP | `192.168.8.104` |
 | Image | `ghcr.io/blakeblackshear/frigate:stable` |
-| URL | `https://192.168.8.104:8971` |
+| Authenticated URL | `https://192.168.8.104:8971` |
+| Home Assistant integration URL | `http://192.168.8.104:5000` |
 | Media mount | `/mnt/frigate` |
 | Hardware | Intel iGPU and USB Coral TPU |
 
-Frigate serves HTTPS on port `8971` with a self-signed/default certificate, so validation uses `curl -k`.
+Frigate serves authenticated HTTPS on port `8971` with a self-signed/default certificate, so validation uses `curl -k`. Port `5000` is exposed for the Home Assistant integration as internal unauthenticated HTTP and must remain LAN-only; it must not be forwarded to the internet.
 
 Current minimal Frigate config has MQTT enabled, Intel VAAPI decode, Intel GPU telemetry, and USB Coral detection:
 
@@ -392,14 +396,29 @@ Suggested scope:
 
 1. Verify Home Assistant is reachable with `scripts/step10a-homeassistant-reachability.sh`. Completed.
 2. Verify the MQTT broker is reachable from the Home Assistant network path with `scripts/step10b-homeassistant-mqtt-network-validation.sh`. Completed.
-3. Configure the MQTT integration in Home Assistant with the Home Assistant UI, then verify the stored MQTT config entry with `scripts/step10c-homeassistant-mqtt-integration.sh`. Pending.
+3. Configure the MQTT integration in Home Assistant with the Home Assistant UI, then verify it through the Home Assistant API with `scripts/step10c-homeassistant-mqtt-integration.sh`. Completed.
 4. Enable MQTT in the Frigate config with `scripts/step10d-frigate-mqtt-config.sh`. Completed.
 5. Restart Frigate with `scripts/step10e-frigate-restart.sh`. Completed.
 6. Verify Frigate publishes to MQTT with `scripts/step10f-frigate-mqtt-validation.sh`. Completed.
 7. Install FFmpeg in CT 200 as the camera-test dependency during Frigate deployment. Completed.
-8. Add the Frigate integration in Home Assistant.
-9. Add the first camera to Frigate.
-10. Confirm camera/entities appear in Home Assistant.
+8. Add the Frigate integration in Home Assistant. Completed.
+9. Confirm the Tapo C200 camera/entities appear in Home Assistant. Completed.
+10. Validate live view, recording, detection, and MQTT events through Home Assistant. Live view verified; recording, detection, and MQTT event validation remain.
+
+The HACS app repository and official Get HACS app are bootstrapped with `scripts/step10k-homeassistant-hacs-bootstrap.sh` through the Home Assistant OS guest-agent `ha` CLI. One-time GitHub device authorization remains an operator security step.
+
+The complete procedure is documented in `docs/step10-frigate-homeassistant-integration.md`.
+
+### Immediate implementation plan
+
+The Frigate Home Assistant integration work will be split into independent tracks:
+
+1. **Home Assistant integration track:** add the Frigate integration through the Home Assistant UI using `http://<Frigate-CT-IP>:5000`. Completed.
+2. **API/entity verification track:** verify that the Frigate integration is loaded and that the Tapo C200 device and camera entities are present through Home Assistant APIs and entity registries where available. Completed.
+3. **Frigate baseline track:** run the existing camera, MQTT, Coral TPU, and Intel VAAPI validations in parallel to establish that the external Frigate service remains healthy during integration. Completed.
+4. **Documentation track:** record only durable configuration decisions and verified entity names after the camera is visible in Home Assistant. Completed.
+
+Do not add additional Home Assistant platform components until the Tapo C200 camera is visible through the Frigate integration.
 
 Important rule: do not add new platform components until one camera is visible in Home Assistant through Frigate.
 
