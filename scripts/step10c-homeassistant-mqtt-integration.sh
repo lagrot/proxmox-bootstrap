@@ -227,7 +227,11 @@ fi
 log_info "Manual Home Assistant MQTT integration target:"
 log_info "Broker host: ${MQTT_IP}"
 log_info "Broker port: ${MQTT_PORT}"
-log_info "Username/password: leave blank for current bootstrap Mosquitto config"
+if [[ -n "${MQTT_USERNAME:-}" && -n "${MQTT_PASSWORD:-}" ]]; then
+  log_info "Username/password: use MQTT_USERNAME and MQTT_PASSWORD from config/local.conf"
+else
+  log_info "Username/password: not set in config/local.conf"
+fi
 
 if [[ "${HA_API_MQTT_PRESENT}" -eq 1 ]]; then
   log_info "Home Assistant MQTT integration verified through the API"

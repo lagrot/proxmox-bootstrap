@@ -18,3 +18,7 @@ TAPO_CAMERA_ONVIF_PORT="2020"
 # Optional Frigate web UI credentials for API validation
 FRIGATE_USERNAME="admin"
 FRIGATE_PASSWORD=""
+
+# MQTT credentials used by step05c and step05d. Keep real values in local.conf only.
+MQTT_USERNAME=""
+MQTT_PASSWORD=""

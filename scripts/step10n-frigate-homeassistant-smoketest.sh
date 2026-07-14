@@ -21,6 +21,8 @@ FRIGATE_CT_ID="$DOCKER_CT_ID"
 MQTT_CT_ID="$MQTT_CT_ID"
 HA_VM_ID="$HA_VM_ID"
 MQTT_PORT="$MQTT_PORT"
+MQTT_USERNAME="${MQTT_USERNAME:-}"
+MQTT_PASSWORD="${MQTT_PASSWORD:-}"
 FRIGATE_INTERNAL_PORT="$FRIGATE_INTERNAL_PORT"
 HA_HTTP_PORT="$HA_HTTP_PORT"
 HA_CAMERA_ENTITY="camera.tplink_c200_1"
@@ -115,13 +117,24 @@ track_mqtt() {
   echo "INFO: checking MQTT availability and live Frigate events"
   pct status "$MQTT_CT_ID" 2>/dev/null | grep -q 'status: running' ||
     { echo "ERROR: MQTT CT is not running"; return 1; }
+  [[ -n "$MQTT_USERNAME" && -n "$MQTT_PASSWORD" ]] ||
+    { echo "ERROR: MQTT_USERNAME and MQTT_PASSWORD are not configured"; return 1; }
+
+  client_home="/tmp/frigate-ha-smoketest-mqtt-${BASHPID}"
+  cleanup_mqtt_client() {
+    pct exec "$MQTT_CT_ID" -- rm -rf "$client_home" >/dev/null 2>&1 || true
+  }
+  trap cleanup_mqtt_client RETURN
+  printf '%s\n' "-h 127.0.0.1" "-p $MQTT_PORT" "-u $MQTT_USERNAME" "-P $MQTT_PASSWORD" |
+    pct exec "$MQTT_CT_ID" -- bash -c "umask 077; mkdir -p '$client_home/.config'; cat > '$client_home/.config/mosquitto_sub'"
+
   availability="$(pct exec "$MQTT_CT_ID" -- bash -c \
-    "timeout 15 mosquitto_sub -h 127.0.0.1 -p '$MQTT_PORT' -t frigate/available -C 1 -W 10 2>/dev/null" || true)"
+    "HOME='$client_home' XDG_CONFIG_HOME='$client_home/.config' timeout 15 mosquitto_sub -t frigate/available -C 1 -W 10 2>/dev/null" || true)"
   [[ "$availability" == online ]] || { echo "ERROR: Frigate MQTT availability is $availability"; return 1; }
   echo "INFO: Frigate MQTT availability is online"
   echo "INFO: move in front of the camera during the next $MQTT_EVENT_WAIT_SECONDS seconds"
   event_payload="$(pct exec "$MQTT_CT_ID" -- bash -c \
-    "timeout '$MQTT_EVENT_WAIT_SECONDS' mosquitto_sub -h 127.0.0.1 -p '$MQTT_PORT' -t frigate/events -C 1 -W '$MQTT_EVENT_WAIT_SECONDS' 2>/dev/null" || true)"
+    "HOME='$client_home' XDG_CONFIG_HOME='$client_home/.config' timeout '$MQTT_EVENT_WAIT_SECONDS' mosquitto_sub -t frigate/events -C 1 -W '$MQTT_EVENT_WAIT_SECONDS' 2>/dev/null" || true)"
   if [[ -n "$event_payload" ]]; then
     echo "INFO: live Frigate MQTT event received"
   else
