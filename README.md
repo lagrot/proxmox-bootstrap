@@ -141,8 +141,8 @@ The `old/` directory contains scripts that are kept for historical reference but
 | Step 04B | Frigate validation | verified |
 | Step 05 | MQTT LXC deployment | verified |
 | Step 05B | MQTT validation | verified |
-| Step 05C | MQTT authentication hardening | pending |
-| Step 05D | MQTT authentication validation | pending |
+| Step 05C | MQTT authentication hardening | verified |
+| Step 05D | MQTT authentication validation | verified |
 | Step 06 | Home Assistant OS VM | verified |
 | Step 06B | Home Assistant validation | verified |
 | Step 08 | Hermes Agent LXC base | verified |
