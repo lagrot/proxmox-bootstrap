@@ -53,13 +53,26 @@ These scripts discover the VM and CT addresses through Proxmox and verify:
 
 ## 2. Configure and validate MQTT in Home Assistant
 
-The MQTT integration must be configured before the Frigate integration. Use
-the existing Mosquitto broker:
+The MQTT integration must be configured before the Frigate integration. MQTT
+authentication is managed by the project scripts:
 
 ```text
-Broker: 192.168.8.103
+Broker: runtime-detected CT 210 address
 Port: 1883
-Username/password: empty for the current bootstrap configuration
+Username/password: values from config/local.conf
+
+To harden the broker and update Frigate:
+
+```bash
+bash scripts/step05c-mqtt-hardening.sh
+bash scripts/step05d-mqtt-auth-validation.sh
+```
+
+Step 05C intentionally does not edit Home Assistant's internal config-entry
+storage. Home Assistant still requires a supported API/config-flow operation
+or a one-time UI update before its MQTT connection can be verified. The
+current runtime log showed `Not authorized`, confirming that Home Assistant
+still has the pre-hardening credentials.
 ```
 
 For API validation, create a Home Assistant long-lived access token and add it
@@ -95,8 +108,9 @@ bash scripts/step10e-frigate-restart.sh
 bash scripts/step10f-frigate-mqtt-validation.sh
 ```
 
-The validation checks the retained Frigate availability message and recent
-Frigate logs for MQTT failures.
+The validation authenticates to MQTT, checks the retained Frigate availability
+message, verifies the Frigate config contains MQTT credentials, and scans
+recent Frigate logs for MQTT failures.
 
 ## 4. Configure the Tapo C200 camera
 

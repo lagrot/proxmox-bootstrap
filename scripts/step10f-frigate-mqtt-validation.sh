@@ -9,6 +9,10 @@ source "${PROJECT_ROOT}/lib/common.sh"
 
 # shellcheck source=/dev/null
 source "${PROJECT_ROOT}/config/defaults.conf"
+if [[ -f "${PROJECT_ROOT}/config/local.conf" ]]; then
+  # shellcheck source=/dev/null
+  source "${PROJECT_ROOT}/config/local.conf"
+fi
 
 log_info "======================================"
 log_info "STEP 10F - FRIGATE MQTT VALIDATION"
@@ -17,6 +21,8 @@ log_info "======================================"
 FRIGATE_CT_ID="${DOCKER_CT_ID:-200}"
 MQTT_CT_ID="${MQTT_CT_ID:-210}"
 MQTT_PORT="${MQTT_PORT:-1883}"
+MQTT_USERNAME="${MQTT_USERNAME:-}"
+MQTT_PASSWORD="${MQTT_PASSWORD:-}"
 FRIGATE_CONFIG_FILE="${FRIGATE_CONFIG_FILE:-/opt/frigate/config/config.yml}"
 
 VALIDATION_ERRORS=0
@@ -75,10 +81,16 @@ else
   record_error "Could not detect MQTT broker IPv4 address on eth0"
 fi
 
+if [[ -z "${MQTT_USERNAME}" || -z "${MQTT_PASSWORD}" ]]; then
+  record_error "MQTT_USERNAME and MQTT_PASSWORD are required for authenticated validation"
+fi
+
 log_info "Checking Frigate MQTT config..."
 if pct exec "${FRIGATE_CT_ID}" -- grep -qxF 'mqtt:' "${FRIGATE_CONFIG_FILE}" \
   && pct exec "${FRIGATE_CT_ID}" -- grep -qxF '  enabled: true' "${FRIGATE_CONFIG_FILE}" \
-  && pct exec "${FRIGATE_CT_ID}" -- grep -qxF "  host: ${MQTT_IP}" "${FRIGATE_CONFIG_FILE}"; then
+  && pct exec "${FRIGATE_CT_ID}" -- grep -qxF "  host: ${MQTT_IP}" "${FRIGATE_CONFIG_FILE}" \
+  && pct exec "${FRIGATE_CT_ID}" -- grep -q '^  user:' "${FRIGATE_CONFIG_FILE}" \
+  && pct exec "${FRIGATE_CT_ID}" -- grep -q '^  password:' "${FRIGATE_CONFIG_FILE}"; then
   log_info "Frigate config points to detected MQTT broker"
 else
   record_error "Frigate config does not point to the detected MQTT broker"
@@ -105,9 +117,14 @@ if [[ "${VALIDATION_ERRORS}" -gt 0 ]]; then
   exit 1
 fi
 
+CLIENT_HOME="/tmp/frigate-mqtt-validation-home"
+trap 'pct exec "${MQTT_CT_ID}" -- rm -rf "${CLIENT_HOME}" >/dev/null 2>&1 || true' EXIT
+printf '%s\n' "-h 127.0.0.1" "-p ${MQTT_PORT}" "-u ${MQTT_USERNAME}" "-P ${MQTT_PASSWORD}" \
+  | pct exec "${MQTT_CT_ID}" -- bash -c "umask 077; mkdir -p '${CLIENT_HOME}/.config'; cat > '${CLIENT_HOME}/.config/mosquitto_sub'"
+
 log_info "Checking retained Frigate availability message on MQTT..."
 MQTT_MESSAGE="$(
-  pct exec "${MQTT_CT_ID}" -- bash -c "timeout 20 mosquitto_sub -h 127.0.0.1 -p '${MQTT_PORT}' -t 'frigate/available' -C 1 -W 15 2>/tmp/frigate-mqtt-sub.err" || true
+  pct exec "${MQTT_CT_ID}" -- bash -c "HOME='${CLIENT_HOME}' XDG_CONFIG_HOME='${CLIENT_HOME}/.config' timeout 20 mosquitto_sub -t 'frigate/available' -C 1 -W 15 2>/tmp/frigate-mqtt-sub.err" || true
 )"
 
 case "${MQTT_MESSAGE}" in

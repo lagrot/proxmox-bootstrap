@@ -192,6 +192,8 @@ chmod -R 775 /mnt/frigate
 | Step 04B | Frigate validation | verified |
 | Step 05 | MQTT LXC deployment | verified |
 | Step 05B | MQTT validation | verified |
+| Step 05C | MQTT authentication hardening | verified |
+| Step 05D | MQTT authentication validation | verified |
 | Step 06 | Home Assistant OS VM | verified |
 | Step 06B | Home Assistant validation | verified |
 | Step 07A | Home Assistant initial setup checklist | documentation |
@@ -218,7 +220,7 @@ chmod -R 775 /mnt/frigate
 | Step 10K | Home Assistant HACS bootstrap | verified |
 | Step 10L | Home Assistant Frigate integration and Tapo C200 entities | verified |
 | Step 10M | Home Assistant Frigate dashboard automation | verified |
-| Step 10N | Frigate/Home Assistant smoke test | ready |
+| Step 10N | Frigate/Home Assistant smoke test | verified |
 | Step 11 | Remote access with Tailscale | documented |
 
 ## Service Decisions
@@ -272,7 +274,9 @@ detectors:
     type: edgetpu
     device: usb
 
-cameras: {}
+cameras:
+  tplink_c200_1:
+    # Full RTSP and stream settings are managed by step10g.
 ```
 
 ### CT 210 - MQTT
@@ -295,7 +299,9 @@ log_dest syslog
 log_dest stdout
 ```
 
-This is acceptable for initial LAN-only bootstrap, but should be hardened later with username/password auth and anonymous access disabled.
+This is the initial LAN-only bootstrap configuration. The hardened configuration is applied by `scripts/step05c-mqtt-hardening.sh` and uses a Mosquitto password file with `allow_anonymous false`.
+
+MQTT hardening is automated by `scripts/step05c-mqtt-hardening.sh`. It creates the Mosquitto password database, disables anonymous access, updates Frigate credentials, validates the Mosquitto configuration, and restarts both services. Home Assistant credentials are a separate configuration-entry operation and are not edited by this script. Run `scripts/step05d-mqtt-auth-validation.sh` and `scripts/step10f-frigate-mqtt-validation.sh` afterward.
 
 ### VM 100 - Home Assistant
 
@@ -387,9 +393,11 @@ pct exec 200 -- bash -c 'cd /opt/frigate && docker compose ps'
 qm status 100
 ```
 
-## Next Real Project Step - Step 10
+## Step 10 Integration Status
 
-The next major work should be Home Assistant + MQTT + Frigate integration.
+The Home Assistant + MQTT + Frigate integration is complete through the
+end-to-end smoke test (Step 10N). The verified workflow and operator notes are
+maintained in `docs/step10-frigate-homeassistant-integration.md`.
 
 Step 10 validation scripts should discover runtime IP addresses from Proxmox guest/container state. The current LAN addresses are pinned by router DHCP reservations, but scripts should still avoid hardcoding LAN IPs where practical. Frigate still requires a broker address in its own runtime config; rerun `scripts/step10d-frigate-mqtt-config.sh` if the MQTT CT address changes.
 
@@ -404,13 +412,11 @@ Suggested scope:
 7. Install FFmpeg in CT 200 as the camera-test dependency during Frigate deployment. Completed.
 8. Add the Frigate integration in Home Assistant. Completed.
 9. Confirm the Tapo C200 camera/entities appear in Home Assistant. Completed.
-10. Validate live view, recording, detection, and MQTT events through Home Assistant. Live view verified; recording, detection, and MQTT event validation remain.
+10. Validate live view, recording, detection, and MQTT events through Home Assistant. Completed successfully with `scripts/step10n-frigate-homeassistant-smoketest.sh`.
 
 The HACS app repository and official Get HACS app are bootstrapped with `scripts/step10k-homeassistant-hacs-bootstrap.sh` through the Home Assistant OS guest-agent `ha` CLI. One-time GitHub device authorization remains an operator security step.
 
-The complete procedure is documented in `docs/step10-frigate-homeassistant-integration.md`.
-
-### Immediate implementation plan
+### Completed implementation tracks
 
 The Frigate Home Assistant integration work will be split into independent tracks:
 
@@ -419,9 +425,8 @@ The Frigate Home Assistant integration work will be split into independent track
 3. **Frigate baseline track:** run the existing camera, MQTT, Coral TPU, and Intel VAAPI validations in parallel to establish that the external Frigate service remains healthy during integration. Completed.
 4. **Documentation track:** record only durable configuration decisions and verified entity names after the camera is visible in Home Assistant. Completed.
 
-Do not add additional Home Assistant platform components until the Tapo C200 camera is visible through the Frigate integration.
-
-Important rule: do not add new platform components until one camera is visible in Home Assistant through Frigate.
+The Tapo C200 camera is visible through the Frigate integration. Future
+platform additions should be evaluated separately from this completed baseline.
 
 ## Remote Access
 
@@ -436,8 +441,6 @@ Current verified access:
 
 ## Later Tasks
 
-- Harden MQTT with username/password auth.
-- Add first Frigate camera.
 - Clean up Slack slash command conflicts if they become annoying.
 - Update Hermes sudoers rules if operational needs change.
 - Improve Hermes gateway validation log checks if needed.

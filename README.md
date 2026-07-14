@@ -83,6 +83,8 @@ scripts/
 - `scripts/step04b-frigate-validation.sh`
 - `scripts/step05-mqtt-lxc.sh`
 - `scripts/step05b-mqtt-validation.sh`
+- `scripts/step05c-mqtt-hardening.sh`
+- `scripts/step05d-mqtt-auth-validation.sh`
 - `scripts/step06-homeassistant-vm.sh`
 - `scripts/step06b-homeassistant-validation.sh`
 - `scripts/step08-hermes-lxc.sh`
@@ -139,6 +141,8 @@ The `old/` directory contains scripts that are kept for historical reference but
 | Step 04B | Frigate validation | verified |
 | Step 05 | MQTT LXC deployment | verified |
 | Step 05B | MQTT validation | verified |
+| Step 05C | MQTT authentication hardening | verified |
+| Step 05D | MQTT authentication validation | verified |
 | Step 06 | Home Assistant OS VM | verified |
 | Step 06B | Home Assistant validation | verified |
 | Step 08 | Hermes Agent LXC base | verified |
@@ -158,6 +162,8 @@ The `old/` directory contains scripts that are kept for historical reference but
 | Step 10J | Frigate Intel GPU/VAAPI validation | verified |
 | Step 10K | Home Assistant HACS bootstrap | verified |
 | Step 10L | Home Assistant Frigate integration and Tapo C200 entities | verified |
+| Step 10M | Home Assistant Frigate dashboard automation | verified |
+| Step 10N | Frigate/Home Assistant smoke test | verified |
 | Step 11 | Remote access with Tailscale | documented |
 
 ## Hermes CT 220 baseline
