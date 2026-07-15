@@ -30,4 +30,8 @@ for archive in "${RUN_DIR}"/frigate.tar.gz "${RUN_DIR}"/mosquitto.tar.gz "${RUN_
   tar -xzf "${archive}" -C "${TEST_DIR}"
 done
 find "${RUN_DIR}" -maxdepth 1 -type f -name 'vzdump-qemu-*.vma.zst' -size +0c | grep -q . || die "Home Assistant vzdump archive missing"
+if [[ ! -f "${RUN_DIR}/.validated" ]]; then
+  touch "${RUN_DIR}/.validated"
+  chmod 600 "${RUN_DIR}/.validated"
+fi
 log_info "Archive integrity and temporary restore test passed"

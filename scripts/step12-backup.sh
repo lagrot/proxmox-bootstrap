@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
+umask 0077
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd -- "${SCRIPT_DIR}/.." && pwd)"
@@ -14,7 +15,8 @@ HERMES_CT_ID="${HERMES_CT_ID:-220}"
 BACKUP_ROOT="${BACKUP_ROOT:-/var/lib/vz/dump/homelab-backups}"
 RUN_ID="$(date +%Y%m%d-%H%M%S)"
 RUN_DIR="${BACKUP_ROOT}/${RUN_ID}"
-BACKUP_RETENTION_COUNT="${BACKUP_RETENTION_COUNT:-7}"
+BACKUP_RESULT_FILE="${BACKUP_RESULT_FILE:-}"
+BACKUP_LOCK_HELD="${BACKUP_LOCK_HELD:-0}"
 RUN_COMPLETE=0
 HERMES_PAUSED=0
 
@@ -30,11 +32,13 @@ cleanup() {
 trap cleanup EXIT
 
 [[ "${EUID}" -eq 0 ]] || die "Run as root"
-[[ "${BACKUP_RETENTION_COUNT}" =~ ^[1-9][0-9]*$ ]] \
-  || die "BACKUP_RETENTION_COUNT must be a positive integer"
-for cmd in pct qm vzdump tar sha256sum find; do
+for cmd in flock pct qm vzdump tar sha256sum find; do
   command -v "${cmd}" >/dev/null || die "Missing command: ${cmd}"
 done
+if [[ "${BACKUP_LOCK_HELD}" -ne 1 ]]; then
+  exec 8>/run/lock/proxmox-bootstrap-backup.lock
+  flock -n 8 || die "Another backup or restore operation is already running"
+fi
 mkdir -p "${RUN_DIR}"
 chmod 700 "${BACKUP_ROOT}" "${RUN_DIR}"
 
@@ -64,18 +68,12 @@ HERMES_PAUSED=0
 pct exec "${HERMES_CT_ID}" -- systemctl is-active --quiet hermes-gateway.service \
   || die "Hermes gateway did not restart"
 
-(cd "${RUN_DIR}" && sha256sum * > SHA256SUMS)
+(cd "${RUN_DIR}" && sha256sum -- * > SHA256SUMS)
 chmod 600 "${RUN_DIR}/SHA256SUMS"
-RUN_COMPLETE=1
-
-mapfile -t COMPLETED_RUNS < <(
-  find "${BACKUP_ROOT}" -mindepth 2 -maxdepth 2 -type f -name SHA256SUMS \
-    -printf '%h\n' | sort -r
-)
-if (( ${#COMPLETED_RUNS[@]} > BACKUP_RETENTION_COUNT )); then
-  for old_run in "${COMPLETED_RUNS[@]:BACKUP_RETENTION_COUNT}"; do
-    log_info "Removing expired backup: ${old_run}"
-    rm -rf -- "${old_run}"
-  done
+if [[ -n "${BACKUP_RESULT_FILE}" ]]; then
+  printf '%s\n' "${RUN_DIR}" > "${BACKUP_RESULT_FILE}"
+  chmod 600 "${BACKUP_RESULT_FILE}"
 fi
-log_info "Backup completed: ${RUN_DIR}"
+RUN_COMPLETE=1
+log_info "Backup archives created: ${RUN_DIR}"
+log_info "Run step12-backup-validation.sh before treating this backup as validated"

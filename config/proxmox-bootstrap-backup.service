@@ -1,0 +1,21 @@
+[Unit]
+Description=Proxmox Bootstrap validated homelab backup
+Documentation=file:///root/proxmox-bootstrap/docs/step12-backup-and-restore.md
+Wants=pve-guests.service
+After=local-fs.target pve-guests.service
+
+[Service]
+Type=oneshot
+WorkingDirectory=/root/proxmox-bootstrap
+ExecStart=/root/proxmox-bootstrap/scripts/step12b-backup-operation.sh
+User=root
+Group=root
+UMask=0077
+Nice=10
+IOSchedulingClass=best-effort
+IOSchedulingPriority=7
+StandardOutput=journal
+StandardError=journal
+TimeoutStartSec=infinity
+KillMode=control-group
+SyslogIdentifier=proxmox-bootstrap-backup

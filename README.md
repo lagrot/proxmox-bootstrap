@@ -109,6 +109,10 @@ scripts/
 - `scripts/step10n-frigate-homeassistant-smoketest.sh`
 - `scripts/step12-backup.sh`
 - `scripts/step12-backup-validation.sh`
+- `scripts/step12b-backup-operation.sh`
+- `scripts/step12c-backup-schedule.sh`
+- `scripts/step12d-backup-operations-validation.sh`
+- `scripts/step12e-homeassistant-restore-drill.sh`
 
 ## Remote access
 
@@ -168,6 +172,10 @@ The `old/` directory contains scripts that are kept for historical reference but
 | Step 10N | Frigate/Home Assistant smoke test | verified |
 | Step 11 | Remote access with Tailscale | documented |
 | Step 12 | Local service backup and temporary restore validation | verified |
+| Step 12B | Scheduled validated backup operation | verified |
+| Step 12C | Weekly systemd timer and log rotation | verified |
+| Step 12D | Backup operations validation | verified |
+| Step 12E | Stopped Home Assistant VM restore drill | verified |
 
 ## Hermes CT 220 baseline
 

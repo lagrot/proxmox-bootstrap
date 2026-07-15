@@ -1,0 +1,12 @@
+[Unit]
+Description=Weekly Proxmox Bootstrap validated homelab backup
+
+[Timer]
+OnCalendar=Sun *-*-* 03:00:00 Europe/Stockholm
+Persistent=true
+RandomizedDelaySec=10m
+AccuracySec=1m
+Unit=proxmox-bootstrap-backup.service
+
+[Install]
+WantedBy=timers.target
