@@ -223,6 +223,10 @@ chmod -R 775 /mnt/frigate
 | Step 10N | Frigate/Home Assistant smoke test | verified |
 | Step 11 | Remote access with Tailscale | documented |
 | Step 12 | Local service backup and temporary restore validation | verified |
+| Step 12B | Scheduled validated backup operation | verified |
+| Step 12C | Weekly systemd timer and log rotation | verified |
+| Step 12D | Backup operations validation | verified |
+| Step 12E | Stopped Home Assistant VM restore drill | verified |
 
 ## Service Decisions
 
@@ -442,19 +446,29 @@ Current verified access:
 
 ## Backup And Restore Workstream
 
-The initial backup design is intentionally local and simple:
+The current backup design is intentionally local and simple:
 
 - Store service backups on Proxmox host storage.
 - Do not encrypt the first implementation; protect the backup directory with
   restrictive filesystem ownership and permissions.
-- Verify archive integrity and restore contents into temporary directories
-  before considering live restore testing.
+- Verify archive integrity, restore service archives into temporary directories,
+  and perform a stopped temporary-VM restore drill for Home Assistant.
 - Back up Home Assistant, Frigate configuration (not media by default),
   Mosquitto configuration and password database, and Hermes configuration/data.
-- Treat retention, capacity monitoring, and a later external/off-host copy as
-  follow-up improvements. The initial script retains seven completed runs.
+- Run automatically each Sunday at 03:00 Europe/Stockholm with a persistent
+  systemd timer and a randomized delay of up to ten minutes.
+- Retain eight validated weekly backups. Retention runs only after the new
+  backup passes checksum and temporary-extraction validation.
+- Require estimated backup size plus 25 percent headroom while preserving at
+  least 20 percent free space on the backup filesystem.
+- Write status to systemd journal, a protected file log, and a root-only JSON
+  status file. Rotate logs weekly, compress rotations, and retain 52 weeks.
+- Treat an encrypted external/off-host copy as a follow-up improvement.
 
-The first complete backup and checksum/temporary-extraction validation passed.
+The scheduled service path, checksum validation, temporary extraction, status
+reporting, timer, and logrotate configuration are verified. A Home Assistant
+archive was restored to stopped temporary VM 900, its configuration and disks
+were validated host-side, and the temporary VM and volumes were removed.
 The procedure is documented in `docs/step12-backup-and-restore.md`.
 
 ## Later Tasks

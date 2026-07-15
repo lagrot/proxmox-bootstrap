@@ -37,10 +37,11 @@ public internet.
 ## Current priority
 
 The Home Assistant + MQTT + Frigate baseline is complete through Step 10N.
-MQTT authentication and the initial local backup/restore validation are also
-verified.
+MQTT authentication, weekly validated local backups, protected backup logging,
+and the stopped Home Assistant restore drill are verified.
 
-The next project work is:
+Camera-location-dependent work is postponed until the Tapo C200 is installed
+in its final location. At that point, the next project work is:
 
 1. Configure and validate Frigate recording, detection, snapshot, and export
    retention for the dedicated SSD.

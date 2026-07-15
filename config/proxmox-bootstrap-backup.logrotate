@@ -1,0 +1,11 @@
+/var/log/proxmox-bootstrap/backup.log {
+    weekly
+    rotate 52
+    compress
+    dateext
+    dateformat -%Y%m%d
+    missingok
+    notifempty
+    create 0640 root adm
+    su root adm
+}
