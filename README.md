@@ -107,6 +107,8 @@ scripts/
 - `scripts/step10k-homeassistant-hacs-bootstrap.sh`
 - `scripts/step10m-homeassistant-frigate-dashboard.sh`
 - `scripts/step10n-frigate-homeassistant-smoketest.sh`
+- `scripts/step12-backup.sh`
+- `scripts/step12-backup-validation.sh`
 
 ## Remote access
 
@@ -165,6 +167,7 @@ The `old/` directory contains scripts that are kept for historical reference but
 | Step 10M | Home Assistant Frigate dashboard automation | verified |
 | Step 10N | Frigate/Home Assistant smoke test | verified |
 | Step 11 | Remote access with Tailscale | documented |
+| Step 12 | Local service backup and temporary restore validation | verified |
 
 ## Hermes CT 220 baseline
 

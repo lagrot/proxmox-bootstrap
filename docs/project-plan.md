@@ -222,6 +222,7 @@ chmod -R 775 /mnt/frigate
 | Step 10M | Home Assistant Frigate dashboard automation | verified |
 | Step 10N | Frigate/Home Assistant smoke test | verified |
 | Step 11 | Remote access with Tailscale | documented |
+| Step 12 | Local service backup and temporary restore validation | verified |
 
 ## Service Decisions
 
@@ -439,8 +440,35 @@ Current verified access:
 - Proxmox Web UI on LAN: `https://192.168.8.10:8006`
 - VS Code Remote SSH target: `nad9-1`
 
+## Backup And Restore Workstream
+
+The initial backup design is intentionally local and simple:
+
+- Store service backups on Proxmox host storage.
+- Do not encrypt the first implementation; protect the backup directory with
+  restrictive filesystem ownership and permissions.
+- Verify archive integrity and restore contents into temporary directories
+  before considering live restore testing.
+- Back up Home Assistant, Frigate configuration (not media by default),
+  Mosquitto configuration and password database, and Hermes configuration/data.
+- Treat retention, capacity monitoring, and a later external/off-host copy as
+  follow-up improvements. The initial script retains seven completed runs.
+
+The first complete backup and checksum/temporary-extraction validation passed.
+The procedure is documented in `docs/step12-backup-and-restore.md`.
+
 ## Later Tasks
 
+- Configure and verify Frigate retention for recordings, detections, snapshots,
+  and exports, with a storage-conscious policy for the dedicated SSD.
+- Evaluate and configure Frigate face recognition, including model/resource
+  requirements, privacy boundaries, and Home Assistant entity/event behavior.
+- Improve the Home Assistant Frigate dashboard with a more useful camera card
+  layout for live view, recent detections, recordings, and event navigation.
+- Research Hermes Agent integration with Home Assistant, including available
+  APIs/integration patterns, security boundaries, and whether the dedicated
+  CT 220 Hermes LXC remains necessary or should continue as the isolated
+  gateway service.
 - Clean up Slack slash command conflicts if they become annoying.
 - Update Hermes sudoers rules if operational needs change.
 - Improve Hermes gateway validation log checks if needed.
