@@ -36,16 +36,21 @@ public internet.
 
 ## Current priority
 
-The next project work is Home Assistant + MQTT + Frigate integration:
+The Home Assistant + MQTT + Frigate baseline is complete through Step 10N.
+MQTT authentication and the initial local backup/restore validation are also
+verified.
 
-1. Confirm the Home Assistant MQTT integration (`Step 10C` is pending operator confirmation).
-2. Add one test camera to Frigate.
-3. Validate live view, recording, detection, and MQTT events.
-4. Add the Frigate integration in Home Assistant.
-5. Confirm camera entities appear in Home Assistant.
+The next project work is:
 
-Do not add more platform components until one camera is visible in Home
-Assistant through Frigate.
+1. Configure and validate Frigate recording, detection, snapshot, and export
+   retention for the dedicated SSD.
+2. Research Frigate face recognition, including resource and privacy
+   requirements, before deployment.
+3. Improve the Home Assistant Frigate dashboard and camera cards.
+4. Research Hermes Agent integration with Home Assistant and decide whether
+   CT 220 should remain the isolated Hermes gateway.
+
+Keep the verified one-camera baseline working while making these changes.
 
 ## Repository layout
 
