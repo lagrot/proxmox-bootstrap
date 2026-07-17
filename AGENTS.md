@@ -43,15 +43,15 @@ and the stopped Home Assistant restore drill are verified.
 The Tapo C320WS is verified as the second Frigate camera without breaking the
 Tapo C200 baseline. Both cameras are recording in Frigate and Home Assistant;
 camera-specific streams, recordings, person detection, snapshots, clips,
-MQTT, Intel VAAPI, and Coral detection are verified. Continue with:
+MQTT, Intel VAAPI, and Coral detection are verified. The native Home Assistant
+dashboard is also verified with separate Live, Review, and System views for
+both cameras. Continue with:
 
-1. Improve the Home Assistant Frigate dashboard using the documented Live,
-   Review, and System/Admin views.
-2. Configure and validate Frigate recording, detection, snapshot, and export
+1. Configure and validate Frigate recording, detection, snapshot, and export
    retention for the dedicated SSD with both cameras included.
-3. Research Frigate face recognition, including resource and privacy
+2. Research Frigate face recognition, including resource and privacy
    requirements, before deployment.
-4. Research Hermes Agent integration with Home Assistant and decide whether
+3. Research Hermes Agent integration with Home Assistant and decide whether
    CT 220 should remain the isolated Hermes gateway.
 
 Keep both verified camera baselines working while making these changes.

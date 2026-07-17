@@ -258,15 +258,23 @@ overwriting the existing dashboard:
 bash scripts/step10m-homeassistant-frigate-dashboard.sh
 ```
 
-The script creates the `frigate` dashboard with:
+The script creates the `frigate-dashboard` dashboard for both the Tapo C200
+and Tapo C320WS. It uses only native Home Assistant cards and contains three
+responsive views:
 
-- A live `camera.tplink_c200_1` card.
-- Tapo C200 detection, recording, snapshot, and review controls.
-- Motion, person, object-count, and review-status entities.
+- **Live:** both live streams, current motion/person status and counts, plus
+  the two recording switches.
+- **Review:** the latest person image and review/count state for each camera,
+  with navigation to Home Assistant Media Browser and Frigate Review.
+- **System:** advanced detection, motion, snapshot and review switches; 24-hour
+  activity history; camera state diagnostics; and a Frigate link.
+
+Advanced controls are intentionally kept off the limited daily-use Live view.
 
 The dashboard is created through the Home Assistant WebSocket API and is
-idempotent. If the `frigate-dashboard` dashboard already exists, it is preserved. To
-intentionally replace its generated configuration:
+idempotent. Before saving, the script verifies that every referenced entity
+exists in Home Assistant. If the `frigate-dashboard` dashboard already exists,
+it is preserved. To intentionally replace its generated configuration:
 
 ```bash
 FORCE_UPDATE=1 bash scripts/step10m-homeassistant-frigate-dashboard.sh
@@ -278,9 +286,9 @@ Open it at:
 http://192.168.8.105:8123/frigate-dashboard
 ```
 
-Do not install Advanced Camera Card, cctvQL, VIGI Control, or other optional
-components yet. First confirm that the Frigate device and the Tapo C200 camera
-entities appear.
+Advanced Camera Card is not required for this native baseline. Evaluate it
+later only if richer timeline, clip, or recording playback inside the Review
+view is worth the additional frontend dependency.
 
 ## 10. Final verification
 
