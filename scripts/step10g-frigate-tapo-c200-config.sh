@@ -16,22 +16,41 @@ if [[ -f "${PROJECT_ROOT}/config/local.conf" ]]; then
 fi
 
 log_info "=============================================="
-log_info "STEP 10G - FRIGATE TAPO C200 CAMERA CONFIG"
+log_info "STEP 10G - FRIGATE TAPO CAMERA CONFIG"
 log_info "=============================================="
 
 FRIGATE_CT_ID="${DOCKER_CT_ID:-200}"
 FRIGATE_APP_DIR="${FRIGATE_APP_DIR:-/opt/frigate}"
 FRIGATE_CONFIG_FILE="${FRIGATE_CONFIG_FILE:-/opt/frigate/config/config.yml}"
 
-CAMERA_NAME="${TAPO_CAMERA_NAME:-tapo_c200}"
-CAMERA_IP="${TAPO_CAMERA_IP:-}"
-CAMERA_USERNAME="${TAPO_CAMERA_USERNAME:-}"
-CAMERA_PASSWORD="${TAPO_CAMERA_PASSWORD:-}"
+TAPO_CAMERA_PROFILE="${TAPO_CAMERA_PROFILE:-c200}"
+
+case "${TAPO_CAMERA_PROFILE}" in
+  c200)
+    CAMERA_NAME="${TAPO_C200_NAME:-${TAPO_CAMERA_NAME:-tplink_c200_1}}"
+    CAMERA_IP="${TAPO_C200_IP:-${TAPO_CAMERA_IP:-}}"
+    CAMERA_USERNAME="${TAPO_C200_USERNAME:-${TAPO_CAMERA_USERNAME:-}}"
+    CAMERA_PASSWORD="${TAPO_C200_PASSWORD:-${TAPO_CAMERA_PASSWORD:-}}"
+    CAMERA_DETECT_WIDTH="${TAPO_C200_DETECT_WIDTH:-640}"
+    CAMERA_DETECT_HEIGHT="${TAPO_C200_DETECT_HEIGHT:-360}"
+    ;;
+  c320ws)
+    CAMERA_NAME="${TAPO_C320WS_NAME:-tplink_c320ws_1}"
+    CAMERA_IP="${TAPO_C320WS_IP:-}"
+    CAMERA_USERNAME="${TAPO_C320WS_USERNAME:-}"
+    CAMERA_PASSWORD="${TAPO_C320WS_PASSWORD:-}"
+    CAMERA_DETECT_WIDTH="${TAPO_C320WS_DETECT_WIDTH:-640}"
+    CAMERA_DETECT_HEIGHT="${TAPO_C320WS_DETECT_HEIGHT:-360}"
+    ;;
+  *)
+    log_error "Unsupported TAPO_CAMERA_PROFILE: ${TAPO_CAMERA_PROFILE} (use c200 or c320ws)"
+    exit 1
+    ;;
+esac
+
 CAMERA_RTSP_PORT="${TAPO_CAMERA_RTSP_PORT:-554}"
 CAMERA_RECORD_STREAM_PATH="${TAPO_CAMERA_RECORD_STREAM_PATH:-/stream1}"
 CAMERA_DETECT_STREAM_PATH="${TAPO_CAMERA_DETECT_STREAM_PATH:-/stream2}"
-CAMERA_DETECT_WIDTH="${TAPO_CAMERA_DETECT_WIDTH:-640}"
-CAMERA_DETECT_HEIGHT="${TAPO_CAMERA_DETECT_HEIGHT:-360}"
 CAMERA_DETECT_FPS="${TAPO_CAMERA_DETECT_FPS:-5}"
 CAMERA_ONVIF_PORT="${TAPO_CAMERA_ONVIF_PORT:-2020}"
 
@@ -64,15 +83,15 @@ for cmd in pct awk grep date; do
 done
 
 if [[ -z "${CAMERA_IP}" ]]; then
-  record_error "TAPO_CAMERA_IP is required"
+  record_error "Camera IP is required for profile ${TAPO_CAMERA_PROFILE}"
 fi
 
 if [[ -z "${CAMERA_USERNAME}" ]]; then
-  record_error "TAPO_CAMERA_USERNAME is required"
+  record_error "Camera username is required for profile ${TAPO_CAMERA_PROFILE}"
 fi
 
 if [[ -z "${CAMERA_PASSWORD}" ]]; then
-  record_error "TAPO_CAMERA_PASSWORD is required"
+  record_error "Camera password is required for profile ${TAPO_CAMERA_PROFILE}"
 fi
 
 if [[ "${CAMERA_NAME}" =~ [^a-zA-Z0-9_] ]]; then
@@ -82,7 +101,7 @@ fi
 if [[ "${VALIDATION_ERRORS}" -gt 0 ]]; then
   log_error "Cannot continue until required inputs are provided"
   log_info "Example:"
-  log_info "Populate config/local.conf or pass TAPO_CAMERA_* variables for a one-off run"
+  log_info "Populate the TAPO_C200_* or TAPO_C320WS_* values in config/local.conf"
   exit 1
 fi
 
@@ -126,6 +145,7 @@ pct exec "${FRIGATE_CT_ID}" -- python3 - \
   "${CAMERA_DETECT_FPS}" \
   "${CAMERA_ONVIF_PORT}" <<'PY'
 import pathlib
+import json
 import re
 import sys
 from urllib.parse import quote
@@ -167,8 +187,8 @@ camera_block = [
     "    onvif:",
     f"      host: {camera_ip}",
     f"      port: {camera_onvif_port}",
-    f"      user: {camera_username_raw}",
-    f"      password: {camera_password_raw}",
+    f"      user: {json.dumps(camera_username_raw)}",
+    f"      password: {json.dumps(camera_password_raw)}",
     "    detect:",
     "      enabled: true",
     f"      width: {camera_detect_width}",

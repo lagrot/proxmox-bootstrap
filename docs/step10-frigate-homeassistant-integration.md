@@ -112,32 +112,53 @@ The validation authenticates to MQTT, checks the retained Frigate availability
 message, verifies the Frigate config contains MQTT credentials, and scans
 recent Frigate logs for MQTT failures.
 
-## 4. Configure the Tapo C200 camera
+## 4. Configure Tapo cameras
 
-Set the camera-specific values in `config/local.conf`. Keep the username and
-password local and never commit them. The current camera is:
+Set camera-specific values in `config/local.conf`. Use a separate local camera
+account and password for each camera, keep them local, and never commit them.
+The verified cameras are:
 
 ```text
-Camera name: tplink_c200_1
-Camera address: 192.168.8.107
-RTSP port: 554
-Record stream: /stream1
-Detect stream: /stream2
-Detect size: 640x360
-Detect rate: 5 FPS
+Tapo C200
+  Camera name: tplink_c200_1
+  Camera address: 192.168.8.107
+  Record stream: /stream1
+  Detect stream: /stream2 at 640x360
+
+Tapo C320WS
+  Camera name: tplink_c320ws_1
+  Camera address: 192.168.8.110
+  Record stream: /stream1, H.264 1280x720 at 15 FPS
+  Detect stream: /stream2, H.264 640x360 at 15 FPS
+
+Shared settings
+  RTSP port: 554
+  ONVIF port: 2020
+  Frigate detect rate: 5 FPS
 ```
 
-Apply or verify the camera configuration with:
+Select the camera profile when applying or validating its configuration. The
+configuration script updates only that camera block and preserves other
+cameras:
 
 ```bash
-bash scripts/step10g-frigate-tapo-c200-config.sh
+TAPO_CAMERA_PROFILE=c200 bash scripts/step10g-frigate-tapo-c200-config.sh
+TAPO_CAMERA_PROFILE=c320ws bash scripts/step10g-frigate-tapo-c200-config.sh
 bash scripts/step10e-frigate-restart.sh
-bash scripts/step10h-frigate-camera-validation.sh
+TAPO_CAMERA_PROFILE=c200 bash scripts/step10h-frigate-camera-validation.sh
+TAPO_CAMERA_PROFILE=c320ws bash scripts/step10h-frigate-camera-validation.sh
 ```
 
 Step 10H validates the Frigate configuration, Docker Compose file, camera
 entry, direct record and detect RTSP streams, Frigate health, API camera list,
 and recent camera-specific logs.
+
+After adding a camera, reload the existing Home Assistant Frigate integration
+and wait for its camera entity without restarting Home Assistant:
+
+```bash
+TAPO_CAMERA_PROFILE=c320ws bash scripts/step10l-homeassistant-frigate-reload.sh
+```
 
 ## 5. Configure the Home Assistant Frigate endpoint
 

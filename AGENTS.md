@@ -40,18 +40,21 @@ The Home Assistant + MQTT + Frigate baseline is complete through Step 10N.
 MQTT authentication, weekly validated local backups, protected backup logging,
 and the stopped Home Assistant restore drill are verified.
 
-Camera-location-dependent work is postponed until the Tapo C200 is installed
-in its final location. At that point, the next project work is:
+The Tapo C320WS is verified as the second Frigate camera without breaking the
+Tapo C200 baseline. Both cameras are recording in Frigate and Home Assistant;
+camera-specific streams, recordings, person detection, snapshots, clips,
+MQTT, Intel VAAPI, and Coral detection are verified. Continue with:
 
-1. Configure and validate Frigate recording, detection, snapshot, and export
-   retention for the dedicated SSD.
-2. Research Frigate face recognition, including resource and privacy
+1. Improve the Home Assistant Frigate dashboard using the documented Live,
+   Review, and System/Admin views.
+2. Configure and validate Frigate recording, detection, snapshot, and export
+   retention for the dedicated SSD with both cameras included.
+3. Research Frigate face recognition, including resource and privacy
    requirements, before deployment.
-3. Improve the Home Assistant Frigate dashboard and camera cards.
 4. Research Hermes Agent integration with Home Assistant and decide whether
    CT 220 should remain the isolated Hermes gateway.
 
-Keep the verified one-camera baseline working while making these changes.
+Keep both verified camera baselines working while making these changes.
 
 ## Repository layout
 

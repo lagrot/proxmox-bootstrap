@@ -471,14 +471,70 @@ archive was restored to stopped temporary VM 900, its configuration and disks
 were validated host-side, and the temporary VM and volumes were removed.
 The procedure is documented in `docs/step12-backup-and-restore.md`.
 
+## Current Priority - Second Frigate Camera
+
+Install and integrate a Tapo C320WS as the second Frigate camera before doing
+further dashboard work. The implementation should preserve the verified Tapo
+C200 baseline and should cover:
+
+1. Reserve or discover the C320WS LAN address and record its non-secret device
+   identity and stream requirements.
+2. Confirm the camera's supported RTSP streams and create the required local
+   camera account without committing credentials.
+3. Extend the Frigate camera configuration automation so it supports both the
+   C200 and C320WS cleanly and idempotently.
+4. Validate record and detect streams, Frigate health, Intel VAAPI decoding,
+   Coral detection, MQTT events, recordings, and snapshots for the C320WS.
+5. Verify that the second camera and its entities appear in Home Assistant.
+6. Rerun the end-to-end Frigate/Home Assistant smoke test with both cameras.
+
+Current implementation status:
+
+- C320WS network access, RTSP port 554, and ONVIF port 2020 are verified.
+- `/stream1` is verified as H.264 1280x720 at 15 FPS with mono G.711 A-law
+  audio; `/stream2` is verified as H.264 640x360 at 15 FPS with the same audio.
+- Frigate is healthy with both `tplink_c200_1` and `tplink_c320ws_1`; direct
+  record/detect streams, API camera entries, Intel VAAPI, and Coral TPU passed.
+- Home Assistant exposes 16 C320WS entities after an automated Frigate
+  integration reload, and both camera entities report `recording`.
+- Recent recording segments are verified for both cameras. MQTT availability
+  is online.
+- The two-camera smoke test completed with no failed tracks or warnings. A
+  camera-specific C320WS `person` event was verified with both a snapshot and
+  a video clip.
+
+The second-camera integration is complete. The next priority is the documented
+two-camera Home Assistant Frigate dashboard improvement.
+
+## Planned Frigate Dashboard Improvement
+
+Dashboard implementation is postponed until the C320WS is integrated so the
+layout and automation are designed for both cameras. The planned dashboard has
+three responsive views:
+
+1. **Live:** the default daily view, with prominent live video, compact camera
+   availability, motion/person status, object counts, and a recording control.
+2. **Review:** recent detections, recordings, snapshots, and navigation to
+   Frigate Review or Home Assistant Media Browser. Start with supported native
+   features, then evaluate Advanced Camera Card for richer timeline and media
+   playback.
+3. **System/Admin:** advanced detection, motion, snapshot, and review switches;
+   recent activity history; verified diagnostics; and links to Frigate and
+   entity details. Keep these controls away from the limited daily-use screen.
+
+The dashboard should remain mobile-friendly, idempotently managed by
+`scripts/step10m-homeassistant-frigate-dashboard.sh`, and limited to verified
+entities. Do not display TPU or GPU status unless reliable Home Assistant
+entities are available.
+
 ## Later Tasks
 
 - Configure and verify Frigate retention for recordings, detections, snapshots,
   and exports, with a storage-conscious policy for the dedicated SSD.
 - Evaluate and configure Frigate face recognition, including model/resource
   requirements, privacy boundaries, and Home Assistant entity/event behavior.
-- Improve the Home Assistant Frigate dashboard with a more useful camera card
-  layout for live view, recent detections, recordings, and event navigation.
+- Implement the documented three-view Home Assistant Frigate dashboard after
+  the Tapo C320WS is integrated.
 - Research Hermes Agent integration with Home Assistant, including available
   APIs/integration patterns, security boundaries, and whether the dedicated
   CT 220 Hermes LXC remains necessary or should continue as the isolated
