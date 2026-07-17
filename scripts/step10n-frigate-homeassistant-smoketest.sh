@@ -25,7 +25,10 @@ MQTT_USERNAME="${MQTT_USERNAME:-}"
 MQTT_PASSWORD="${MQTT_PASSWORD:-}"
 FRIGATE_INTERNAL_PORT="$FRIGATE_INTERNAL_PORT"
 HA_HTTP_PORT="$HA_HTTP_PORT"
-HA_CAMERA_ENTITY="camera.tplink_c200_1"
+CAMERA_NAMES=(
+  "${TAPO_C200_NAME:-tplink_c200_1}"
+  "${TAPO_C320WS_NAME:-tplink_c320ws_1}"
+)
 RECORDING_LOOKBACK_MINUTES="30"
 MQTT_EVENT_WAIT_SECONDS="20"
 
@@ -66,8 +69,10 @@ track_frigate() {
   http_code="$(curl -sS -o /dev/null -w '%{http_code}' --max-time 10 "http://$frigate_ip:$FRIGATE_INTERNAL_PORT" || true)"
   [[ "$http_code" =~ ^(200|301|302|307|308|400|401|403)$ ]] ||
     { echo "ERROR: Frigate endpoint returned HTTP $http_code"; return 1; }
-  pct exec "$FRIGATE_CT_ID" -- grep -q tplink_c200_1 /opt/frigate/config/config.yml ||
-    { echo "ERROR: Tapo C200 is absent from Frigate config"; return 1; }
+  for camera_name in "${CAMERA_NAMES[@]}"; do
+    pct exec "$FRIGATE_CT_ID" -- grep -qxF "  $camera_name:" /opt/frigate/config/config.yml ||
+      { echo "ERROR: $camera_name is absent from Frigate config"; return 1; }
+  done
   echo "INFO: Frigate service and camera configuration are healthy"
 }
 
@@ -82,35 +87,46 @@ track_homeassistant() {
   [[ "$api_code" == 200 ]] || { echo "ERROR: Home Assistant API returned HTTP $api_code"; return 1; }
   python3 -c '
 import json, sys
-camera = sys.argv[1]
+cameras = sys.argv[1:]
 states = json.load(sys.stdin)
-required = {camera, "switch.tplink_c200_1_detect", "switch.tplink_c200_1_recordings",
-            "switch.tplink_c200_1_snapshots", "binary_sensor.tplink_c200_1_motion",
-            "sensor.tplink_c200_1_review_status"}
+required = set()
+for camera in cameras:
+    required.update({
+        f"camera.{camera}",
+        f"switch.{camera}_detect",
+        f"switch.{camera}_recordings",
+        f"switch.{camera}_snapshots",
+        f"binary_sensor.{camera}_motion",
+        f"sensor.{camera}_review_status",
+    })
 available = {item.get("entity_id") for item in states}
 missing = sorted(required - available)
 if missing:
     print("missing=" + ",".join(missing))
     raise SystemExit(1)
-state = next(item.get("state") for item in states if item.get("entity_id") == camera)
-print("camera_state=" + str(state))
-if state in {"unknown", "unavailable"}:
-    raise SystemExit(2)
-' "$HA_CAMERA_ENTITY" < "$WORK_DIR/ha-states.json" ||
+for camera in cameras:
+    entity = f"camera.{camera}"
+    state = next(item.get("state") for item in states if item.get("entity_id") == entity)
+    print(f"{entity}_state=" + str(state))
+    if state in {"unknown", "unavailable"}:
+        raise SystemExit(2)
+' "${CAMERA_NAMES[@]}" < "$WORK_DIR/ha-states.json" ||
     { echo "ERROR: required Home Assistant entities are missing or unavailable"; return 1; }
   echo "INFO: Home Assistant camera and Frigate control entities are available"
 }
 
 track_recording() {
   echo "INFO: checking recent recording output"
-  recordings="$(pct exec "$FRIGATE_CT_ID" -- find /mnt/frigate/recordings -type f -name '*.mp4' \
-    -mmin "-$RECORDING_LOOKBACK_MINUTES" 2>/dev/null | head -1 || true)"
-  if [[ -n "$recordings" ]]; then
-    echo "INFO: recent recording segment found"
-  else
-    echo "WARN: no recording segment found in the last $RECORDING_LOOKBACK_MINUTES minutes"
-    echo "WARN: confirm recording is enabled and retry"
-  fi
+  for camera_name in "${CAMERA_NAMES[@]}"; do
+    recordings="$(pct exec "$FRIGATE_CT_ID" -- find /mnt/frigate/recordings -type f \
+      -path "*/$camera_name/*" -name '*.mp4' -mmin "-$RECORDING_LOOKBACK_MINUTES" \
+      2>/dev/null | head -1 || true)"
+    if [[ -n "$recordings" ]]; then
+      echo "INFO: recent recording segment found for $camera_name"
+    else
+      echo "WARN: no recent recording segment found for $camera_name"
+    fi
+  done
 }
 
 track_mqtt() {

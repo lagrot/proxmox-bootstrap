@@ -18,6 +18,7 @@ VM 100: Home Assistant OS
 
 CT 200: docker-core
   Purpose: Docker Compose / Frigate
+  Cameras: Tapo C200 and Tapo C320WS
   Frigate URL: https://192.168.8.104:8971
   Home Assistant integration URL: http://192.168.8.104:5000
 
@@ -105,6 +106,7 @@ scripts/
 - `scripts/step10i-frigate-tpu-validation.sh`
 - `scripts/step10j-frigate-gpu-validation.sh`
 - `scripts/step10k-homeassistant-hacs-bootstrap.sh`
+- `scripts/step10l-homeassistant-frigate-reload.sh`
 - `scripts/step10m-homeassistant-frigate-dashboard.sh`
 - `scripts/step10n-frigate-homeassistant-smoketest.sh`
 - `scripts/step12-backup.sh`

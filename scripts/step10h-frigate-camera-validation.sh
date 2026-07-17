@@ -24,10 +24,27 @@ FRIGATE_APP_DIR="${FRIGATE_APP_DIR:-/opt/frigate}"
 FRIGATE_CONFIG_FILE="${FRIGATE_CONFIG_FILE:-/opt/frigate/config/config.yml}"
 FRIGATE_WEB_PORT="${FRIGATE_WEB_PORT:-8971}"
 
-CAMERA_NAME="${TAPO_CAMERA_NAME:-tapo_c200}"
-CAMERA_IP="${TAPO_CAMERA_IP:-}"
-CAMERA_USERNAME="${TAPO_CAMERA_USERNAME:-}"
-CAMERA_PASSWORD="${TAPO_CAMERA_PASSWORD:-}"
+TAPO_CAMERA_PROFILE="${TAPO_CAMERA_PROFILE:-c200}"
+
+case "${TAPO_CAMERA_PROFILE}" in
+  c200)
+    CAMERA_NAME="${TAPO_C200_NAME:-${TAPO_CAMERA_NAME:-tplink_c200_1}}"
+    CAMERA_IP="${TAPO_C200_IP:-${TAPO_CAMERA_IP:-}}"
+    CAMERA_USERNAME="${TAPO_C200_USERNAME:-${TAPO_CAMERA_USERNAME:-}}"
+    CAMERA_PASSWORD="${TAPO_C200_PASSWORD:-${TAPO_CAMERA_PASSWORD:-}}"
+    ;;
+  c320ws)
+    CAMERA_NAME="${TAPO_C320WS_NAME:-tplink_c320ws_1}"
+    CAMERA_IP="${TAPO_C320WS_IP:-}"
+    CAMERA_USERNAME="${TAPO_C320WS_USERNAME:-}"
+    CAMERA_PASSWORD="${TAPO_C320WS_PASSWORD:-}"
+    ;;
+  *)
+    log_error "Unsupported TAPO_CAMERA_PROFILE: ${TAPO_CAMERA_PROFILE} (use c200 or c320ws)"
+    exit 1
+    ;;
+esac
+
 CAMERA_RTSP_PORT="${TAPO_CAMERA_RTSP_PORT:-554}"
 CAMERA_RECORD_STREAM_PATH="${TAPO_CAMERA_RECORD_STREAM_PATH:-/stream1}"
 CAMERA_DETECT_STREAM_PATH="${TAPO_CAMERA_DETECT_STREAM_PATH:-/stream2}"
@@ -258,9 +275,14 @@ else
   RECENT_LOGS="$(pct exec "${FRIGATE_CT_ID}" -- docker logs --tail 250 frigate 2>&1 || true)"
 fi
 
-if grep -qiE "${CAMERA_NAME}.*(error|failed|timed out|timeout|unauthorized|401|no frames|unable|invalid data)" <<< "${RECENT_LOGS}"; then
+# HTTP access logs contain response sizes and user-agent strings that can look
+# like error codes. Restrict failure matching to Frigate/FFmpeg application
+# logs so successful media requests do not produce false positives.
+CAMERA_LOGS="$(grep -viE '\"(GET|POST|PUT|DELETE|PATCH) .* HTTP/' <<< "${RECENT_LOGS}" || true)"
+
+if grep -qiE "${CAMERA_NAME}.*(error|failed|timed out|timeout|unauthorized|(^|[^0-9])401([^0-9]|$)|no frames|unable|invalid data)" <<< "${CAMERA_LOGS}"; then
   record_error "Recent Frigate logs contain camera-specific error messages for ${CAMERA_NAME}"
-elif grep -qi "${CAMERA_NAME}" <<< "${RECENT_LOGS}"; then
+elif grep -qi "${CAMERA_NAME}" <<< "${CAMERA_LOGS}"; then
   log_info "Recent Frigate logs mention camera ${CAMERA_NAME}"
 else
   record_warn "Recent Frigate logs do not mention camera ${CAMERA_NAME} yet"
