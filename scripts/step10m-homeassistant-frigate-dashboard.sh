@@ -24,7 +24,9 @@ HA_TOKEN="${HA_TOKEN:-}"
 HA_DASHBOARD_URL_PATH="${HA_DASHBOARD_URL_PATH:-frigate-dashboard}"
 HA_DASHBOARD_TITLE="${HA_DASHBOARD_TITLE:-Frigate}"
 HA_DASHBOARD_ICON="${HA_DASHBOARD_ICON:-mdi:cctv}"
-FRIGATE_CAMERA_ENTITY="${FRIGATE_CAMERA_ENTITY:-camera.tplink_c200_1}"
+C200_NAME="${TAPO_C200_NAME:-tplink_c200_1}"
+C320WS_NAME="${TAPO_C320WS_NAME:-tplink_c320ws_1}"
+FRIGATE_CT_ID="${DOCKER_CT_ID:-200}"
 FORCE_UPDATE="${FORCE_UPDATE:-0}"
 
 VALIDATION_ERRORS=0
@@ -48,7 +50,7 @@ if [[ "${EUID}" -ne 0 ]]; then
   record_error "This script must be run as root"
 fi
 
-for cmd in qm grep base64; do
+for cmd in qm pct awk grep base64; do
   check_host_command "${cmd}"
 done
 
@@ -60,13 +62,25 @@ if [[ "${VALIDATION_ERRORS}" -gt 0 ]]; then
   exit 1
 fi
 
+FRIGATE_CT_IP="$(
+  pct exec "${FRIGATE_CT_ID}" -- ip -4 -o addr show dev eth0 2>/dev/null \
+    | awk '{ split($4, address, "/"); print address[1]; exit }' || true
+)"
+
+if [[ -z "${FRIGATE_CT_IP}" ]]; then
+  record_error "Could not detect the Frigate CT IPv4 address"
+  exit 1
+fi
+
+FRIGATE_REVIEW_URL="https://${FRIGATE_CT_IP}:${FRIGATE_WEB_PORT:-8971}/review"
+
 log_info "Preparing native Frigate dashboard configuration..."
 DASHBOARD_CONFIG_B64="$(base64 -w0 <<EOF
 {
   "views": [
     {
-      "title": "Cameras",
-      "path": "cameras",
+      "title": "Live",
+      "path": "live",
       "icon": "mdi:cctv",
       "type": "sections",
       "max_columns": 2,
@@ -76,16 +90,31 @@ DASHBOARD_CONFIG_B64="$(base64 -w0 <<EOF
           "cards": [
             {
               "type": "heading",
-              "heading": "Live camera",
+              "heading": "Tapo C200",
               "icon": "mdi:camera-wireless"
             },
             {
               "type": "picture-entity",
-              "entity": "${FRIGATE_CAMERA_ENTITY}",
+              "entity": "camera.${C200_NAME}",
               "camera_view": "live",
               "show_name": true,
               "show_state": true,
               "fit_mode": "cover"
+            },
+            {
+              "type": "tile",
+              "entity": "binary_sensor.${C200_NAME}_motion",
+              "name": "Motion"
+            },
+            {
+              "type": "tile",
+              "entity": "binary_sensor.${C200_NAME}_person_occupancy",
+              "name": "Person"
+            },
+            {
+              "type": "tile",
+              "entity": "sensor.${C200_NAME}_person_count",
+              "name": "People"
             }
           ]
         },
@@ -94,20 +123,167 @@ DASHBOARD_CONFIG_B64="$(base64 -w0 <<EOF
           "cards": [
             {
               "type": "heading",
-              "heading": "Camera controls",
+              "heading": "Tapo C320WS",
+              "icon": "mdi:camera-wireless"
+            },
+            {
+              "type": "picture-entity",
+              "entity": "camera.${C320WS_NAME}",
+              "camera_view": "live",
+              "show_name": true,
+              "show_state": true,
+              "fit_mode": "cover"
+            },
+            {
+              "type": "tile",
+              "entity": "binary_sensor.${C320WS_NAME}_motion",
+              "name": "Motion"
+            },
+            {
+              "type": "tile",
+              "entity": "binary_sensor.${C320WS_NAME}_person_occupancy",
+              "name": "Person"
+            },
+            {
+              "type": "tile",
+              "entity": "sensor.${C320WS_NAME}_person_count",
+              "name": "People"
+            }
+          ]
+        },
+        {
+          "type": "grid",
+          "cards": [
+            {
+              "type": "heading",
+              "heading": "Quick recording controls",
+              "icon": "mdi:record-rec"
+            },
+            {
+              "type": "tile",
+              "entity": "switch.${C200_NAME}_recordings",
+              "name": "C200 recording"
+            },
+            {
+              "type": "tile",
+              "entity": "switch.${C320WS_NAME}_recordings",
+              "name": "C320WS recording"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "title": "Review",
+      "path": "review",
+      "icon": "mdi:play-box-multiple",
+      "type": "sections",
+      "max_columns": 2,
+      "sections": [
+        {
+          "type": "grid",
+          "cards": [
+            {
+              "type": "heading",
+              "heading": "Latest C200 person",
+              "icon": "mdi:account-search"
+            },
+            {
+              "type": "picture-entity",
+              "entity": "image.${C200_NAME}_person",
+              "show_name": true,
+              "show_state": true,
+              "fit_mode": "contain"
+            },
+            {
+              "type": "entities",
+              "entities": [
+                "sensor.${C200_NAME}_review_status",
+                "sensor.${C200_NAME}_person_count",
+                "sensor.${C200_NAME}_all_count"
+              ]
+            }
+          ]
+        },
+        {
+          "type": "grid",
+          "cards": [
+            {
+              "type": "heading",
+              "heading": "Latest C320WS person",
+              "icon": "mdi:account-search"
+            },
+            {
+              "type": "picture-entity",
+              "entity": "image.${C320WS_NAME}_person",
+              "show_name": true,
+              "show_state": true,
+              "fit_mode": "contain"
+            },
+            {
+              "type": "entities",
+              "entities": [
+                "sensor.${C320WS_NAME}_review_status",
+                "sensor.${C320WS_NAME}_person_count",
+                "sensor.${C320WS_NAME}_all_count"
+              ]
+            }
+          ]
+        },
+        {
+          "type": "grid",
+          "cards": [
+            {
+              "type": "heading",
+              "heading": "Recordings and events",
+              "icon": "mdi:movie-open"
+            },
+            {
+              "type": "button",
+              "name": "Home Assistant media",
+              "icon": "mdi:folder-play",
+              "tap_action": {
+                "action": "navigate",
+                "navigation_path": "/media-browser/browser"
+              }
+            },
+            {
+              "type": "button",
+              "name": "Open Frigate Review",
+              "icon": "mdi:cctv",
+              "tap_action": {
+                "action": "url",
+                "url_path": "${FRIGATE_REVIEW_URL}"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "title": "System",
+      "path": "system",
+      "icon": "mdi:cog-outline",
+      "type": "sections",
+      "max_columns": 2,
+      "sections": [
+        {
+          "type": "grid",
+          "cards": [
+            {
+              "type": "heading",
+              "heading": "C200 advanced controls",
               "icon": "mdi:shield-video"
             },
             {
               "type": "entities",
-              "title": "Tapo C200",
               "show_header_toggle": false,
               "entities": [
-                "switch.tplink_c200_1_detect",
-                "switch.tplink_c200_1_recordings",
-                "switch.tplink_c200_1_snapshots",
-                "switch.tplink_c200_1_motion",
-                "switch.tplink_c200_1_review_alerts",
-                "switch.tplink_c200_1_review_detections"
+                "switch.${C200_NAME}_detect",
+                "switch.${C200_NAME}_motion",
+                "switch.${C200_NAME}_snapshots",
+                "switch.${C200_NAME}_review_alerts",
+                "switch.${C200_NAME}_review_detections"
               ]
             }
           ]
@@ -117,19 +293,87 @@ DASHBOARD_CONFIG_B64="$(base64 -w0 <<EOF
           "cards": [
             {
               "type": "heading",
-              "heading": "Detection status",
-              "icon": "mdi:motion-sensor"
+              "heading": "C320WS advanced controls",
+              "icon": "mdi:shield-video"
+            },
+            {
+              "type": "entities",
+              "show_header_toggle": false,
+              "entities": [
+                "switch.${C320WS_NAME}_detect",
+                "switch.${C320WS_NAME}_motion",
+                "switch.${C320WS_NAME}_snapshots",
+                "switch.${C320WS_NAME}_review_alerts",
+                "switch.${C320WS_NAME}_review_detections"
+              ]
+            }
+          ]
+        },
+        {
+          "type": "grid",
+          "cards": [
+            {
+              "type": "heading",
+              "heading": "Activity - last 24 hours",
+              "icon": "mdi:chart-timeline-variant"
+            },
+            {
+              "type": "history-graph",
+              "title": "C200 activity",
+              "hours_to_show": 24,
+              "entities": [
+                {
+                  "entity": "binary_sensor.${C200_NAME}_motion",
+                  "name": "Motion"
+                },
+                {
+                  "entity": "binary_sensor.${C200_NAME}_person_occupancy",
+                  "name": "Person"
+                }
+              ]
+            },
+            {
+              "type": "history-graph",
+              "title": "C320WS activity",
+              "hours_to_show": 24,
+              "entities": [
+                {
+                  "entity": "binary_sensor.${C320WS_NAME}_motion",
+                  "name": "Motion"
+                },
+                {
+                  "entity": "binary_sensor.${C320WS_NAME}_person_occupancy",
+                  "name": "Person"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "grid",
+          "cards": [
+            {
+              "type": "heading",
+              "heading": "Camera diagnostics",
+              "icon": "mdi:heart-pulse"
             },
             {
               "type": "entities",
               "entities": [
-                "binary_sensor.tplink_c200_1_motion",
-                "binary_sensor.tplink_c200_1_person_occupancy",
-                "binary_sensor.tplink_c200_1_all_occupancy",
-                "sensor.tplink_c200_1_person_count",
-                "sensor.tplink_c200_1_all_count",
-                "sensor.tplink_c200_1_review_status"
+                "camera.${C200_NAME}",
+                "sensor.${C200_NAME}_review_status",
+                "camera.${C320WS_NAME}",
+                "sensor.${C320WS_NAME}_review_status"
               ]
+            },
+            {
+              "type": "button",
+              "name": "Open Frigate",
+              "icon": "mdi:open-in-new",
+              "tap_action": {
+                "action": "url",
+                "url_path": "https://${FRIGATE_CT_IP}:${FRIGATE_WEB_PORT:-8971}"
+              }
             }
           ]
         }
@@ -200,9 +444,34 @@ try:
     else:
         print("dashboard_update=enabled")
 
+    states = request(ws, 3, "get_states")
+    available_entities = {item.get("entity_id") for item in states}
+
+    def collect_entities(value):
+        found = set()
+        if isinstance(value, dict):
+            entity = value.get("entity")
+            if isinstance(entity, str):
+                found.add(entity)
+            entities = value.get("entities")
+            if isinstance(entities, list):
+                found.update(item for item in entities if isinstance(item, str))
+            for child in value.values():
+                found.update(collect_entities(child))
+        elif isinstance(value, list):
+            for child in value:
+                found.update(collect_entities(child))
+        return found
+
+    required_entities = collect_entities(CONFIG)
+    missing_entities = sorted(required_entities - available_entities)
+    if missing_entities:
+        raise RuntimeError("Dashboard entities not found: " + ", ".join(missing_entities))
+    print("dashboard_entities_validated=" + str(len(required_entities)))
+
     request(
         ws,
-        3,
+        4,
         "lovelace/config/save",
         url_path=URL_PATH,
         config=CONFIG,

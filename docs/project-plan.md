@@ -503,14 +503,12 @@ Current implementation status:
   camera-specific C320WS `person` event was verified with both a snapshot and
   a video clip.
 
-The second-camera integration is complete. The next priority is the documented
-two-camera Home Assistant Frigate dashboard improvement.
+The second-camera integration is complete.
 
-## Planned Frigate Dashboard Improvement
+## Two-Camera Frigate Dashboard
 
-Dashboard implementation is postponed until the C320WS is integrated so the
-layout and automation are designed for both cameras. The planned dashboard has
-three responsive views:
+The native dashboard automation now generates three responsive views for both
+cameras:
 
 1. **Live:** the default daily view, with prominent live video, compact camera
    availability, motion/person status, object counts, and a recording control.
@@ -522,10 +520,14 @@ three responsive views:
    recent activity history; verified diagnostics; and links to Frigate and
    entity details. Keep these controls away from the limited daily-use screen.
 
-The dashboard should remain mobile-friendly, idempotently managed by
-`scripts/step10m-homeassistant-frigate-dashboard.sh`, and limited to verified
-entities. Do not display TPU or GPU status unless reliable Home Assistant
-entities are available.
+The updated configuration was accepted by Home Assistant and verified through
+the WebSocket API as three views with 32 cards in total. The script remains
+idempotent, validates all referenced entities before saving, and does not show
+TPU or GPU status because reliable Home Assistant entities are not available.
+The desktop layout is visually verified. Live streams, review images, controls,
+diagnostics, and history render correctly; activity graph rows use compact
+`Motion` and `Person` labels. Icon-only view navigation is retained because
+Home Assistant displays each view title on hover.
 
 ## Later Tasks
 
@@ -533,8 +535,8 @@ entities are available.
   and exports, with a storage-conscious policy for the dedicated SSD.
 - Evaluate and configure Frigate face recognition, including model/resource
   requirements, privacy boundaries, and Home Assistant entity/event behavior.
-- Implement the documented three-view Home Assistant Frigate dashboard after
-  the Tapo C320WS is integrated.
+- After visually validating the native dashboard, evaluate Advanced Camera
+  Card only if richer Review timeline and media playback are needed.
 - Research Hermes Agent integration with Home Assistant, including available
   APIs/integration patterns, security boundaries, and whether the dedicated
   CT 220 Hermes LXC remains necessary or should continue as the isolated
