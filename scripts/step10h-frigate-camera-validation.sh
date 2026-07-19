@@ -136,6 +136,24 @@ else
   record_warn "TAPO_CAMERA_IP is not set; skipping camera IP check"
 fi
 
+log_info "Checking direct RTSP input preset..."
+CAMERA_INPUT_ARGS="$(
+  pct exec "${FRIGATE_CT_ID}" -- docker exec frigate python3 -c '
+import sys, yaml
+config = yaml.safe_load(open("/config/config.yml"))
+camera = (config.get("cameras") or {}).get(sys.argv[1], {})
+print("\n".join(str(item.get("input_args", "")) for item in (camera.get("ffmpeg") or {}).get("inputs", [])))
+' "${CAMERA_NAME}" 2>/dev/null || true
+)"
+
+if [[ -z "${CAMERA_INPUT_ARGS}" ]]; then
+  record_error "Could not read FFmpeg input arguments for ${CAMERA_NAME}"
+elif grep -qvxF 'preset-rtsp-generic' <<< "${CAMERA_INPUT_ARGS}"; then
+  record_error "Direct camera inputs for ${CAMERA_NAME} do not all use preset-rtsp-generic"
+else
+  log_info "Direct camera inputs use preset-rtsp-generic timestamp handling"
+fi
+
 log_info "Validating Docker Compose file..."
 pct exec "${FRIGATE_CT_ID}" -- bash -c "cd '${FRIGATE_APP_DIR}' && docker compose config >/dev/null"
 
