@@ -12,6 +12,7 @@ LAN service addresses are assigned by DHCP and pinned with router DHCP reservati
 Proxmox Host: nad9-1
 IP:           192.168.8.10
 Tailscale:    100.66.43.1
+Zigbee USB:   Sonoff ZBDongle-P passed to HAOS; ZHA loaded
 
 VM 100: Home Assistant OS
   URL: http://192.168.8.105:8123
@@ -124,6 +125,8 @@ scripts/
 - `scripts/step18b-frigate-upgrade.sh`
 - `scripts/step18c-frigate-post-upgrade-validation.sh`
 - `scripts/step18d-frigate-rollback.sh`
+- `scripts/step19a-homeassistant-zigbee-usb.sh`
+- `scripts/step19b-homeassistant-zigbee-validation.sh`
 
 ## Remote access
 
@@ -131,6 +134,8 @@ Remote access is documented in `docs/step11-remote-access-tailscale.md`.
 
 The complete Frigate/Home Assistant integration procedure is documented in
 `docs/step10-frigate-homeassistant-integration.md`.
+The Zigbee coordinator procedure is documented in
+`docs/step19-homeassistant-zigbee.md`.
 
 Current verified remote access:
 
@@ -196,6 +201,8 @@ The `old/` directory contains scripts that are kept for historical reference but
 | Step 18B | Controlled Frigate upgrade executor | dry-run verified |
 | Step 18C | Post-upgrade regression orchestration | baseline verified |
 | Step 18D | Explicit Frigate rollback | restore-test verified |
+| Step 19A | Sonoff ZBDongle-P passthrough to HAOS | verified |
+| Step 19B | HAOS Zigbee hardware and ZHA validation | verified; pairing pending first device |
 
 ## Hermes CT 220 baseline
 
