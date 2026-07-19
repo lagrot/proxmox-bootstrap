@@ -252,7 +252,7 @@ record:
 snapshots:
   enabled: true
   retain:
-    default: 30
+    default: 10
 
 cameras: {}
 EOF
