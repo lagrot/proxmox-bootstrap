@@ -232,6 +232,10 @@ chmod -R 775 /mnt/frigate
 | Step 13 | Frigate snapshot and export retention policy | verified |
 | Step 13B | Frigate media retention and capacity validation | verified |
 | Step 14A | Face-recognition readiness assessment | verified research |
+| Step 18A | Frigate stable-upgrade preflight | verified on 0.17.2 |
+| Step 18B | Controlled Frigate upgrade executor | dry-run verified |
+| Step 18C | Post-upgrade regression orchestration | baseline verified |
+| Step 18D | Explicit Frigate rollback | restore-test verified |
 
 ## Service Decisions
 
@@ -605,6 +609,23 @@ household members may be enrolled, visitors must not be auto-enrolled, and all
 face processing and training data must remain local. The assessment and next
 decision gates are documented in `docs/step14-face-recognition.md`.
 
+## Controlled Frigate Upgrade Procedure
+
+Steps 18A-18D provide a version-independent procedure for later stable Frigate
+upgrades. They require an exact numeric image tag, explicit release-note review,
+target-image config validation, a stopped-state backup, exact version/health
+checks, the complete regression suite, and matching config/database rollback.
+Moving tags and prerelease strings are rejected.
+
+The tooling has been safely tested against the current pinned `0.17.2`
+baseline: Step 18A passed without mutation, Step 18B passed in dry-run mode,
+Step 18C passed all seven regression tracks in baseline mode, and Step 18D
+passed a temporary restore test. No real Frigate upgrade or production rollback
+has been performed. Frigate remains pinned to `0.17.2`.
+
+The complete operator procedure and acceptance/rollback boundaries are in
+`docs/step18-frigate-upgrade.md`.
+
 ## Later Tasks
 
 The agreed near-term roadmap is:
@@ -620,10 +641,9 @@ The agreed near-term roadmap is:
    Hermes gateway.
 4. **Step 17 - Zones, masks, and detection tuning:** configure these after the
    cameras reach their final physical positions.
-5. **Step 18 - Controlled Frigate upgrade procedure:** upgrade only to a later
-   stable release using a pinned version, release-note review, validated
-   configuration and backup, post-upgrade regression tests, and tested
-   rollback. Do not deploy beta, release-candidate, or development images.
+5. **Step 18 - Controlled Frigate upgrade procedure:** tooling and safe baseline
+   tests are complete. Use it only after a later stable release is selected and
+   reviewed. No production upgrade has yet been performed.
 
 Additional later work:
 

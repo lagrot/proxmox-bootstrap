@@ -120,6 +120,10 @@ scripts/
 - `scripts/step13-frigate-media-retention.sh`
 - `scripts/step13b-frigate-media-retention-validation.sh`
 - `scripts/step14a-frigate-face-recognition-readiness.sh`
+- `scripts/step18a-frigate-upgrade-preflight.sh`
+- `scripts/step18b-frigate-upgrade.sh`
+- `scripts/step18c-frigate-post-upgrade-validation.sh`
+- `scripts/step18d-frigate-rollback.sh`
 
 ## Remote access
 
@@ -188,6 +192,10 @@ The `old/` directory contains scripts that are kept for historical reference but
 | Step 13 | Frigate snapshot and export retention policy | verified |
 | Step 13B | Frigate media retention and capacity validation | verified |
 | Step 14A | Face-recognition readiness assessment | verified research |
+| Step 18A | Frigate stable-upgrade preflight | verified on 0.17.2 |
+| Step 18B | Controlled Frigate upgrade executor | dry-run verified |
+| Step 18C | Post-upgrade regression orchestration | baseline verified |
+| Step 18D | Explicit Frigate rollback | restore-test verified |
 
 ## Hermes CT 220 baseline
 
