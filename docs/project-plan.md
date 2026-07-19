@@ -213,14 +213,16 @@ chmod -R 775 /mnt/frigate
 | Step 10D | Frigate MQTT config | verified |
 | Step 10E | Frigate restart | verified |
 | Step 10F | Frigate MQTT publishing | verified |
-| Step 10G | Frigate Tapo C200 camera config automation | verified |
+| Step 10G | Frigate Tapo camera config automation | verified |
 | Step 10H | Frigate camera validation automation | verified |
 | Step 10I | Frigate USB Coral TPU validation | verified |
 | Step 10J | Frigate Intel GPU/VAAPI validation | verified |
 | Step 10K | Home Assistant HACS bootstrap | verified |
-| Step 10L | Home Assistant Frigate integration and Tapo C200 entities | verified |
+| Step 10L | Home Assistant Frigate integration and two-camera entities | verified |
 | Step 10M | Home Assistant Frigate dashboard automation | verified |
 | Step 10N | Frigate/Home Assistant smoke test | verified |
+| Step 10O | Frigate event-only recording configuration | verified |
+| Step 10P | Frigate event-only recording validation | verified |
 | Step 11 | Remote access with Tailscale | verified |
 | Step 12 | Local service backup and temporary restore validation | verified |
 | Step 12B | Scheduled validated backup operation | verified |
@@ -281,7 +283,9 @@ detectors:
 
 cameras:
   tplink_c200_1:
-    # Full RTSP and stream settings are managed by step10g.
+    # Full RTSP and stream settings are managed by Step 10G.
+  tplink_c320ws_1:
+    # Full RTSP and stream settings are managed by Step 10G.
 ```
 
 ### CT 210 - MQTT
@@ -400,9 +404,10 @@ qm status 100
 
 ## Step 10 Integration Status
 
-The Home Assistant + MQTT + Frigate integration is complete through the
-end-to-end smoke test (Step 10N). The verified workflow and operator notes are
-maintained in `docs/step10-frigate-homeassistant-integration.md`.
+The Home Assistant + MQTT + Frigate integration, two-camera smoke test, and
+event-only recording policy are complete through Step 10P. The verified
+workflow and operator notes are maintained in
+`docs/step10-frigate-homeassistant-integration.md`.
 
 Step 10 validation scripts should discover runtime IP addresses from Proxmox guest/container state. The current LAN addresses are pinned by router DHCP reservations, but scripts should still avoid hardcoding LAN IPs where practical. Frigate still requires a broker address in its own runtime config; rerun `scripts/step10d-frigate-mqtt-config.sh` if the MQTT CT address changes.
 
@@ -416,7 +421,7 @@ Suggested scope:
 6. Verify Frigate publishes to MQTT with `scripts/step10f-frigate-mqtt-validation.sh`. Completed.
 7. Install FFmpeg in CT 200 as the camera-test dependency during Frigate deployment. Completed.
 8. Add the Frigate integration in Home Assistant. Completed.
-9. Confirm the Tapo C200 camera/entities appear in Home Assistant. Completed.
+9. Confirm both Tapo cameras and their entities appear in Home Assistant. Completed.
 10. Validate live view, recording, detection, and MQTT events through Home Assistant. Completed successfully with `scripts/step10n-frigate-homeassistant-smoketest.sh`.
 
 The HACS app repository and official Get HACS app are bootstrapped with `scripts/step10k-homeassistant-hacs-bootstrap.sh` through the Home Assistant OS guest-agent `ha` CLI. One-time GitHub device authorization remains an operator security step.
@@ -426,12 +431,13 @@ The HACS app repository and official Get HACS app are bootstrapped with `scripts
 The Frigate Home Assistant integration work will be split into independent tracks:
 
 1. **Home Assistant integration track:** add the Frigate integration through the Home Assistant UI using `http://<Frigate-CT-IP>:5000`. Completed.
-2. **API/entity verification track:** verify that the Frigate integration is loaded and that the Tapo C200 device and camera entities are present through Home Assistant APIs and entity registries where available. Completed.
+2. **API/entity verification track:** verify that the Frigate integration is loaded and that both Tapo devices and their camera entities are present through Home Assistant APIs and entity registries where available. Completed.
 3. **Frigate baseline track:** run the existing camera, MQTT, Coral TPU, and Intel VAAPI validations in parallel to establish that the external Frigate service remains healthy during integration. Completed.
 4. **Documentation track:** record only durable configuration decisions and verified entity names after the camera is visible in Home Assistant. Completed.
 
-The Tapo C200 camera is visible through the Frigate integration. Future
-platform additions should be evaluated separately from this completed baseline.
+The Tapo C200 and C320WS cameras are visible through the Frigate integration.
+Future platform additions should be evaluated separately from this completed
+baseline.
 
 ## Remote Access
 
@@ -471,11 +477,10 @@ archive was restored to stopped temporary VM 900, its configuration and disks
 were validated host-side, and the temporary VM and volumes were removed.
 The procedure is documented in `docs/step12-backup-and-restore.md`.
 
-## Current Priority - Second Frigate Camera
+## Completed Second Frigate Camera Integration
 
-Install and integrate a Tapo C320WS as the second Frigate camera before doing
-further dashboard work. The implementation should preserve the verified Tapo
-C200 baseline and should cover:
+The Tapo C320WS was integrated as the second Frigate camera while preserving
+the verified Tapo C200 baseline. The completed implementation covers:
 
 1. Reserve or discover the C320WS LAN address and record its non-secret device
    identity and stream requirements.
