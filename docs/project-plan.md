@@ -253,7 +253,7 @@ Frigate runs in CT 200 through Docker Compose.
 | CT ID | `200` |
 | Hostname | `docker-core` |
 | IP | `192.168.8.104` |
-| Image | `ghcr.io/blakeblackshear/frigate:stable` |
+| Image | `ghcr.io/blakeblackshear/frigate:0.17.2` (pinned; upgrade deliberately after validation) |
 | Authenticated URL | `https://192.168.8.104:8971` |
 | Home Assistant integration URL | `http://192.168.8.104:5000` |
 | Media mount | `/mnt/frigate` |
