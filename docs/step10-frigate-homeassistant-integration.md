@@ -142,8 +142,8 @@ configuration script updates only that camera block and preserves other
 cameras:
 
 ```bash
-TAPO_CAMERA_PROFILE=c200 bash scripts/step10g-frigate-tapo-c200-config.sh
-TAPO_CAMERA_PROFILE=c320ws bash scripts/step10g-frigate-tapo-c200-config.sh
+TAPO_CAMERA_PROFILE=c200 bash scripts/step10g-frigate-tapo-camera-config.sh
+TAPO_CAMERA_PROFILE=c320ws bash scripts/step10g-frigate-tapo-camera-config.sh
 bash scripts/step10e-frigate-restart.sh
 TAPO_CAMERA_PROFILE=c200 bash scripts/step10h-frigate-camera-validation.sh
 TAPO_CAMERA_PROFILE=c320ws bash scripts/step10h-frigate-camera-validation.sh

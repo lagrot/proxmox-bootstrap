@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# Configure either supported Tapo camera profile in Frigate.
 set -euo pipefail
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
