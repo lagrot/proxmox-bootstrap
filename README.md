@@ -119,6 +119,7 @@ scripts/
 - `scripts/step12e-homeassistant-restore-drill.sh`
 - `scripts/step13-frigate-media-retention.sh`
 - `scripts/step13b-frigate-media-retention-validation.sh`
+- `scripts/step14a-frigate-face-recognition-readiness.sh`
 
 ## Remote access
 
@@ -186,6 +187,7 @@ The `old/` directory contains scripts that are kept for historical reference but
 | Step 12E | Stopped Home Assistant VM restore drill | verified |
 | Step 13 | Frigate snapshot and export retention policy | verified |
 | Step 13B | Frigate media retention and capacity validation | verified |
+| Step 14A | Face-recognition readiness assessment | verified research |
 
 ## Hermes CT 220 baseline
 
