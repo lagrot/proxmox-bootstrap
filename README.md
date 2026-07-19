@@ -166,12 +166,12 @@ The `old/` directory contains scripts that are kept for historical reference but
 | Step 10D | Frigate MQTT config | verified |
 | Step 10E | Frigate restart | verified |
 | Step 10F | Frigate MQTT publishing | verified |
-| Step 10G | Frigate Tapo C200 camera configuration | verified |
+| Step 10G | Frigate Tapo camera configuration | verified |
 | Step 10H | Frigate camera validation | verified |
 | Step 10I | Frigate USB Coral TPU validation | verified |
 | Step 10J | Frigate Intel GPU/VAAPI validation | verified |
 | Step 10K | Home Assistant HACS bootstrap | verified |
-| Step 10L | Home Assistant Frigate integration and Tapo C200 entities | verified |
+| Step 10L | Home Assistant Frigate integration and two-camera entities | verified |
 | Step 10M | Home Assistant Frigate dashboard automation | verified |
 | Step 10N | Frigate/Home Assistant smoke test | verified |
 | Step 10O | Frigate event-only recording configuration | verified |
