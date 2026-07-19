@@ -54,3 +54,6 @@ __pycache__/
 tmp/
 cache/
 downloads/
+
+# Private local Obsidian vault; never commit or publish
+/obsidian-vault/
