@@ -101,7 +101,7 @@ scripts/
 - `scripts/step10d-frigate-mqtt-config.sh`
 - `scripts/step10e-frigate-restart.sh`
 - `scripts/step10f-frigate-mqtt-validation.sh`
-- `scripts/step10g-frigate-tapo-c200-config.sh`
+- `scripts/step10g-frigate-tapo-camera-config.sh`
 - `scripts/step10h-frigate-camera-validation.sh`
 - `scripts/step10i-frigate-tpu-validation.sh`
 - `scripts/step10j-frigate-gpu-validation.sh`
