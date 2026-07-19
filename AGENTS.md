@@ -47,14 +47,20 @@ MQTT, Intel VAAPI, and Coral detection are verified. The native Home Assistant
 dashboard is also verified with separate Live, Review, and System views for
 both cameras. Event-only recording is verified: idle and motion-only video is
 not retained, while person alert/detection video is retained for ten days.
+Step 13 snapshot and export retention is verified: snapshots inherit one
+global ten-day policy, exports are never deleted automatically, and the audit
+reports export age plus dedicated SSD capacity.
 Continue with:
 
-1. Complete the remaining Frigate snapshot and export retention policy for the
-   dedicated SSD with both cameras included.
-2. Research Frigate face recognition, including resource and privacy
+1. Research Frigate face recognition, including resource and privacy
    requirements, before deployment.
+2. Design camera notifications without creating excessive alerts.
 3. Research Hermes Agent integration with Home Assistant and decide whether
    CT 220 should remain the isolated Hermes gateway.
+4. Configure zones, masks, and detection tuning after camera placement is
+   final.
+5. Create a controlled upgrade procedure for later stable Frigate releases;
+   do not deploy beta, release-candidate, or development images.
 
 Keep both verified camera baselines working while making these changes.
 

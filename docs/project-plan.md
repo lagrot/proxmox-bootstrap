@@ -229,6 +229,8 @@ chmod -R 775 /mnt/frigate
 | Step 12C | Weekly systemd timer and log rotation | verified |
 | Step 12D | Backup operations validation | verified |
 | Step 12E | Stopped Home Assistant VM restore drill | verified |
+| Step 13 | Frigate snapshot and export retention policy | verified |
+| Step 13B | Frigate media retention and capacity validation | verified |
 
 ## Service Decisions
 
@@ -540,8 +542,8 @@ Frigate 0.17.2 now retains video only for tracked-object alerts and detections.
 Continuous and motion-only retention are both zero. Alert and detection video
 is retained for ten days with five seconds of pre-capture and post-capture.
 The current tracked-object list contains `person`, so idle video and motion
-without a confirmed tracked object are not retained. Camera snapshot retention
-remains fourteen days.
+without a confirmed tracked object are not retained. Camera snapshots are
+retained for ten days through the global snapshot policy.
 
 The policy is applied by `scripts/step10o-frigate-event-recording-config.sh`
 and verified for both cameras through the effective Frigate API config by
@@ -557,18 +559,48 @@ ms to 97 ms, gaps of at least 250 ms dropped from ten to zero, and near-zero
 burst gaps dropped from 90 to three while preserving approximately 25 FPS. A
 fresh C320WS segment measured approximately 15 FPS with no 250 ms gaps.
 
+## Frigate Snapshot And Export Retention
+
+Step 13 completes the dedicated Frigate SSD retention policy. Both cameras
+inherit one global ten-day snapshot retention value, matching the ten-day
+alert/detection video policy. Per-camera snapshot retention overrides are
+removed so future policy changes have one authoritative setting.
+
+Exports are deliberate operator-created artifacts and are not automatically
+deleted. The read-only Step 13B audit reports SSD capacity, snapshot/clip file
+count and size, export count and size, and the oldest export. It warns when SSD
+usage reaches 80 percent or when exports are older than 30 days. An age warning
+requires manual review; it never authorizes deletion.
+
+The deployment validates a candidate configuration with the pinned Frigate
+image before installation, stores the previous config as
+`/opt/frigate/config/config.yml.bak-media-retention`, restarts Frigate, and
+waits for container health. The procedure is documented in
+`docs/step13-frigate-media-retention.md`.
+
 ## Later Tasks
 
-- Complete the remaining storage policy for snapshot and export retention;
-  event-only recording retention is configured and verified for both cameras.
-- Evaluate and configure Frigate face recognition, including model/resource
-  requirements, privacy boundaries, and Home Assistant entity/event behavior.
+The agreed near-term roadmap is:
+
+1. **Step 14 - Face-recognition research:** evaluate Frigate support,
+   model/resource requirements, privacy boundaries, and Home Assistant
+   entity/event behavior before deployment.
+2. **Step 15 - Camera notifications:** design useful person/event alerts while
+   preventing noisy or duplicate notifications.
+3. **Step 16 - Hermes/Home Assistant research:** evaluate available APIs and
+   integration patterns and decide whether CT 220 should remain the isolated
+   Hermes gateway.
+4. **Step 17 - Zones, masks, and detection tuning:** configure these after the
+   cameras reach their final physical positions.
+5. **Step 18 - Controlled Frigate upgrade procedure:** upgrade only to a later
+   stable release using a pinned version, release-note review, validated
+   configuration and backup, post-upgrade regression tests, and tested
+   rollback. Do not deploy beta, release-candidate, or development images.
+
+Additional later work:
+
 - After visually validating the native dashboard, evaluate Advanced Camera
   Card only if richer Review timeline and media playback are needed.
-- Research Hermes Agent integration with Home Assistant, including available
-  APIs/integration patterns, security boundaries, and whether the dedicated
-  CT 220 Hermes LXC remains necessary or should continue as the isolated
-  gateway service.
 - Clean up Slack slash command conflicts if they become annoying.
 - Update Hermes sudoers rules if operational needs change.
 - Improve Hermes gateway validation log checks if needed.

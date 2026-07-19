@@ -366,7 +366,7 @@ not require zones and applies to both cameras:
 - motion-only retention: zero days;
 - alert and detection video: ten days;
 - event capture: five seconds before and after the event;
-- camera snapshots: fourteen days, unchanged.
+- camera snapshots: ten days through the global Step 13 policy.
 
 Apply, restart, and validate from the Proxmox host:
 
@@ -380,6 +380,9 @@ The validation checks the effective Frigate API configuration for both
 cameras, container health, and startup logs. Existing motion recordings are
 not removed immediately; they expire according to the previous retention
 policy. Zones and masks should be added only after final camera placement.
+
+Snapshot and export retention is completed separately by Step 13. See
+`docs/step13-frigate-media-retention.md`.
 
 ## Troubleshooting
 

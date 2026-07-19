@@ -117,6 +117,8 @@ scripts/
 - `scripts/step12c-backup-schedule.sh`
 - `scripts/step12d-backup-operations-validation.sh`
 - `scripts/step12e-homeassistant-restore-drill.sh`
+- `scripts/step13-frigate-media-retention.sh`
+- `scripts/step13b-frigate-media-retention-validation.sh`
 
 ## Remote access
 
@@ -182,6 +184,8 @@ The `old/` directory contains scripts that are kept for historical reference but
 | Step 12C | Weekly systemd timer and log rotation | verified |
 | Step 12D | Backup operations validation | verified |
 | Step 12E | Stopped Home Assistant VM restore drill | verified |
+| Step 13 | Frigate snapshot and export retention policy | verified |
+| Step 13B | Frigate media retention and capacity validation | verified |
 
 ## Hermes CT 220 baseline
 

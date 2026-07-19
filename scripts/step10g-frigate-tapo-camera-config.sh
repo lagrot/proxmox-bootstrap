@@ -199,8 +199,6 @@ camera_block = [
     "      enabled: true",
     "    snapshots:",
     "      enabled: true",
-    "      retain:",
-    "        default: 14",
 ]
 
 camera_key = f"  {camera_name}:"
