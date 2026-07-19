@@ -176,7 +176,7 @@ The `old/` directory contains scripts that are kept for historical reference but
 | Step 10N | Frigate/Home Assistant smoke test | verified |
 | Step 10O | Frigate event-only recording configuration | verified |
 | Step 10P | Frigate event-only recording validation | verified |
-| Step 11 | Remote access with Tailscale | documented |
+| Step 11 | Remote access with Tailscale | verified |
 | Step 12 | Local service backup and temporary restore validation | verified |
 | Step 12B | Scheduled validated backup operation | verified |
 | Step 12C | Weekly systemd timer and log rotation | verified |

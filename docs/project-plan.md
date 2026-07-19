@@ -221,7 +221,7 @@ chmod -R 775 /mnt/frigate
 | Step 10L | Home Assistant Frigate integration and Tapo C200 entities | verified |
 | Step 10M | Home Assistant Frigate dashboard automation | verified |
 | Step 10N | Frigate/Home Assistant smoke test | verified |
-| Step 11 | Remote access with Tailscale | documented |
+| Step 11 | Remote access with Tailscale | verified |
 | Step 12 | Local service backup and temporary restore validation | verified |
 | Step 12B | Scheduled validated backup operation | verified |
 | Step 12C | Weekly systemd timer and log rotation | verified |
