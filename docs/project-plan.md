@@ -544,6 +544,14 @@ and verified for both cameras through the effective Frigate API config by
 health and startup logs also passed. No zones or masks are configured while
 the cameras remain in temporary locations.
 
+Both cameras use `preset-rtsp-generic` for their direct RTSP record and detect
+inputs. The earlier restream preset omitted timestamp normalization intended
+for direct cameras and caused visible C200 freeze-and-catch-up playback. In a
+retained post-fix C200 segment, the worst measured frame gap improved from 411
+ms to 97 ms, gaps of at least 250 ms dropped from ten to zero, and near-zero
+burst gaps dropped from 90 to three while preserving approximately 25 FPS. A
+fresh C320WS segment measured approximately 15 FPS with no 250 ms gaps.
+
 ## Later Tasks
 
 - Complete the remaining storage policy for snapshot and export retention;

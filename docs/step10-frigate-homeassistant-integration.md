@@ -153,6 +153,13 @@ Step 10H validates the Frigate configuration, Docker Compose file, camera
 entry, direct record and detect RTSP streams, Frigate health, API camera list,
 and recent camera-specific logs.
 
+Both Tapo cameras connect directly to their RTSP URLs and therefore use
+`preset-rtsp-generic`. Do not use `preset-rtsp-restream` unless the input path
+points to a local restream such as go2rtc. The generic preset adds timestamp
+generation, wall-clock timestamps, negative-timestamp normalization, and
+corrupt-packet handling needed for direct camera streams. Step 10H verifies
+this setting.
+
 After adding a camera, reload the existing Home Assistant Frigate integration
 and wait for its camera entity without restarting Home Assistant:
 
