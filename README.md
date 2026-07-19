@@ -109,6 +109,8 @@ scripts/
 - `scripts/step10l-homeassistant-frigate-reload.sh`
 - `scripts/step10m-homeassistant-frigate-dashboard.sh`
 - `scripts/step10n-frigate-homeassistant-smoketest.sh`
+- `scripts/step10o-frigate-event-recording-config.sh`
+- `scripts/step10p-frigate-event-recording-validation.sh`
 - `scripts/step12-backup.sh`
 - `scripts/step12-backup-validation.sh`
 - `scripts/step12b-backup-operation.sh`
@@ -172,6 +174,8 @@ The `old/` directory contains scripts that are kept for historical reference but
 | Step 10L | Home Assistant Frigate integration and Tapo C200 entities | verified |
 | Step 10M | Home Assistant Frigate dashboard automation | verified |
 | Step 10N | Frigate/Home Assistant smoke test | verified |
+| Step 10O | Frigate event-only recording configuration | verified |
+| Step 10P | Frigate event-only recording validation | verified |
 | Step 11 | Remote access with Tailscale | documented |
 | Step 12 | Local service backup and temporary restore validation | verified |
 | Step 12B | Scheduled validated backup operation | verified |

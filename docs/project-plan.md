@@ -529,10 +529,25 @@ diagnostics, and history render correctly; activity graph rows use compact
 `Motion` and `Person` labels. Icon-only view navigation is retained because
 Home Assistant displays each view title on hover.
 
+## Event-Only Frigate Recording
+
+Frigate 0.17.2 now retains video only for tracked-object alerts and detections.
+Continuous and motion-only retention are both zero. Alert and detection video
+is retained for ten days with five seconds of pre-capture and post-capture.
+The current tracked-object list contains `person`, so idle video and motion
+without a confirmed tracked object are not retained. Camera snapshot retention
+remains fourteen days.
+
+The policy is applied by `scripts/step10o-frigate-event-recording-config.sh`
+and verified for both cameras through the effective Frigate API config by
+`scripts/step10p-frigate-event-recording-validation.sh`. Frigate container
+health and startup logs also passed. No zones or masks are configured while
+the cameras remain in temporary locations.
+
 ## Later Tasks
 
-- Configure and verify Frigate retention for recordings, detections, snapshots,
-  and exports, with a storage-conscious policy for the dedicated SSD.
+- Complete the remaining storage policy for snapshot and export retention;
+  event-only recording retention is configured and verified for both cameras.
 - Evaluate and configure Frigate face recognition, including model/resource
   requirements, privacy boundaries, and Home Assistant entity/event behavior.
 - After visually validating the native dashboard, evaluate Advanced Camera

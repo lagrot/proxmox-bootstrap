@@ -232,9 +232,22 @@ detectors:
 
 record:
   enabled: true
-  retain:
-    days: 7
-    mode: motion
+  continuous:
+    days: 0
+  motion:
+    days: 0
+  alerts:
+    pre_capture: 5
+    post_capture: 5
+    retain:
+      days: 10
+      mode: motion
+  detections:
+    pre_capture: 5
+    post_capture: 5
+    retain:
+      days: 10
+      mode: motion
 
 snapshots:
   enabled: true
