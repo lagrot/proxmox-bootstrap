@@ -231,6 +231,7 @@ chmod -R 775 /mnt/frigate
 | Step 12E | Stopped Home Assistant VM restore drill | verified |
 | Step 13 | Frigate snapshot and export retention policy | verified |
 | Step 13B | Frigate media retention and capacity validation | verified |
+| Step 14A | Face-recognition readiness assessment | verified research |
 
 ## Service Decisions
 
@@ -578,13 +579,40 @@ image before installation, stores the previous config as
 waits for container health. The procedure is documented in
 `docs/step13-frigate-media-retention.md`.
 
+## Face-Recognition Readiness
+
+Step 14A is a read-only assessment; face recognition remains disabled. Frigate
+0.17.2 exposes its native local face-recognition configuration and currently
+selects the CPU-oriented `small` model. CT 200 has four cores and 4096 MiB RAM,
+and its Intel i9-12900H exposes the required AVX and AVX2 instructions. The
+Intel render device is readable inside Frigate for a possible later
+GPU/OpenVINO experiment. The Coral continues to handle object detection and
+does not accelerate face-recognition enrichments.
+
+Both cameras currently process 640x360 detect streams at 5 FPS with no skipped
+frames. This is operationally healthy, but the limited resolution may only
+provide reliable recognition for clear, close faces. The measured pre-pilot
+baseline was approximately 24.2 ms Coral inference, 1.7 percent Frigate CPU,
+and 50.9 percent Frigate-reported memory. These are point-in-time baselines,
+not capacity guarantees.
+
+The system is ready for a controlled one-camera `small`-model pilot with two
+quality warnings, one for each detect-stream resolution. Pilot camera
+selection must consider final placement, expected face size, and privacy; it
+is not automatically assigned to the higher-resolution camera model because
+both current detect streams have the same resolution. Only consenting
+household members may be enrolled, visitors must not be auto-enrolled, and all
+face processing and training data must remain local. The assessment and next
+decision gates are documented in `docs/step14-face-recognition.md`.
+
 ## Later Tasks
 
 The agreed near-term roadmap is:
 
-1. **Step 14 - Face-recognition research:** evaluate Frigate support,
-   model/resource requirements, privacy boundaries, and Home Assistant
-   entity/event behavior before deployment.
+1. **Step 14 - Face recognition:** Step 14A readiness research is complete.
+   Decide whether to proceed with a one-camera small-model pilot, select the
+   camera based on final placement/privacy, and define accuracy acceptance
+   criteria before deployment.
 2. **Step 15 - Camera notifications:** design useful person/event alerts while
    preventing noisy or duplicate notifications.
 3. **Step 16 - Hermes/Home Assistant research:** evaluate available APIs and

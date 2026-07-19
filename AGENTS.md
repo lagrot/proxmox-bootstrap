@@ -50,10 +50,15 @@ not retained, while person alert/detection video is retained for ten days.
 Step 13 snapshot and export retention is verified: snapshots inherit one
 global ten-day policy, exports are never deleted automatically, and the audit
 reports export age plus dedicated SSD capacity.
+Step 14A face-recognition readiness is also complete and read-only. Native
+recognition remains disabled. Hardware requirements pass, but both 640x360
+detect streams carry a face-detail warning; any Step 14B pilot must start with
+one camera and the CPU-oriented small model.
 Continue with:
 
-1. Research Frigate face recognition, including resource and privacy
-   requirements, before deployment.
+1. Decide whether to proceed with a one-camera face-recognition pilot, select
+   the camera based on final placement and privacy, and define acceptance
+   criteria before deployment.
 2. Design camera notifications without creating excessive alerts.
 3. Research Hermes Agent integration with Home Assistant and decide whether
    CT 220 should remain the isolated Hermes gateway.
