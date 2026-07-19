@@ -54,6 +54,11 @@ Step 14A face-recognition readiness is also complete and read-only. Native
 recognition remains disabled. Hardware requirements pass, but both 640x360
 detect streams carry a face-detail warning; any Step 14B pilot must start with
 one camera and the CPU-oriented small model.
+Steps 18A-18D now provide the controlled stable Frigate upgrade workflow.
+Preflight, dry-run, baseline regression, and temporary restore tests pass, but
+no production upgrade or rollback has occurred. Frigate remains pinned to
+0.17.2; never use the workflow with beta, RC, development, `stable`, or
+`latest` targets.
 Continue with:
 
 1. Decide whether to proceed with a one-camera face-recognition pilot, select
@@ -64,8 +69,6 @@ Continue with:
    CT 220 should remain the isolated Hermes gateway.
 4. Configure zones, masks, and detection tuning after camera placement is
    final.
-5. Create a controlled upgrade procedure for later stable Frigate releases;
-   do not deploy beta, release-candidate, or development images.
 
 Keep both verified camera baselines working while making these changes.
 
