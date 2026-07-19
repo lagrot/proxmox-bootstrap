@@ -31,6 +31,7 @@ It is meant to be durable project documentation. It should stay focused on the c
 | System storage | 512 GB NVMe for Proxmox / VM / LXC storage |
 | Media storage | 512 GB SATA SSD dedicated to Frigate media |
 | Accelerator | USB Coral TPU |
+| Zigbee coordinator | Sonoff ZBDongle-P passed to HAOS VM 100; ZHA loaded |
 
 Current Stockholm/fiber speed test observed:
 
@@ -236,6 +237,8 @@ chmod -R 775 /mnt/frigate
 | Step 18B | Controlled Frigate upgrade executor | dry-run verified |
 | Step 18C | Post-upgrade regression orchestration | baseline verified |
 | Step 18D | Explicit Frigate rollback | restore-test verified |
+| Step 19A | Sonoff ZBDongle-P passthrough to HAOS | verified |
+| Step 19B | HAOS Zigbee hardware and ZHA integration | verified; pairing deferred |
 
 ## Service Decisions
 
@@ -626,6 +629,22 @@ has been performed. Frigate remains pinned to `0.17.2`.
 The complete operator procedure and acceptance/rollback boundaries are in
 `docs/step18-frigate-upgrade.md`.
 
+## Home Assistant Zigbee Coordinator
+
+Step 19 passes the Sonoff ZBDongle-P (`10c4:ea60`) through to HAOS VM 100 as
+Proxmox `usb0`. A stopped-VM configuration backup was stored outside the
+repository before the change. HAOS exposes the coordinator through its stable
+`/dev/serial/by-id` identity, and Home Assistant's native ZHA integration
+created a Zigbee network using the recommended setup path.
+
+`scripts/step19a-homeassistant-zigbee-usb.sh` applies the passthrough
+idempotently. `scripts/step19b-homeassistant-zigbee-validation.sh` verifies the
+host device, VM configuration, HAOS serial identity, loaded ZHA config entry,
+and continued Frigate USB access. Home Assistant and the Coral TPU regression
+checks passed. No Zigbee end devices are available, so pairing and end-to-end
+device control remain a deferred validation rather than a failure. The
+operator procedure is documented in `docs/step19-homeassistant-zigbee.md`.
+
 ## Later Tasks
 
 The agreed near-term roadmap is:
@@ -644,6 +663,17 @@ The agreed near-term roadmap is:
 5. **Step 18 - Controlled Frigate upgrade procedure:** tooling and safe baseline
    tests are complete. Use it only after a later stable release is selected and
    reviewed. No production upgrade has yet been performed.
+6. **Step 19 - Zigbee coordinator:** ZHA, HAOS USB passthrough, coordinator
+   discovery, and integration loading are verified. Pairing and end-to-end
+   control validation must wait for the first Zigbee device.
+
+The Proxmox host currently detects the ZBDongle-P as USB ID `10c4:ea60`
+(Silicon Labs CP210x UART Bridge) and exposes the stable host path
+`/dev/serial/by-id/usb-ITead_Sonoff_Zigbee_3.0_USB_Dongle_Plus_008d95d7e99def11be87cba661ce3355-if00-port0`.
+Installation preserved the existing Coral USB passthrough and included a
+stopped-VM configuration backup, repeatable passthrough automation, HAOS
+hardware discovery, and integration-state validation. A pairing test remains
+deferred until a Zigbee device becomes available.
 
 Additional later work:
 

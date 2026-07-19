@@ -59,6 +59,10 @@ Preflight, dry-run, baseline regression, and temporary restore tests pass, but
 no production upgrade or rollback has occurred. Frigate remains pinned to
 0.17.2; never use the workflow with beta, RC, development, `stable`, or
 `latest` targets.
+Step 19A-19B pass the Sonoff ZBDongle-P through to HAOS VM 100 and verify its
+stable serial identity, loaded ZHA integration, healthy Home Assistant, and
+unchanged Coral access. End-device pairing remains pending because no Zigbee
+device is available.
 Continue with:
 
 1. Decide whether to proceed with a one-camera face-recognition pilot, select
@@ -69,6 +73,7 @@ Continue with:
    CT 220 should remain the isolated Hermes gateway.
 4. Configure zones, masks, and detection tuning after camera placement is
    final.
+5. Pair and validate the first Zigbee device when one becomes available.
 
 Keep both verified camera baselines working while making these changes.
 
