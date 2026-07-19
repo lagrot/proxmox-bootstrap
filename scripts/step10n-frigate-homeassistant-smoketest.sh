@@ -116,15 +116,15 @@ for camera in cameras:
 }
 
 track_recording() {
-  echo "INFO: checking recent recording output"
+  echo "INFO: checking recent event recording output"
   for camera_name in "${CAMERA_NAMES[@]}"; do
     recordings="$(pct exec "$FRIGATE_CT_ID" -- find /mnt/frigate/recordings -type f \
       -path "*/$camera_name/*" -name '*.mp4' -mmin "-$RECORDING_LOOKBACK_MINUTES" \
       2>/dev/null | head -1 || true)"
     if [[ -n "$recordings" ]]; then
-      echo "INFO: recent recording segment found for $camera_name"
+      echo "INFO: recent event recording segment found for $camera_name"
     else
-      echo "WARN: no recent recording segment found for $camera_name"
+      echo "WARN: no recent event recording found for $camera_name (normal when no person event occurred)"
     fi
   done
 }

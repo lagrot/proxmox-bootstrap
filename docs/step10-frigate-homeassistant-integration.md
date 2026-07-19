@@ -339,15 +339,40 @@ The script runs four independent tracks in parallel:
 
 - Frigate container health, port 5000, and Tapo C200 configuration.
 - Home Assistant API access and required Frigate entities.
-- Recent recording segment output.
+- Recent event recording segment output.
 - MQTT availability and a bounded live `frigate/events` capture.
 
-During the MQTT event window, move in front of the Tapo C200. Missing recent
-recordings or a missing event are reported as activity-dependent warnings; a
-broken service, missing entity, or unavailable API is an error.
+During the MQTT event window, move in front of either camera. Missing recent
+event recordings or a missing event are reported as activity-dependent
+warnings; a broken service, missing entity, or unavailable API is an error.
 
 The smoke test is read-only and does not change Frigate, MQTT, or Home
 Assistant configuration.
+
+## 12. Retain only event video
+
+Frigate 0.17.2 is configured to keep video only when a tracked-object alert or
+detection occurs. The current tracked-object list contains `person`. This does
+not require zones and applies to both cameras:
+
+- continuous retention: zero days;
+- motion-only retention: zero days;
+- alert and detection video: ten days;
+- event capture: five seconds before and after the event;
+- camera snapshots: fourteen days, unchanged.
+
+Apply, restart, and validate from the Proxmox host:
+
+```bash
+bash scripts/step10o-frigate-event-recording-config.sh
+bash scripts/step10e-frigate-restart.sh
+bash scripts/step10p-frigate-event-recording-validation.sh
+```
+
+The validation checks the effective Frigate API configuration for both
+cameras, container health, and startup logs. Existing motion recordings are
+not removed immediately; they expire according to the previous retention
+policy. Zones and masks should be added only after final camera placement.
 
 ## Troubleshooting
 
@@ -385,5 +410,6 @@ be connected to the same MQTT broker as Home Assistant.
 
 - [Frigate Home Assistant integration](https://docs.frigate.video/integrations/home-assistant/)
 - [Frigate authentication and ports](https://docs.frigate.video/configuration/authentication/)
+- [Frigate recording retention](https://docs.frigate.video/configuration/record/)
 - [HACS installation](https://hacs.xyz/docs/use/download/download/)
 - [HACS initial configuration](https://hacs.xyz/docs/use/configuration/basic/)

@@ -45,10 +45,12 @@ Tapo C200 baseline. Both cameras are recording in Frigate and Home Assistant;
 camera-specific streams, recordings, person detection, snapshots, clips,
 MQTT, Intel VAAPI, and Coral detection are verified. The native Home Assistant
 dashboard is also verified with separate Live, Review, and System views for
-both cameras. Continue with:
+both cameras. Event-only recording is verified: idle and motion-only video is
+not retained, while person alert/detection video is retained for ten days.
+Continue with:
 
-1. Configure and validate Frigate recording, detection, snapshot, and export
-   retention for the dedicated SSD with both cameras included.
+1. Complete the remaining Frigate snapshot and export retention policy for the
+   dedicated SSD with both cameras included.
 2. Research Frigate face recognition, including resource and privacy
    requirements, before deployment.
 3. Research Hermes Agent integration with Home Assistant and decide whether
