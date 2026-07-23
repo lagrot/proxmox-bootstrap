@@ -144,16 +144,9 @@ dashboard_config_b64="$(base64 -w0 <<EOF
               "icon": "mdi:chart-line"
             },
             {
-              "type": "statistics-graph",
-              "title": "Temperature history",
-              "chart_type": "line",
-              "period": "hour",
-              "days_to_show": 7,
-              "stat_types": [
-                "min",
-                "mean",
-                "max"
-              ],
+              "type": "history-graph",
+              "title": "Temperature",
+              "hours_to_show": 168,
               "entities": [
                 "${temperature_entity}"
               ],
@@ -163,16 +156,9 @@ dashboard_config_b64="$(base64 -w0 <<EOF
               }
             },
             {
-              "type": "statistics-graph",
-              "title": "Humidity history",
-              "chart_type": "line",
-              "period": "hour",
-              "days_to_show": 7,
-              "stat_types": [
-                "min",
-                "mean",
-                "max"
-              ],
+              "type": "history-graph",
+              "title": "Humidity",
+              "hours_to_show": 168,
               "entities": [
                 "${humidity_entity}"
               ],
