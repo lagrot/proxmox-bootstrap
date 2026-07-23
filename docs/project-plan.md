@@ -238,7 +238,8 @@ chmod -R 775 /mnt/frigate
 | Step 18C | Post-upgrade regression orchestration | baseline verified |
 | Step 18D | Explicit Frigate rollback | restore-test verified |
 | Step 19A | Sonoff ZBDongle-P passthrough to HAOS | verified |
-| Step 19B | HAOS Zigbee hardware and ZHA integration | verified; pairing deferred |
+| Step 19B | HAOS Zigbee hardware, ZHA, and first sensor | verified |
+| Step 19C | Native Home Assistant Indoor Climate dashboard | verified |
 
 ## Service Decisions
 
@@ -653,6 +654,12 @@ initialization or subsequent reports. Firmware version 37 remains installed;
 the offered version 40 update is deferred until the baseline has remained
 stable. The operator procedure is documented in
 `docs/step19-homeassistant-zigbee.md`.
+
+Step 19C adds a reproducible native Home Assistant **Indoor Climate**
+dashboard. It presents the sensor's current temperature and humidity with
+24-hour line graphs plus a compact battery tile. The design intentionally uses
+native cards so the first environmental dashboard remains compact,
+theme-compatible, and independent of additional HACS frontend components.
 
 ## Later Tasks
 

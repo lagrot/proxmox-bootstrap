@@ -63,7 +63,8 @@ Steps 19A-19B pass the Sonoff ZBDongle-P through to HAOS VM 100 and verify its
 stable serial identity, loaded ZHA integration, healthy Home Assistant, and
 unchanged Coral access. The first end device, a THIRDREALITY `3RTHS24BZ`
 temperature and humidity sensor, is paired and reporting temperature, humidity,
-and battery states.
+and battery states. Step 19C provides its native Home Assistant Indoor Climate
+dashboard with 24-hour temperature and humidity graphs.
 Continue with:
 
 1. Decide whether to proceed with a one-camera face-recognition pilot, select

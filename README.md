@@ -127,6 +127,7 @@ scripts/
 - `scripts/step18d-frigate-rollback.sh`
 - `scripts/step19a-homeassistant-zigbee-usb.sh`
 - `scripts/step19b-homeassistant-zigbee-validation.sh`
+- `scripts/step19c-homeassistant-climate-dashboard.sh`
 
 ## Remote access
 
@@ -203,6 +204,7 @@ The `old/` directory contains scripts that are kept for historical reference but
 | Step 18D | Explicit Frigate rollback | restore-test verified |
 | Step 19A | Sonoff ZBDongle-P passthrough to HAOS | verified |
 | Step 19B | HAOS Zigbee hardware, ZHA, and first sensor validation | verified |
+| Step 19C | Native Home Assistant Indoor Climate dashboard | verified |
 
 ## Hermes CT 220 baseline
 
