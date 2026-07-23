@@ -54,7 +54,39 @@ The sensor reported firmware file version 37 and offered stable version 40.
 Leave the firmware unchanged until the current baseline has remained stable;
 an available update is not required for successful pairing.
 
+## Indoor Climate dashboard
+
+Step 19C creates a compact native Home Assistant dashboard for the paired
+sensor:
+
+```bash
+bash scripts/step19c-homeassistant-climate-dashboard.sh
+```
+
+The dashboard appears in the sidebar as **Indoor Climate** and uses only native
+Home Assistant cards. Temperature and humidity each have a prominent current
+reading and a 24-hour line graph; sensor battery is shown in a smaller tile.
+This keeps the initial dashboard compact and avoids requiring Mushroom,
+card-mod, or another HACS frontend dependency.
+
+The script discovers the three live entities by model text rather than
+hardcoding their complete entity IDs. If the entities are renamed, set
+`ZIGBEE_SENSOR_ENTITY_MATCH` in `config/local.conf` to text shared by the new
+IDs. The script preserves an existing dashboard by default. To deliberately
+replace it with the repository version, run:
+
+```bash
+FORCE_UPDATE=1 bash scripts/step19c-homeassistant-climate-dashboard.sh
+```
+
+This layout follows Home Assistant's native sensor-card guidance and borrows
+the compact, glanceable hierarchy commonly used by Mushroom and community
+indoor-climate dashboards. More sensors can be added after their names and
+final rooms are known.
+
 ## References
 
 - [Home Assistant ZHA integration](https://www.home-assistant.io/integrations/zha/)
+- [Home Assistant dashboard cards](https://www.home-assistant.io/dashboards/cards/)
+- [Mushroom dashboard cards](https://github.com/piitaya/lovelace-mushroom)
 - [Proxmox VE USB passthrough](https://pve.proxmox.com/pve-docs/pve-admin-guide.pdf)
