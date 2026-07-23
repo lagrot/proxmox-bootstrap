@@ -151,8 +151,8 @@ dashboard_config_b64="$(base64 -w0 <<EOF
                 "${temperature_entity}"
               ],
               "grid_options": {
-                "columns": 6,
-                "rows": 4
+                "columns": 12,
+                "rows": 5
               }
             },
             {
@@ -163,8 +163,8 @@ dashboard_config_b64="$(base64 -w0 <<EOF
                 "${humidity_entity}"
               ],
               "grid_options": {
-                "columns": 6,
-                "rows": 4
+                "columns": 12,
+                "rows": 5
               }
             }
           ]
