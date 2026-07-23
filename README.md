@@ -202,7 +202,7 @@ The `old/` directory contains scripts that are kept for historical reference but
 | Step 18C | Post-upgrade regression orchestration | baseline verified |
 | Step 18D | Explicit Frigate rollback | restore-test verified |
 | Step 19A | Sonoff ZBDongle-P passthrough to HAOS | verified |
-| Step 19B | HAOS Zigbee hardware and ZHA validation | verified; pairing pending first device |
+| Step 19B | HAOS Zigbee hardware, ZHA, and first sensor validation | verified |
 
 ## Hermes CT 220 baseline
 

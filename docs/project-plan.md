@@ -640,10 +640,19 @@ created a Zigbee network using the recommended setup path.
 `scripts/step19a-homeassistant-zigbee-usb.sh` applies the passthrough
 idempotently. `scripts/step19b-homeassistant-zigbee-validation.sh` verifies the
 host device, VM configuration, HAOS serial identity, loaded ZHA config entry,
-and continued Frigate USB access. Home Assistant and the Coral TPU regression
-checks passed. No Zigbee end devices are available, so pairing and end-to-end
-device control remain a deferred validation rather than a failure. The
-operator procedure is documented in `docs/step19-homeassistant-zigbee.md`.
+the first sensor's live temperature, humidity, and battery entities, and
+continued Frigate USB access. Home Assistant and the Coral TPU regression
+checks passed.
+
+The first end device, a THIRDREALITY `3RTHS24BZ` temperature and humidity
+sensor, paired successfully through ZHA. Its built-in quirk loaded, the device
+completed initialization, and live temperature, humidity, and battery values
+were verified through the Home Assistant API. Transient Zigpy database and
+binding-table messages appeared during the interview but did not prevent
+initialization or subsequent reports. Firmware version 37 remains installed;
+the offered version 40 update is deferred until the baseline has remained
+stable. The operator procedure is documented in
+`docs/step19-homeassistant-zigbee.md`.
 
 ## Later Tasks
 
@@ -664,16 +673,16 @@ The agreed near-term roadmap is:
    tests are complete. Use it only after a later stable release is selected and
    reviewed. No production upgrade has yet been performed.
 6. **Step 19 - Zigbee coordinator:** ZHA, HAOS USB passthrough, coordinator
-   discovery, and integration loading are verified. Pairing and end-to-end
-   control validation must wait for the first Zigbee device.
+   discovery, integration loading, and the first temperature/humidity sensor
+   are verified.
 
 The Proxmox host currently detects the ZBDongle-P as USB ID `10c4:ea60`
 (Silicon Labs CP210x UART Bridge) and exposes the stable host path
 `/dev/serial/by-id/usb-ITead_Sonoff_Zigbee_3.0_USB_Dongle_Plus_008d95d7e99def11be87cba661ce3355-if00-port0`.
 Installation preserved the existing Coral USB passthrough and included a
 stopped-VM configuration backup, repeatable passthrough automation, HAOS
-hardware discovery, and integration-state validation. A pairing test remains
-deferred until a Zigbee device becomes available.
+hardware discovery, integration-state validation, and a successful
+THIRDREALITY temperature/humidity sensor pairing.
 
 Additional later work:
 

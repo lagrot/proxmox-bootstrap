@@ -32,13 +32,27 @@ bash scripts/step10i-frigate-tpu-validation.sh
 ```
 
 Step 19B checks the host USB identity, Proxmox passthrough, HAOS stable serial
-identity, loaded ZHA config entry, and continued Frigate USB access. The Coral
-validation may warn that recent logs do not repeat its startup message; live
-detector statistics are the authoritative operational check.
+identity, loaded ZHA config entry, live temperature, humidity, and battery
+entities from the paired sensor, and continued Frigate USB access. It matches
+the sensor's default entity IDs using `3rths24bz`. Set
+`ZIGBEE_SENSOR_ENTITY_MATCH` in `config/local.conf` if those IDs are renamed.
+The Coral validation may warn that recent logs do not repeat its startup
+message; live detector statistics are the authoritative operational check.
 
-No Zigbee end devices were available during initial setup. Coordinator and ZHA
-health are verified, while joining a device and controlling it from Home
-Assistant remain pending until the first device is available.
+The first end device is a THIRDREALITY `3RTHS24BZ` temperature and humidity
+sensor. ZHA paired it successfully, applied its built-in device quirk, and
+created temperature, humidity, battery, firmware-update, and calibration-offset
+entities. Initial live readings and subsequent reports were verified.
+
+During the initial interview, ZHA logged transient Zigpy database foreign-key
+errors and binding-table warnings. The device nevertheless completed
+initialization and continued reporting temperature and humidity. Treat those
+messages as actionable only if the device becomes unavailable, entities are
+missing, or fresh readings stop arriving.
+
+The sensor reported firmware file version 37 and offered stable version 40.
+Leave the firmware unchanged until the current baseline has remained stable;
+an available update is not required for successful pairing.
 
 ## References
 
