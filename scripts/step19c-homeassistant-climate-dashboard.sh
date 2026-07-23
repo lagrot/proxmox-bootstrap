@@ -104,7 +104,7 @@ dashboard_config_b64="$(base64 -w0 <<EOF
               "hours_to_show": 24,
               "detail": 2,
               "grid_options": {
-                "columns": 6,
+                "columns": 12,
                 "rows": 3
               }
             },
@@ -117,7 +117,7 @@ dashboard_config_b64="$(base64 -w0 <<EOF
               "hours_to_show": 24,
               "detail": 2,
               "grid_options": {
-                "columns": 6,
+                "columns": 12,
                 "rows": 3
               }
             },
