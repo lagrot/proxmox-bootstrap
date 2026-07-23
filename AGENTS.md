@@ -59,10 +59,11 @@ Preflight, dry-run, baseline regression, and temporary restore tests pass, but
 no production upgrade or rollback has occurred. Frigate remains pinned to
 0.17.2; never use the workflow with beta, RC, development, `stable`, or
 `latest` targets.
-Step 19A-19B pass the Sonoff ZBDongle-P through to HAOS VM 100 and verify its
+Steps 19A-19B pass the Sonoff ZBDongle-P through to HAOS VM 100 and verify its
 stable serial identity, loaded ZHA integration, healthy Home Assistant, and
-unchanged Coral access. End-device pairing remains pending because no Zigbee
-device is available.
+unchanged Coral access. The first end device, a THIRDREALITY `3RTHS24BZ`
+temperature and humidity sensor, is paired and reporting temperature, humidity,
+and battery states.
 Continue with:
 
 1. Decide whether to proceed with a one-camera face-recognition pilot, select
@@ -73,7 +74,8 @@ Continue with:
    CT 220 should remain the isolated Hermes gateway.
 4. Configure zones, masks, and detection tuning after camera placement is
    final.
-5. Pair and validate the first Zigbee device when one becomes available.
+5. Let the first Zigbee sensor establish a stable baseline before considering
+   its available firmware update or adding sensor-driven automations.
 
 Keep both verified camera baselines working while making these changes.
 

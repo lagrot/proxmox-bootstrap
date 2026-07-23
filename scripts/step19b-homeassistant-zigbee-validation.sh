@@ -12,6 +12,7 @@ ZIGBEE_USB_ID="${ZIGBEE_USB_ID:-10c4:ea60}"
 ZIGBEE_USB_SERIAL="${ZIGBEE_USB_SERIAL:-008d95d7e99def11be87cba661ce3355}"
 HA_HTTP_PORT="${HA_HTTP_PORT:-8123}"
 HA_TOKEN="${HA_TOKEN:-}"
+ZIGBEE_SENSOR_ENTITY_MATCH="${ZIGBEE_SENSOR_ENTITY_MATCH:-3rths24bz}"
 VALIDATION_ERRORS=0
 VALIDATION_WARNINGS=0
 
@@ -23,7 +24,9 @@ log_info "STEP 19B - HOME ASSISTANT ZIGBEE VALIDATION"
 log_info "=============================================="
 
 [[ "${EUID}" -eq 0 ]] || die "Run as root"
-for cmd in grep lsusb qm; do command -v "${cmd}" >/dev/null || die "Missing command: ${cmd}"; done
+for cmd in curl grep lsusb pct python3 qm; do
+  command -v "${cmd}" >/dev/null || die "Missing command: ${cmd}"
+done
 
 log_info "Checking Proxmox USB and VM passthrough configuration..."
 [[ "$(lsusb -d "${ZIGBEE_USB_ID}" | wc -l)" -eq 1 ]] || record_error "Expected one host Zigbee USB device"
@@ -57,8 +60,43 @@ else
     else
       record_error "Home Assistant does not report a loaded ZHA config entry"
     fi
+
+    log_info "Checking the paired Zigbee temperature and humidity sensor..."
+    if [[ -n "${ha_ip}" ]]; then
+      sensor_states="$(curl -fsS -H "Authorization: Bearer ${HA_TOKEN}" --max-time 15 \
+        "http://${ha_ip}:${HA_HTTP_PORT}/api/states" || true)"
+      if SENSOR_STATES="${sensor_states}" \
+        ZIGBEE_SENSOR_ENTITY_MATCH="${ZIGBEE_SENSOR_ENTITY_MATCH}" \
+        python3 - <<'PY'
+import json
+import os
+
+states = json.loads(os.environ["SENSOR_STATES"])
+entity_match = os.environ["ZIGBEE_SENSOR_ENTITY_MATCH"].lower()
+required_classes = {"temperature", "humidity", "battery"}
+valid_classes = set()
+
+for entity in states:
+    if entity_match not in entity.get("entity_id", "").lower():
+        continue
+    device_class = entity.get("attributes", {}).get("device_class")
+    state = entity.get("state")
+    if device_class in required_classes and state not in {"unknown", "unavailable", None, ""}:
+        float(state)
+        valid_classes.add(device_class)
+
+raise SystemExit(0 if valid_classes == required_classes else 1)
+PY
+      then
+        log_info "Home Assistant reports live temperature, humidity, and battery states"
+      else
+        record_error "Home Assistant does not report all expected Zigbee sensor states"
+      fi
+    else
+      record_error "Could not detect the Home Assistant LAN IP for sensor validation"
+    fi
   else
-    record_warn "HA_TOKEN is not configured; skipping ZHA config-entry validation"
+    record_warn "HA_TOKEN is not configured; skipping ZHA and paired-sensor API validation"
   fi
 fi
 
