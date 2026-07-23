@@ -102,7 +102,11 @@ dashboard_config_b64="$(base64 -w0 <<EOF
               "icon": "mdi:thermometer",
               "graph": "line",
               "hours_to_show": 24,
-              "detail": 2
+              "detail": 2,
+              "grid_options": {
+                "columns": 6,
+                "rows": 3
+              }
             },
             {
               "type": "sensor",
@@ -111,14 +115,22 @@ dashboard_config_b64="$(base64 -w0 <<EOF
               "icon": "mdi:water-percent",
               "graph": "line",
               "hours_to_show": 24,
-              "detail": 2
+              "detail": 2,
+              "grid_options": {
+                "columns": 6,
+                "rows": 3
+              }
             },
             {
               "type": "tile",
               "entity": "${battery_entity}",
               "name": "Sensor battery",
               "icon": "mdi:battery",
-              "vertical": false
+              "vertical": false,
+              "grid_options": {
+                "columns": 12,
+                "rows": 1
+              }
             }
           ]
         }

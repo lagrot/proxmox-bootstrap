@@ -65,9 +65,11 @@ bash scripts/step19c-homeassistant-climate-dashboard.sh
 
 The dashboard appears in the sidebar as **Indoor Climate** and uses only native
 Home Assistant cards. Temperature and humidity each have a prominent current
-reading and a 24-hour line graph; sensor battery is shown in a smaller tile.
-This keeps the initial dashboard compact and avoids requiring Mushroom,
-card-mod, or another HACS frontend dependency.
+reading and an equal-width, enlarged 24-hour line graph; sensor battery is
+shown in a full-width compact row beneath them. On narrow screens, Home
+Assistant adapts the section grid to the available width. This keeps the
+initial dashboard compact and avoids requiring Mushroom, card-mod, or another
+HACS frontend dependency.
 
 The script discovers the three live entities by model text rather than
 hardcoding their complete entity IDs. If the entities are renamed, set
