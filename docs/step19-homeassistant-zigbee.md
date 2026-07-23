@@ -71,6 +71,12 @@ Assistant adapts the section grid to the available width. This keeps the
 initial dashboard compact and avoids requiring Mushroom, card-mod, or another
 HACS frontend dependency.
 
+A separate history section contains seven-day temperature and humidity
+statistics graphs. Each graph uses hourly minimum, mean, and maximum values so
+short-term variation remains visible without producing an unreadably dense
+chart. The graphs begin with limited data and fill naturally as Home
+Assistant's recorder accumulates history.
+
 The script discovers the three live entities by model text rather than
 hardcoding their complete entity IDs. If the entities are renamed, set
 `ZIGBEE_SENSOR_ENTITY_MATCH` in `config/local.conf` to text shared by the new

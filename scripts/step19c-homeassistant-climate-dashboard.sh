@@ -133,6 +133,55 @@ dashboard_config_b64="$(base64 -w0 <<EOF
               }
             }
           ]
+        },
+        {
+          "type": "grid",
+          "column_span": 2,
+          "cards": [
+            {
+              "type": "heading",
+              "heading": "History - last 7 days",
+              "icon": "mdi:chart-line"
+            },
+            {
+              "type": "statistics-graph",
+              "title": "Temperature history",
+              "chart_type": "line",
+              "period": "hour",
+              "days_to_show": 7,
+              "stat_types": [
+                "min",
+                "mean",
+                "max"
+              ],
+              "entities": [
+                "${temperature_entity}"
+              ],
+              "grid_options": {
+                "columns": 6,
+                "rows": 4
+              }
+            },
+            {
+              "type": "statistics-graph",
+              "title": "Humidity history",
+              "chart_type": "line",
+              "period": "hour",
+              "days_to_show": 7,
+              "stat_types": [
+                "min",
+                "mean",
+                "max"
+              ],
+              "entities": [
+                "${humidity_entity}"
+              ],
+              "grid_options": {
+                "columns": 6,
+                "rows": 4
+              }
+            }
+          ]
         }
       ]
     }
@@ -198,13 +247,13 @@ try:
         print("dashboard_update=enabled")
 
     available = {item.get("entity_id") for item in request(ws, 3, "get_states")}
-    required = {
-        card.get("entity")
-        for view in CONFIG["views"]
-        for section in view.get("sections", [])
-        for card in section.get("cards", [])
-        if card.get("entity")
-    }
+    required = set()
+    for view in CONFIG["views"]:
+        for section in view.get("sections", []):
+            for card in section.get("cards", []):
+                if card.get("entity"):
+                    required.add(card["entity"])
+                required.update(card.get("entities", []))
     missing = sorted(required - available)
     if missing:
         raise RuntimeError("Dashboard entities not found: " + ", ".join(missing))
