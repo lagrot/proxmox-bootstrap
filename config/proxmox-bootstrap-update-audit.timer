@@ -1,0 +1,10 @@
+[Unit]
+Description=Weekly Proxmox Bootstrap update audit
+
+[Timer]
+OnCalendar=Mon *-*-* 06:00:00 Europe/Stockholm
+RandomizedDelaySec=10m
+Persistent=true
+
+[Install]
+WantedBy=timers.target
