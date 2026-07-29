@@ -128,7 +128,8 @@ else
     ((queue_count+=1))
     printf '%d. %s: %d update(s), %d security-related\n' \
       "${queue_count}" "${label}" "${total}" "${security}"
-    printf '   bash scripts/step20f-update-target.sh %s --dry-run\n' "${target}"
+    printf '   Review: bash scripts/step20f-update-target.sh %s --dry-run\n' "${target}"
+    printf '   Apply:  bash scripts/step20f-update-target.sh %s --confirm-update\n' "${target}"
   done
   if (( host_updates > 0 )); then
     printf -- '- Proxmox: %d update(s), %d security-related; use a separate host-maintenance window.\n' \
