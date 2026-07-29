@@ -116,7 +116,8 @@ bash scripts/step20f-update-target.sh ct210 --dry-run
 Targets are case-insensitive. A dry run refreshes the target's APT metadata,
 verifies the latest Step 12 backup and snapshot capacity, records the proposed
 package transaction, and changes no snapshot, installed package, service, or
-guest power state.
+guest power state. It finishes by displaying the protected package-plan path
+and the exact `--confirm-update` command for the real maintenance transaction.
 
 Apply one target:
 
