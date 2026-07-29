@@ -1,26 +1,32 @@
 # Step 20 - Update Operations
 
-Step 20 keeps routine security maintenance simple:
+Step 20 has one narrow automation boundary:
 
-- Step 12 creates and validates the weekly recovery backup.
-- Debian installs security updates automatically in CT 200, CT 210, and CT
-  220.
-- The Proxmox host and application releases remain deliberate maintenance.
-- The weekly audit and `step20-status.sh` provide visibility.
+- CT 200, CT 210, and CT 220 install Debian Security updates automatically.
+- Proxmox and application upgrades are never applied by Step 20.
+- Step 12 recovery backups are reported for visibility but do not gate the
+  standard Debian automatic-update timers.
 
-For a condensed plain-text runbook suitable for `cat` or `less` over SSH, use
-`UPDATE-QUICK-GUIDE.txt` in the repository root.
+For the condensed SSH runbook, use `UPDATE-QUICK-GUIDE.txt`.
 
-## Human status
+## Normal operation
 
-Use this as the normal operator interface:
+Run:
 
 ```bash
 bash scripts/step20-status.sh
 ```
 
-The protected JSON under `/var/lib/proxmox-bootstrap` is machine-readable
-state, not the primary human interface.
+The status shows:
+
+- the timestamp and package counts from the last weekly audit;
+- the latest recovery backup and whether it is current;
+- live reboot markers;
+- whether automatic security updates are correctly configured;
+- each CT's last recorded automatic-update result and next run.
+
+Audit counts can be up to one week old and are labelled accordingly. A current
+recovery backup does not prevent or authorize an automatic security update.
 
 ## Weekly audit
 
@@ -30,73 +36,106 @@ Run manually when needed:
 bash scripts/step20a-update-audit.sh
 ```
 
-The installed systemd timer runs the same read-only audit each Monday after
-the Sunday backup. It records versions, pending updates, Debian security
-updates, reboot markers, and backup readiness.
+The installed host timer runs it each Monday after the Sunday backup. It
+refreshes APT metadata and records versions, pending packages, Debian Security
+packages, reboot markers, and recovery-backup age. It never installs packages
+or reboots a system.
 
-Install or refresh the audit timer:
+Install or refresh the timer:
 
 ```bash
 bash scripts/step20d-update-audit-schedule.sh
 ```
 
+Protected runtime files:
+
+- `/var/log/proxmox-bootstrap/update-audit.log`
+- `/var/lib/proxmox-bootstrap/update-audit-status.json`
+
+The JSON is machine state. Use `step20-status.sh` for the human view.
+
 ## Automatic CT security updates
 
-Review the one-time setup:
+Run the non-mutating prerequisite and package simulation:
 
 ```bash
 bash scripts/step20f-unattended-upgrades.sh --dry-run
 ```
 
-Enable it:
+One-time deployment:
 
 ```bash
 bash scripts/step20f-unattended-upgrades.sh --confirm-install
 ```
 
-The script installs Debian's `unattended-upgrades` package in CT 210, CT 220,
-and CT 200. The deployed policy:
-
-- checks daily using Debian's standard APT systemd timers;
-- accepts packages from Debian Security only;
-- preserves locally modified package configuration;
-- uses minimal upgrade steps;
-- reboots a CT only when `/var/run/reboot-required` exists;
-- uses Debian's standard logs under `/var/log/unattended-upgrades/`.
-
-It does not configure unattended upgrades on the Proxmox host and cannot
-upgrade Docker's third-party repository, Frigate images, Hermes application
-releases, Home Assistant, or Zigbee firmware.
-
-Validate the one-time setup:
+Validate the deployed files, effective APT policy, and timers:
 
 ```bash
 bash scripts/step20g-unattended-upgrades-validation.sh
 ```
 
-Debian's own non-mutating diagnostic is available inside any CT:
+The policy:
+
+- accepts Debian Security origins only;
+- preserves locally modified package configuration;
+- uses Debian's standard randomized APT timers and logs;
+- uses minimal upgrade steps;
+- reboots an affected CT when Debian creates `/var/run/reboot-required`.
+
+The Proxmox host, ordinary Debian updates, third-party Docker packages,
+Frigate images, Hermes releases, Home Assistant, and firmware are excluded.
+The timers operate independently of Step 12 backup state.
+
+Troubleshoot a CT with:
 
 ```bash
-pct exec 210 -- unattended-upgrade --dry-run --debug
+pct exec CTID -- journalctl \
+  -u apt-daily-upgrade.service --since "7 days ago" --no-pager
+pct exec CTID -- tail -n 100 \
+  /var/log/unattended-upgrades/unattended-upgrades.log
+```
+
+After the first run under the deployed policy, confirm `step20-status.sh`
+reports `last=success` for all three CTs. Then perform the existing CT 210,
+CT 220, and CT 200 regression routes once. This is initial acceptance testing,
+not a weekly operator task.
+
+```bash
+bash scripts/step20c-post-update-validation.sh ct210
+bash scripts/step20c-post-update-validation.sh ct220
+bash scripts/step20c-post-update-validation.sh ct200
 ```
 
 ## Deliberate maintenance
 
-Review these approximately monthly:
+`step20b-update-plan.sh` is review-only. It does not provide generic apply
+commands for Proxmox, full CT upgrades, or applications. In particular:
 
-- Proxmox host packages and host reboot requirements;
-- ordinary non-security Debian updates;
-- Home Assistant Core, Supervisor, OS, integrations, and apps;
-- Docker, Frigate, Hermes, and firmware release notes.
+- Step 12 does not contain a Proxmox host backup or complete CT root filesystems.
+- Home Assistant updates use its web interface and its own backup.
+- Frigate upgrades use `docs/step18-frigate-upgrade.md`.
+- Docker, MQTT feature releases, Hermes, and Zigbee firmware need separately
+  tested procedures before they can be applied.
 
-Use `step20b-update-plan.sh` only to print commands for these deliberate
-layers. Use `step20c-post-update-validation.sh TARGET` after a deliberate
-change.
+After a separately reviewed change, existing regression routing remains
+available:
 
-Snapshots are reserved for major or high-risk changes such as release
-upgrades, storage changes, and application migrations. They are not part of
-routine Debian security patching. Step 12 remains the authoritative backup and
-restore workstream.
+```bash
+bash scripts/step20c-post-update-validation.sh TARGET
+```
+
+Snapshots are temporary rollback points for selected high-risk work. They are
+not backups and are not part of routine automatic security patching.
+
+## Full validation
+
+```bash
+bash scripts/step20e-update-operations-validation.sh
+```
+
+This validates the host audit timer and log rotation, protected status files,
+the non-mutating setup check, the deployed security policy, and the human
+status command.
 
 ## References
 
@@ -104,4 +143,3 @@ restore workstream.
 - [Debian unattended-upgrade manual](https://manpages.debian.org/unstable/unattended-upgrades/unattended-upgrade.8.en.html)
 - [Proxmox VE administration guide](https://pve.proxmox.com/pve-docs/pve-admin-guide.pdf)
 - [Home Assistant OS update tasks](https://www.home-assistant.io/common-tasks/os/)
-- [Docker Engine on Debian](https://docs.docker.com/engine/install/debian/)

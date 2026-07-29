@@ -240,13 +240,13 @@ chmod -R 775 /mnt/frigate
 | Step 19A | Sonoff ZBDongle-P passthrough to HAOS | verified |
 | Step 19B | HAOS Zigbee hardware, ZHA, and first sensor | verified |
 | Step 19C | Native Home Assistant Indoor Climate dashboard | verified |
-| Step 20A | Read-only update and security audit | verified |
-| Step 20B | Backup-gated update command planner | verified |
+| Step 20A | Non-installing update and security audit | verified |
+| Step 20B | Non-mutating maintenance review and safety boundaries | verified |
 | Step 20C | Per-layer post-update validation routing | verified |
 | Step 20D | Weekly protected update-audit schedule | verified |
 | Step 20E | Update operations validation | verified |
-| Step 20F | Debian unattended security-update deployment | verified |
-| Step 20G | Unattended security-update validation | verified |
+| Step 20F | Debian unattended security-update deployment | deployed |
+| Step 20G | Unattended security-update configuration validation | verified; first new-policy run pending |
 
 ## Service Decisions
 
@@ -670,24 +670,19 @@ theme-compatible, and independent of additional HACS frontend components.
 
 ## Update Operations
 
-Steps 20A-20E provide read-only update visibility, command planning for
-deliberate maintenance, and existing regression routing. The audit inventories
+Steps 20A-20E provide non-installing update visibility, maintenance safety
+boundaries, and existing regression routing. The audit inventories
 Proxmox, kernel, Docker, Compose, Frigate, Mosquitto, Hermes, Home Assistant,
 and Zigbee information, reports Debian security packages separately, checks
-reboot markers, and records recent validated-backup readiness.
+reboot markers, and reports the age of the latest recovery backup.
 
 The audit runs each Monday at 06:00 Europe/Stockholm, after the Sunday backup,
 with up to ten minutes of randomized delay. Protected logs rotate weekly and
-are retained for 52 weeks; the root-only JSON status contains the current
-package counts and maintenance gates. The per-layer planner prints commands
-only, while post-update validation routes each target to the existing
-regression scripts.
-
-The initial refreshed audit found no pending host packages. CT 200 reported 88
-pending packages including 17 from Debian security, CT 210 reported 64
-including 16 security packages, and CT 220 reported 66 including 17 security
-packages. No packages were installed. These counts are transient and the
-protected current audit is authoritative. The procedure is documented in
+are retained for 52 weeks; the root-only JSON status contains the last audit
+result and package counts. The review command provides simulations or routes
+to a dedicated procedure; it never provides a generic application or host
+upgrade command. Post-update validation remains available after separately
+reviewed work. The procedure is documented in
 `docs/step20-update-operations.md`.
 
 Steps 20F-20G use Debian's standard `unattended-upgrades` package for security
@@ -699,20 +694,21 @@ action. Proxmox, ordinary Debian packages, Docker/Frigate images, Hermes
 releases, Home Assistant, and firmware remain deliberate monthly or
 release-specific maintenance.
 
-Deployment and validation are complete on all three CTs. Setup installed the
-`unattended-upgrades` package and configuration but did not apply the existing
-security backlog. The effective APT policy is restricted to Debian Security,
-and the standard randomized daily timers will process that backlog.
+Deployment and configuration validation are complete on all three CTs. The
+effective APT policy is restricted to Debian Security. The first automatic run
+under this new policy remains to be verified.
 
 Step 12 remains the authoritative backup, retention, and disaster-recovery
-workstream. Snapshots are reserved for major release upgrades, storage
-changes, or migrations rather than ordinary security updates.
+workstream, but it does not contain a Proxmox host backup or complete CT root
+filesystems. The standard Debian timers are intentionally independent of that
+backup state. Snapshots are reserved for selected high-risk work rather than
+ordinary security updates.
 
 `scripts/step20-status.sh` is the primary human operator interface for this
 workstream. It converts the protected machine-readable JSON into a compact
-summary of backup readiness, pending/security package counts, reboot markers,
-automatic-security-update state, scheduled backup/audit runs, and simple
-operating guidance.
+summary of recovery-backup age, explicitly timestamped audit counts, live
+reboot markers, automatic-update configuration, last recorded update results,
+next runs, and simple operating guidance.
 
 ## Later Tasks
 
@@ -735,10 +731,10 @@ The agreed near-term roadmap is:
 6. **Step 19 - Zigbee coordinator:** ZHA, HAOS USB passthrough, coordinator
    discovery, integration loading, and the first temperature/humidity sensor
    are verified.
-7. **Step 20 - Update operations:** weekly read-only auditing, protected
+7. **Step 20 - Update operations:** weekly non-installing auditing, protected
    status/logging, and automatic Debian security-only updates for the three
-   managed CTs are verified. Monitor the first automatic run; reserve manual
-   maintenance for Proxmox and application releases.
+   managed CTs are deployed. Verify the first automatic run; reserve manual
+   maintenance for separately reviewed Proxmox and application procedures.
 
 The Proxmox host currently detects the ZBDongle-P as USB ID `10c4:ea60`
 (Silicon Labs CP210x UART Bridge) and exposes the stable host path

@@ -5,6 +5,7 @@ STEP20_SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd -- "${STEP20_SCRIPT_DIR}/.." && pwd)"
 source "${PROJECT_ROOT}/lib/common.sh"
 source "${PROJECT_ROOT}/config/defaults.conf"
+[[ -f "${PROJECT_ROOT}/config/local.conf" ]] && source "${PROJECT_ROOT}/config/local.conf"
 
 DRY_RUN=0
 CONFIRM_INSTALL=0
@@ -29,7 +30,9 @@ done
 
 [[ "${EUID}" -eq 0 ]] || die "Run as root"
 (( DRY_RUN + CONFIRM_INSTALL == 1 )) || die "Choose exactly one of --dry-run or --confirm-install"
-for cmd in pct; do command -v "${cmd}" >/dev/null || die "Missing command: ${cmd}"; done
+for cmd in apt-config awk pct; do
+  command -v "${cmd}" >/dev/null || die "Missing command: ${cmd}"
+done
 
 CT_IDS=("${MQTT_CT_ID:-210}" "${HERMES_CT_ID:-220}" "${DOCKER_CT_ID:-200}")
 for ct_id in "${CT_IDS[@]}"; do
@@ -37,15 +40,26 @@ for ct_id in "${CT_IDS[@]}"; do
 done
 
 if (( DRY_RUN == 1 )); then
-  log_info "UNATTENDED SECURITY UPDATE DRY RUN"
+  log_info "UNATTENDED SECURITY UPDATE NON-MUTATING CHECK"
+  apt-config -c "${PROJECT_ROOT}/config/20homelab-auto-upgrades" dump >/dev/null \
+    || die "Periodic APT configuration is invalid"
+  apt-config -c "${PROJECT_ROOT}/config/52homelab-unattended-upgrades" dump >/dev/null \
+    || die "Unattended-upgrades policy is invalid"
   for ct_id in "${CT_IDS[@]}"; do
-    log_info "CT ${ct_id}: would install unattended-upgrades"
-    log_info "CT ${ct_id}: would allow Debian Security repositories only"
-    log_info "CT ${ct_id}: would preserve local configuration files"
-    log_info "CT ${ct_id}: would enable daily APT timers and reboot only when required"
+    log_info "Checking package simulation in CT ${ct_id}"
+    simulation="$(pct exec "${ct_id}" -- apt-get -s install unattended-upgrades 2>&1)" \
+      || die "CT ${ct_id}: unattended-upgrades package simulation failed"
+    candidate="$(
+      pct exec "${ct_id}" -- apt-cache policy unattended-upgrades 2>/dev/null \
+        | awk '/Candidate:/ {print $2; exit}'
+    )"
+    [[ -n "${candidate}" && "${candidate}" != "(none)" ]] \
+      || die "CT ${ct_id}: unattended-upgrades has no install candidate"
+    changes="$(awk '/^(Inst|Remv|Conf) / {count++} END {print count+0}' <<<"${simulation}")"
+    log_info "CT ${ct_id}: candidate=${candidate}, simulated package operations=${changes}"
   done
   log_info "The Proxmox host, Docker/Frigate images, Hermes releases, HAOS, and firmware would remain manual"
-  log_info "Dry run completed; no package or configuration was changed"
+  log_info "Non-mutating check passed; no metadata, package, configuration, timer, or service was changed"
   exit 0
 fi
 

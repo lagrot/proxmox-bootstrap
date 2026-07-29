@@ -1,118 +1,47 @@
-PROXMOX HOMELAB - UPDATE QUICK GUIDE
-====================================
+HOMELAB UPDATE QUICK GUIDE
+==========================
 
-Use this file over SSH:
+Read over SSH:
   cd /root/proxmox-bootstrap
   less UPDATE-QUICK-GUIDE.txt
 
-NORMAL OPERATION
-----------------
-CT 200, CT 210, and CT 220 install Debian security updates automatically.
-Normally, do not update them manually and do not create weekly snapshots.
+NORMAL USE
+----------
+CT 200, 210, and 220 install Debian security updates automatically.
+The recovery backup is reported for visibility; it does not gate those updates.
 
-Check everything:
+Run the one normal check:
   bash scripts/step20-status.sh
 
-Refresh the update report:
-  bash scripts/step20a-update-audit.sh
-  bash scripts/step20-status.sh
+If all three CTs say ENABLED and no failed last run is shown, do nothing.
 
-Validate automatic security updates:
-  bash scripts/step20g-unattended-upgrades-validation.sh
-
-
-MANUAL MAINTENANCE
-------------------
-Do one target at a time. Before changing anything:
-
-  1. Confirm the latest backup says READY:
-       bash scripts/step20-status.sh
-
-  2. Print the reviewed commands for the target:
-       bash scripts/step20b-update-plan.sh TARGET
-
-  3. Run only the printed commands.
-
-  4. Validate afterward:
-       bash scripts/step20c-post-update-validation.sh TARGET
-
-Common targets:
-  proxmox   Proxmox host packages
-  ct200     Debian packages in Docker/Frigate CT
-  ct210     Debian packages in MQTT CT
-  ct220     Debian packages in Hermes CT
-  docker    Docker engine
-
-Home Assistant is updated through its web interface, not with APT.
-Never update several targets at once.
-
-FRIGATE IS AN EXCEPTION. Do not update its image with the generic Step 20
-procedure. Frigate upgrades can change the configuration schema and database.
-Use the dedicated Step 18 preflight, dry-run, regression, and rollback
-procedure in docs/step18-frigate-upgrade.md. Keep Frigate pinned until a
-specific stable release has been selected and reviewed.
-
-Treat major Docker, Hermes, and Home Assistant releases similarly: read their
-release notes and use their dedicated procedure before changing anything.
-There is currently no implemented Hermes application-upgrade procedure.
-Do not upgrade Hermes with Step 20; CT 220 Debian security updates remain
-automatic.
-
+MANUAL UPDATES
+--------------
+Do not use a generic apt or Docker command to update applications.
+Home Assistant: Settings -> System -> Updates in its web interface.
+Frigate:        follow docs/step18-frigate-upgrade.md.
+Proxmox, Docker, MQTT feature releases, Hermes, and Zigbee firmware do not yet
+have one generic apply procedure. Ask the project owner and review the relevant
+release notes and recovery plan before changing them.
 
 SNAPSHOTS
 ---------
-Snapshots are temporary rollback points for risky upgrades. They are not
-backups and are not needed for normal automatic security updates.
-
-List snapshots:
+Snapshots are temporary rollback points, not backups.
+List:
   pct listsnapshot CTID
+Delete only after the guest is healthy and the exact name is confirmed:
+  pct delsnapshot CTID SNAPSHOT_NAME
+Snapshot deletion cannot be undone. Never guess an ID or name.
 
-Example:
-  pct listsnapshot 210
-
-Create a consistent snapshot:
-  pct shutdown CTID
-  pct snapshot CTID NAME --description "Before maintenance"
-  pct start CTID
-
-Delete a snapshot after validation:
-  pct delsnapshot CTID NAME
-
-Example retained snapshot:
-  pct listsnapshot 210
-  pct delsnapshot 210 pbupd-20260729-141538-ct210
-
-CAUTION: Check the CT ID and snapshot name twice. Snapshot deletion cannot be
-undone. Do not delete the retained CT 210 snapshot until MQTT is healthy.
-
-
-QUICK TROUBLESHOOTING
----------------------
-Show guests:
-  pct list
-  qm list
-
-Show one CT's state:
-  pct status CTID
-
-Start a stopped CT:
-  pct start CTID
-
-Check automatic-update timer and recent result:
-  pct exec CTID -- systemctl status apt-daily-upgrade.timer --no-pager
+TROUBLESHOOTING
+---------------
+Validate automatic-update configuration:
+  bash scripts/step20g-unattended-upgrades-validation.sh
+Inspect one CT's update log (replace CTID):
   pct exec CTID -- journalctl -u apt-daily-upgrade.service --since "7 days ago" --no-pager
-
-Read automatic-update logs:
-  pct exec CTID -- tail -n 100 /var/log/unattended-upgrades/unattended-upgrades.log
-  pct exec CTID -- tail -n 100 /var/log/unattended-upgrades/unattended-upgrades-dpkg.log
-
-Check reboot requirement:
-  pct exec CTID -- test -f /var/run/reboot-required && echo REBOOT-REQUIRED || echo NO-REBOOT
-
-Service-specific validation:
-  MQTT:      bash scripts/step05d-mqtt-auth-validation.sh
-  Frigate:   bash scripts/step10f-frigate-mqtt-validation.sh
-  Hermes:    bash scripts/step20c-post-update-validation.sh hermes
-
-If unsure: stop. Do not delete snapshots, reboot Proxmox, or run upgrades.
-Read docs/step20-update-operations.md or ask the project owner for help.
+Service checks:
+  MQTT:    bash scripts/step05d-mqtt-auth-validation.sh
+  Frigate: bash scripts/step10f-frigate-mqtt-validation.sh
+  Hermes:  bash scripts/step20c-post-update-validation.sh hermes
+If unsure, stop. Do not reboot Proxmox, delete a snapshot, or run an upgrade.
+Read docs/step20-update-operations.md or contact the project owner.

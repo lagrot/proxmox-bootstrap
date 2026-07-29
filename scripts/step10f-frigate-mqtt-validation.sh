@@ -151,8 +151,18 @@ else
   RECENT_LOGS="$(pct exec "${FRIGATE_CT_ID}" -- docker logs --tail 200 frigate 2>&1 || true)"
 fi
 
-if grep -qiE 'mqtt.*(error|failed|refused|timeout|unreachable)' <<< "${RECENT_LOGS}"; then
-  record_warn "Frigate logs contain MQTT error-like messages; current availability is authoritative"
+MQTT_ERROR_LINES="$(
+  grep -iE 'mqtt.*(error|failed|refused|timeout|unreachable)' <<<"${RECENT_LOGS}" || true
+)"
+if [[ -n "${MQTT_ERROR_LINES}" ]]; then
+  UNEXPECTED_MQTT_ERRORS="$(
+    grep -viE 'mqtt.*error[[:space:]]*: mqtt disconnected' <<<"${MQTT_ERROR_LINES}" || true
+  )"
+  if [[ -n "${UNEXPECTED_MQTT_ERRORS}" ]]; then
+    record_error "Frigate logs contain unexpected MQTT error-like messages"
+  else
+    record_warn "Frigate logs contain historical MQTT disconnects; current availability is online"
+  fi
 else
   log_info "No obvious MQTT errors found since current Frigate start"
 fi
