@@ -136,6 +136,7 @@ scripts/
 - `scripts/step20f-unattended-upgrades.sh`
 - `scripts/step20g-unattended-upgrades-validation.sh`
 - `scripts/step20-status.sh`
+- `UPDATE-QUICK-GUIDE.txt` (condensed SSH operator runbook)
 
 ## Remote access
 
