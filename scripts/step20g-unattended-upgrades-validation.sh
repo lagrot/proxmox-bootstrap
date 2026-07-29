@@ -35,20 +35,43 @@ effective_policy_matches() {
   allowed_count="$(
     grep -c '^Unattended-Upgrade::Allowed-Origins:: "' <<<"${policy}" || true
   )"
-  grep -Fq 'APT::Periodic::Unattended-Upgrade "1";' <<<"${policy}" \
+  grep -Fq 'APT::Periodic::Unattended-Upgrade "0";' <<<"${policy}" \
     && grep -Fq 'origin=Debian,codename=${distro_codename},label=Debian-Security' <<<"${policy}" \
     && grep -Fq 'origin=Debian,codename=${distro_codename}-security,label=Debian-Security' <<<"${policy}" \
-    && grep -Fq 'Unattended-Upgrade::Automatic-Reboot "true";' <<<"${policy}" \
+    && grep -Fq 'Unattended-Upgrade::Automatic-Reboot "false";' <<<"${policy}" \
     && grep -Fq 'Unattended-Upgrade::MinimalSteps "true";' <<<"${policy}" \
     && [[ "${origin_count}" == "2" ]] \
     && [[ "${allowed_count}" == "0" ]]
 }
 
+networkd_does_not_manage_eth0() {
+  local ct_id="$1"
+  if ! pct exec "${ct_id}" -- systemctl is-active --quiet systemd-networkd.service; then
+    return 0
+  fi
+  pct exec "${ct_id}" -- networkctl status eth0 --no-pager 2>/dev/null \
+    | grep -q unmanaged
+}
+
+usage() {
+  cat <<EOF
+Usage: $0 [all|ct200|ct210|ct220]
+EOF
+}
+
 [[ "${EUID}" -eq 0 ]] || die "Run as root"
-CT_IDS=("${MQTT_CT_ID:-210}" "${HERMES_CT_ID:-220}" "${DOCKER_CT_ID:-200}")
+TARGET="${1:-all}"
+TARGET="${TARGET,,}"
+case "${TARGET}" in
+  all) CT_IDS=("${MQTT_CT_ID:-210}" "${HERMES_CT_ID:-220}" "${DOCKER_CT_ID:-200}") ;;
+  ct200) CT_IDS=("${DOCKER_CT_ID:-200}") ;;
+  ct210) CT_IDS=("${MQTT_CT_ID:-210}") ;;
+  ct220) CT_IDS=("${HERMES_CT_ID:-220}") ;;
+  *) usage; die "Unknown validation target: ${TARGET}" ;;
+esac
 
 for ct_id in "${CT_IDS[@]}"; do
-  log_info "Validating unattended security updates in CT ${ct_id}"
+  log_info "Validating controlled security updates in CT ${ct_id}"
   check "CT ${ct_id} is running" bash -c "pct status '${ct_id}' | grep -q 'status: running'"
   check "CT ${ct_id} unattended-upgrades installed" \
     bash -c "pct exec '${ct_id}' -- dpkg-query -W -f='\${Status}\\n' unattended-upgrades | grep -qx 'install ok installed'"
@@ -60,13 +83,23 @@ for ct_id in "${CT_IDS[@]}"; do
       /etc/apt/apt.conf.d/52homelab-unattended-upgrades
   check "CT ${ct_id} effective APT security policy is loaded" \
     effective_policy_matches "${ct_id}"
+  check "CT ${ct_id} ifupdown networking is active" \
+    pct exec "${ct_id}" -- systemctl is-active --quiet networking.service
+  check "CT ${ct_id} eth0 is not managed by systemd-networkd" \
+    networkd_does_not_manage_eth0 "${ct_id}"
+  check "CT ${ct_id} unused systemd-networkd socket is disabled" \
+    bash -c "! pct exec '${ct_id}' -- systemctl is-enabled --quiet systemd-networkd.socket"
+  check "CT ${ct_id} unused systemd-networkd service is inactive" \
+    bash -c "! pct exec '${ct_id}' -- systemctl is-active --quiet systemd-networkd.service"
+  check "CT ${ct_id} APT network readiness succeeds" \
+    pct exec "${ct_id}" -- timeout 5 /usr/lib/apt/apt-helper wait-online
   check "CT ${ct_id} apt-daily timer enabled" \
     pct exec "${ct_id}" -- systemctl is-enabled --quiet apt-daily.timer
-  check "CT ${ct_id} apt-daily-upgrade timer enabled" \
-    pct exec "${ct_id}" -- systemctl is-enabled --quiet apt-daily-upgrade.timer
-  check "CT ${ct_id} apt-daily-upgrade timer active" \
-    pct exec "${ct_id}" -- systemctl is-active --quiet apt-daily-upgrade.timer
+  check "CT ${ct_id} automatic install timer disabled" \
+    bash -c "! pct exec '${ct_id}' -- systemctl is-enabled --quiet apt-daily-upgrade.timer"
+  check "CT ${ct_id} automatic install timer inactive" \
+    bash -c "! pct exec '${ct_id}' -- systemctl is-active --quiet apt-daily-upgrade.timer"
 done
 
-(( errors == 0 )) || die "Unattended security update validation failed with ${errors} error(s)"
-log_info "Unattended security update validation completed successfully"
+(( errors == 0 )) || die "Controlled security update validation failed with ${errors} error(s)"
+log_info "Controlled security update validation completed successfully"

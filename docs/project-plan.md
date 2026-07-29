@@ -685,30 +685,37 @@ upgrade command. Post-update validation remains available after separately
 reviewed work. The procedure is documented in
 `docs/step20-update-operations.md`.
 
-Steps 20F-20G use Debian's standard `unattended-upgrades` package for security
-repositories only in CT 200, CT 210, and CT 220. Debian's daily APT timers,
-minimal upgrade steps, configuration preservation, standard logs, and
-reboot-required handling replace the rejected custom per-update snapshot and
-transaction workflow. Routine security patching requires no weekly operator
-action. Proxmox, ordinary Debian packages, Docker/Frigate images, Hermes
-releases, Home Assistant, and firmware remain deliberate monthly or
-release-specific maintenance.
+Steps 20F-20H provide a deliberately small Debian Security update MVP for CT
+200, CT 210, and CT 220. The effective APT policy accepts Debian Security
+origins only, preserves local package configuration, and disables independent
+automatic package installation and automatic rebooting. The operator updates
+one CT at a time with `scripts/step20-update-ct.sh`: dry-run, confirm, then
+cleanup after a 24-hour observation period. Confirm validates the existing
+service, checks snapshot capacity, creates a stopped consistent Proxmox
+snapshot, installs security packages, handles a required reboot, and validates
+the service again.
 
-Deployment and configuration validation are complete on all three CTs. The
-effective APT policy is restricted to Debian Security. The first automatic run
-under this new policy remains to be verified.
+The CT 210 pilot installed 20 Debian Security updates without requiring a
+reboot. MQTT authentication, anonymous-access rejection, and Frigate MQTT
+availability passed afterward. A controlled Mosquitto outage then proved that
+the validation detects failure and that a real Proxmox rollback restores the
+pre-update disk and package state. CT 210 was subsequently patched again and
+is healthy with no pending Debian Security packages. The managed cleanup path
+also passed: it revalidated MQTT, deleted only the recorded snapshot, and
+removed its protected state. This acceptance test used an explicit zero-age
+override; normal operation continues to enforce a 24-hour observation period.
 
 Step 12 remains the authoritative backup, retention, and disaster-recovery
-workstream, but it does not contain a Proxmox host backup or complete CT root
-filesystems. The standard Debian timers are intentionally independent of that
-backup state. Snapshots are reserved for selected high-risk work rather than
-ordinary security updates.
+workstream. Security updates do not create another backup. Their temporary
+Proxmox snapshots are rollback points, not backups. Proxmox, ordinary Debian
+packages, Docker/Frigate images, Hermes releases, Home Assistant, and firmware
+remain separate reviewed maintenance.
 
 `scripts/step20-status.sh` is the primary human operator interface for this
 workstream. It converts the protected machine-readable JSON into a compact
 summary of recovery-backup age, explicitly timestamped audit counts, live
-reboot markers, automatic-update configuration, last recorded update results,
-next runs, and simple operating guidance.
+reboot markers, controlled-update policy, retained snapshot/cleanup state, and
+simple operating guidance.
 
 ## Later Tasks
 
@@ -732,9 +739,10 @@ The agreed near-term roadmap is:
    discovery, integration loading, and the first temperature/humidity sensor
    are verified.
 7. **Step 20 - Update operations:** weekly non-installing auditing, protected
-   status/logging, and automatic Debian security-only updates for the three
-   managed CTs are deployed. Verify the first automatic run; reserve manual
-   maintenance for separately reviewed Proxmox and application procedures.
+   status/logging, and the snapshot-protected Debian Security update MVP are
+   deployed and verified on CT 210, including rollback and cleanup. Pilot CT
+   220 and CT 200 separately. Proxmox and applications keep their reviewed
+   procedures.
 
 The Proxmox host currently detects the ZBDongle-P as USB ID `10c4:ea60`
 (Silicon Labs CP210x UART Bridge) and exposes the stable host path

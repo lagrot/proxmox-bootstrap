@@ -2,10 +2,12 @@
 
 Step 20 has one narrow automation boundary:
 
-- CT 200, CT 210, and CT 220 install Debian Security updates automatically.
-- Proxmox and application upgrades are never applied by Step 20.
-- Step 12 recovery backups are reported for visibility but do not gate the
-  standard Debian automatic-update timers.
+- CT 200, CT 210, and CT 220 can install Debian Security updates through one
+  controlled script.
+- Package installation is manual, one CT at a time, and snapshot protected.
+- Independent automatic installation and automatic rebooting are disabled.
+- Proxmox and application upgrades are never applied by this workflow.
+- Step 12 recovery backups remain a separate operation.
 
 For the condensed SSH runbook, use `UPDATE-QUICK-GUIDE.txt`.
 
@@ -22,11 +24,11 @@ The status shows:
 - the timestamp and package counts from the last weekly audit;
 - the latest recovery backup and whether it is current;
 - live reboot markers;
-- whether automatic security updates are correctly configured;
-- each CT's last recorded automatic-update result and next run.
+- whether the controlled security policy is correctly configured;
+- any retained update snapshot and when its cleanup is allowed.
 
-Audit counts can be up to one week old and are labelled accordingly. A current
-recovery backup does not prevent or authorize an automatic security update.
+Audit counts can be up to one week old and are labelled accordingly. The
+backup line reports the separate Step 12 recovery operation.
 
 ## Weekly audit
 
@@ -54,7 +56,7 @@ Protected runtime files:
 
 The JSON is machine state. Use `step20-status.sh` for the human view.
 
-## Automatic CT security updates
+## Controlled CT security updates
 
 Run the non-mutating prerequisite and package simulation:
 
@@ -78,35 +80,57 @@ The policy:
 
 - accepts Debian Security origins only;
 - preserves locally modified package configuration;
-- uses Debian's standard randomized APT timers and logs;
-- uses minimal upgrade steps;
-- reboots an affected CT when Debian creates `/var/run/reboot-required`.
+- refreshes package metadata but does not install packages automatically;
+- disables automatic rebooting;
+- leaves installation, reboot-required handling, and validation to
+  `step20-update-ct.sh`.
 
 The Proxmox host, ordinary Debian updates, third-party Docker packages,
 Frigate images, Hermes releases, Home Assistant, and firmware are excluded.
-The timers operate independently of Step 12 backup state.
-
-Troubleshoot a CT with:
+Normal operation for one CT:
 
 ```bash
-pct exec CTID -- journalctl \
-  -u apt-daily-upgrade.service --since "7 days ago" --no-pager
-pct exec CTID -- tail -n 100 \
-  /var/log/unattended-upgrades/unattended-upgrades.log
+bash scripts/step20-update-ct.sh ct210 --dry-run
+bash scripts/step20-update-ct.sh ct210 --confirm
+# After at least 24 hours:
+bash scripts/step20-update-ct.sh ct210 --cleanup
 ```
 
-After the first run under the deployed policy, confirm `step20-status.sh`
-reports `last=success` for all three CTs. Then perform the existing CT 210,
-CT 220, and CT 200 regression routes once. This is initial acceptance testing,
-not a weekly operator task.
+The script checks the live baseline before creating a snapshot. Confirm stops
+the CT, creates a consistent snapshot, starts it, validates again, installs
+only the simulated Debian Security package set, reboots only when Debian marks
+one required, and performs final regression validation. A failure keeps the
+snapshot and prints explicit inspection/rollback commands. Rollback is never
+automatic.
+
+The first CT 210 pilot, a controlled failure, a real snapshot rollback,
+re-patching, and managed cleanup passed. Cleanup revalidated MQTT, deleted only
+the recorded snapshot, and removed its protected state. The acceptance test
+used an explicit zero-age override; the normal command still enforces the
+24-hour observation period.
+
+## Failure and rollback
+
+Inspect the exact retained snapshot:
 
 ```bash
+pct listsnapshot 210
+```
+
+If rollback is selected after inspection:
+
+```bash
+pct stop 210
+pct rollback 210 EXACT_SNAPSHOT_NAME
+pct start 210
 bash scripts/step20c-post-update-validation.sh ct210
-bash scripts/step20c-post-update-validation.sh ct220
-bash scripts/step20c-post-update-validation.sh ct200
 ```
 
-## Deliberate maintenance
+`EXACT_SNAPSHOT_NAME` is the `pbsec-...-ct210` name printed by the failed
+update and by `pct listsnapshot 210`. Rollback restores the pre-update CT disk,
+including its package versions. It does not retry the update.
+
+## Other maintenance
 
 `step20b-update-plan.sh` is review-only. It does not provide generic apply
 commands for Proxmox, full CT upgrades, or applications. In particular:
@@ -124,8 +148,9 @@ available:
 bash scripts/step20c-post-update-validation.sh TARGET
 ```
 
-Snapshots are temporary rollback points for selected high-risk work. They are
-not backups and are not part of routine automatic security patching.
+Snapshots are temporary rollback points, not backups. The updater retains a
+successful snapshot for at least 24 hours. Cleanup validates the CT again and
+deletes only the exact snapshot recorded in protected local state.
 
 ## Full validation
 
@@ -135,7 +160,11 @@ bash scripts/step20e-update-operations-validation.sh
 
 This validates the host audit timer and log rotation, protected status files,
 the non-mutating setup check, the deployed security policy, and the human
-status command.
+status command. Focused MVP command and failure-path tests are available with:
+
+```bash
+bash scripts/step20-update-ct-tests.sh
+```
 
 ## References
 

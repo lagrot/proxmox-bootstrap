@@ -27,6 +27,10 @@ public internet.
 - Work one step at a time and preserve the simple architecture.
 - Prefer readable, safe, idempotent Bash scripts.
 - Add or use validation scripts after deployment changes.
+- Test every operator-facing command exactly as documented before marking it
+  verified. Include invalid-input and failure-path tests, not only Bash syntax.
+- Give mutating workflows a real non-mutating mode, pilot risky changes on the
+  smallest suitable guest, and run an end-to-end smoke test before handoff.
 - Use Proxmox-native commands: `pct`, `qm`, and the Web UI.
 - Prefer `pct enter` and `pct exec` over installing SSH in LXCs.
 - Never commit secrets, API keys, tokens, `.env` files, logs, backups, or runtime data.
@@ -68,14 +72,16 @@ dashboard with 24-hour temperature and humidity graphs.
 Steps 20A-20E provide weekly update auditing, protected status and logging,
 non-mutating maintenance review, and post-update regression routing. The audit
 refreshes APT metadata but never installs or reboots anything.
-Steps 20F-20G use Debian `unattended-upgrades` for security repositories only
-in CTs 200, 210, and 220. Deployment and configuration validation are
-complete; the first automatic run under the new policy is not yet verified.
-Debian's daily timers, configuration preservation, standard logging, and
-reboot-required handling are authoritative. The timers are independent of the
-Step 12 recovery backup state. Proxmox,
-ordinary CT updates, HAOS, Frigate images, Hermes releases, Docker third-party
-packages, and Zigbee firmware remain deliberate maintenance.
+Steps 20F-20H restrict Debian Security package installation to a manual,
+snapshot-protected, one-CT-at-a-time workflow. Independent automatic package
+installation and automatic rebooting are disabled in CTs 200, 210, and 220.
+The CT 210 pilot proved security-only installation, service validation,
+failure detection, real Proxmox snapshot rollback, re-patching, and managed
+snapshot cleanup. The cleanup test used an explicit zero-age test override;
+normal operation still enforces the 24-hour observation period. Step 12
+recovery backups remain a separate workstream. Proxmox, ordinary CT updates,
+HAOS, Frigate images, Hermes releases, Docker third-party packages, and Zigbee
+firmware remain deliberate maintenance.
 Use `scripts/step20-status.sh` as the human operator view. The protected JSON
 files are machine-readable state and should not be presented as the primary
 status interface.
@@ -91,9 +97,8 @@ Continue with:
    final.
 5. Let the first Zigbee sensor establish a stable baseline before considering
    its available firmware update or adding sensor-driven automations.
-6. Verify the first unattended Debian security-update run. No weekly CT
-   patching action is required; operator maintenance is reserved for the
-   Proxmox host and application releases.
+6. Decide when to pilot the verified security-update MVP on CT 220 and CT 200,
+   one container at a time.
 
 Keep both verified camera baselines working while making these changes.
 

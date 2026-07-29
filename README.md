@@ -227,8 +227,9 @@ The `old/` directory contains scripts that are kept for historical reference but
 | Step 20C | Per-layer post-update regression routing | verified |
 | Step 20D | Weekly protected update-audit schedule and logging | verified |
 | Step 20E | Update operations validation | verified |
-| Step 20F | Automatic Debian security updates for managed CTs | deployed |
-| Step 20G | Unattended security-update configuration validation | verified; first new-policy run pending |
+| Step 20F | Controlled Debian security-update policy for managed CTs | deployed |
+| Step 20G | Controlled security-update configuration validation | verified |
+| Step 20H | Snapshot-protected Debian Security update MVP | CT 210 update, rollback, and cleanup verified |
 
 ## Hermes CT 220 baseline
 
