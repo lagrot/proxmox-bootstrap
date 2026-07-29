@@ -59,7 +59,9 @@ bash scripts/step20-status.sh
 
 This summarizes backup readiness, update and security counts, reboot markers,
 managed snapshots, timers, the latest maintenance transaction, and the
-recommended next command.
+complete CT maintenance queue. The queue shows every guest with pending
+packages in the recommended CT 210, CT 220, CT 200 order; it never implies
+that later targets can be updated concurrently.
 
 ## Schedule
 
