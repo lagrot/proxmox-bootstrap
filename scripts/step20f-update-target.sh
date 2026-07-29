@@ -216,7 +216,8 @@ STAGE="package-plan"
 log_info "Refreshing target package metadata"
 pct exec "${CT_ID}" -- apt-get update >/dev/null || fail "APT metadata refresh failed"
 log_info "Refreshing the cross-system audit without another metadata update"
-UPDATE_AUDIT_REFRESH=0 bash "${STEP20_SCRIPT_DIR}/step20a-update-audit.sh"
+UPDATE_AUDIT_REFRESH=0 bash "${STEP20_SCRIPT_DIR}/step20a-update-audit.sh" >/dev/null \
+  || fail "Cross-system update audit failed"
 pct exec "${CT_ID}" -- apt-get -s dist-upgrade >"${TRANSACTION_DIR}/package-plan.txt" \
   || fail "APT package simulation failed"
 chmod 0600 "${TRANSACTION_DIR}/package-plan.txt"
@@ -236,6 +237,15 @@ if (( DRY_RUN == 1 )); then
   log_info "No snapshot, package installation, reboot, or service change occurred"
   write_status dry_run "Dry run completed successfully"
   STATUS_WRITTEN=1
+  printf '\nDRY RUN PASSED\n'
+  printf '%s\n' '=============='
+  printf 'Target:             %s (CT %s)\n' "${TARGET}" "${CT_ID}"
+  printf 'Pending packages:   %s\n' "${PENDING_COUNT}"
+  printf 'Package plan:       %s/package-plan.txt\n' "${TRANSACTION_DIR}"
+  printf '\nNEXT STEP — starts real maintenance and causes a brief outage:\n'
+  printf 'bash scripts/step20f-update-target.sh %s --confirm-update\n' "${TARGET}"
+  printf '\nAfter completion:\n'
+  printf 'bash scripts/step20-status.sh\n\n'
   exit 0
 fi
 
