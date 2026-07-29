@@ -42,11 +42,19 @@ Common targets:
   ct210     Debian packages in MQTT CT
   ct220     Debian packages in Hermes CT
   docker    Docker engine
-  frigate   Frigate image
   hermes    Hermes application
 
 Home Assistant is updated through its web interface, not with APT.
 Never update several targets at once.
+
+FRIGATE IS AN EXCEPTION. Do not update its image with the generic Step 20
+procedure. Frigate upgrades can change the configuration schema and database.
+Use the dedicated Step 18 preflight, dry-run, regression, and rollback
+procedure in docs/step18-frigate-upgrade.md. Keep Frigate pinned until a
+specific stable release has been selected and reviewed.
+
+Treat major Docker, Hermes, and Home Assistant releases similarly: read their
+release notes and use their dedicated procedure before changing anything.
 
 
 SNAPSHOTS
