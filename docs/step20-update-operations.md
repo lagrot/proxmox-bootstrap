@@ -61,7 +61,8 @@ This summarizes backup readiness, update and security counts, reboot markers,
 managed snapshots, timers, the latest maintenance transaction, and the
 complete CT maintenance queue. The queue shows every guest with pending
 packages in the recommended CT 210, CT 220, CT 200 order; it never implies
-that later targets can be updated concurrently.
+that later targets can be updated concurrently. Each entry prints both the
+`--dry-run` review command and the explicit `--confirm-update` command.
 
 ## Schedule
 
