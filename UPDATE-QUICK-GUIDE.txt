@@ -5,6 +5,8 @@ Read over SSH:
   cd /root/proxmox-bootstrap
   less UPDATE-QUICK-GUIDE.txt
 
+Words in ALL_CAPS are placeholders. Replace them with a real value.
+
 NORMAL USE
 ----------
 CT 200, 210, and 220 install Debian security updates automatically.
@@ -28,7 +30,9 @@ SNAPSHOTS
 ---------
 Snapshots are temporary rollback points, not backups.
 List:
-  pct listsnapshot CTID
+  pct listsnapshot 200
+  pct listsnapshot 210
+  pct listsnapshot 220
 Delete only after the guest is healthy and the exact name is confirmed:
   pct delsnapshot CTID SNAPSHOT_NAME
 Snapshot deletion cannot be undone. Never guess an ID or name.
