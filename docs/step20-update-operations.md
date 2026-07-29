@@ -8,6 +8,9 @@ Step 20 keeps routine security maintenance simple:
 - The Proxmox host and application releases remain deliberate maintenance.
 - The weekly audit and `step20-status.sh` provide visibility.
 
+For a condensed plain-text runbook suitable for `cat` or `less` over SSH, use
+`UPDATE-QUICK-GUIDE.txt` in the repository root.
+
 ## Human status
 
 Use this as the normal operator interface:
