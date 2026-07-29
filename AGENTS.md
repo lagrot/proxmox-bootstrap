@@ -75,6 +75,9 @@ protects each single-target update, required CT reboots and regressions are
 automated, and rollback remains explicit. Never apply this executor to the
 Proxmox host, HAOS, Frigate images, Hermes application releases, Docker major
 upgrades, or Zigbee firmware.
+Use `scripts/step20-status.sh` as the human operator view. The protected JSON
+files are machine-readable state and should not be presented as the primary
+status interface.
 Continue with:
 
 1. Decide whether to proceed with a one-camera face-recognition pilot, select

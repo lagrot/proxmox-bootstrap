@@ -714,6 +714,12 @@ metadata, and recorded 64 pending packages including 16 from Debian security.
 It created no snapshot, installed no package, and did not stop, reboot, or
 otherwise change the MQTT service.
 
+`scripts/step20-status.sh` is the primary human operator interface for this
+workstream. It converts the protected machine-readable JSON into a compact
+summary of backup readiness, pending/security package counts, reboot markers,
+managed snapshots, scheduled backup/audit runs, latest maintenance state, and
+the recommended next command.
+
 ## Later Tasks
 
 The agreed near-term roadmap is:
