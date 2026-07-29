@@ -133,8 +133,8 @@ scripts/
 - `scripts/step20c-post-update-validation.sh`
 - `scripts/step20d-update-audit-schedule.sh`
 - `scripts/step20e-update-operations-validation.sh`
-- `scripts/step20f-update-target.sh`
-- `scripts/step20g-update-rollback.sh`
+- `scripts/step20f-unattended-upgrades.sh`
+- `scripts/step20g-unattended-upgrades-validation.sh`
 - `scripts/step20-status.sh`
 
 ## Remote access
@@ -226,8 +226,8 @@ The `old/` directory contains scripts that are kept for historical reference but
 | Step 20C | Per-layer post-update regression routing | verified |
 | Step 20D | Weekly protected update-audit schedule and logging | verified |
 | Step 20E | Update operations validation | verified |
-| Step 20F | Controlled snapshot-protected CT patching | CT 210 dry-run verified |
-| Step 20G | Explicit maintenance snapshot rollback | dry-run pending |
+| Step 20F | Automatic Debian security updates for managed CTs | verified |
+| Step 20G | Unattended security-update validation | verified |
 
 ## Hermes CT 220 baseline
 
