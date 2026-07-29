@@ -23,7 +23,6 @@ check test -f "${UPDATE_STATUS_FILE}"
 check test "$(stat -c %a "${UPDATE_STATUS_FILE}")" = 600
 check python3 -m json.tool "${UPDATE_STATUS_FILE}"
 check grep -qE '"status": "(success|warning)"' "${UPDATE_STATUS_FILE}"
-check bash "${PROJECT_ROOT}/scripts/step20b-update-plan.sh" proxmox
 check bash "${PROJECT_ROOT}/scripts/step20f-unattended-upgrades.sh" --dry-run
 check bash "${PROJECT_ROOT}/scripts/step20g-unattended-upgrades-validation.sh"
 check bash "${PROJECT_ROOT}/scripts/step20-status.sh"

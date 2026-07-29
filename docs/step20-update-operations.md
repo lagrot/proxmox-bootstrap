@@ -158,8 +158,8 @@ including its package versions. It does not retry the update.
 
 ## Other maintenance
 
-`step20b-update-plan.sh` is review-only. It does not provide generic apply
-commands for Proxmox, full CT upgrades, or applications. In particular:
+The controlled CT updater does not provide generic apply commands for Proxmox,
+full CT upgrades, or applications. In particular:
 
 - Step 12 does not contain a Proxmox host backup or complete CT root filesystems.
 - Home Assistant updates use its web interface and its own backup.

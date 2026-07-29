@@ -129,7 +129,6 @@ scripts/
 - `scripts/step19b-homeassistant-zigbee-validation.sh`
 - `scripts/step19c-homeassistant-climate-dashboard.sh`
 - `scripts/step20a-update-audit.sh`
-- `scripts/step20b-update-plan.sh`
 - `scripts/step20c-post-update-validation.sh`
 - `scripts/step20d-update-audit-schedule.sh`
 - `scripts/step20e-update-operations-validation.sh`
