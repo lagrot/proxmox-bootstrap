@@ -135,6 +135,7 @@ scripts/
 - `scripts/step20e-update-operations-validation.sh`
 - `scripts/step20f-update-target.sh`
 - `scripts/step20g-update-rollback.sh`
+- `scripts/step20-status.sh`
 
 ## Remote access
 
@@ -146,6 +147,12 @@ The Zigbee coordinator procedure is documented in
 `docs/step19-homeassistant-zigbee.md`.
 The controlled update policy and audit procedure are documented in
 `docs/step20-update-operations.md`.
+
+Normal update-operations status:
+
+```bash
+bash scripts/step20-status.sh
+```
 
 Current verified remote access:
 

@@ -50,6 +50,16 @@ Protected runtime output:
 
 The log rotates weekly, is compressed after the first rotation, and is kept
 for 52 weeks. Logs and status files are runtime data and must not be committed.
+The JSON status is the machine-readable automation interface. For the normal
+human-readable view, use:
+
+```bash
+bash scripts/step20-status.sh
+```
+
+This summarizes backup readiness, update and security counts, reboot markers,
+managed snapshots, timers, the latest maintenance transaction, and the
+recommended next command.
 
 ## Schedule
 
