@@ -15,9 +15,14 @@ usage() {
   cat <<EOF
 Usage: $0 TARGET
 
-Targets:
-  proxmox, ct200, docker, ct210, mqtt, ct220, hermes,
+Command targets:
+  proxmox, ct200, docker, ct210, mqtt, ct220
+
+Special guidance:
   homeassistant, frigate, zigbee
+
+Unavailable:
+  hermes (no tested application-upgrade procedure)
 
 This script validates the maintenance gates and prints commands only. It never
 installs packages, changes images, updates firmware, or reboots anything.
@@ -26,6 +31,14 @@ EOF
 
 [[ "${EUID}" -eq 0 ]] || die "Run as root"
 [[ -n "${TARGET}" ]] || { usage; exit 1; }
+if [[ "${TARGET}" == "hermes" ]]; then
+  cat <<'EOF'
+BLOCKED: No tested Hermes application-upgrade procedure exists.
+Do not upgrade Hermes with Step 20.
+CT 220 Debian security updates are handled automatically.
+EOF
+  exit 2
+fi
 [[ -f "${UPDATE_STATUS_FILE}" ]] || die "Run Step 20A before planning maintenance"
 grep -qE '"status": "(success|warning)"' "${UPDATE_STATUS_FILE}" \
   || die "Latest update audit did not complete successfully"
@@ -94,14 +107,6 @@ apt-get update
 apt-get dist-upgrade
 exit
 bash scripts/step20c-post-update-validation.sh ct220
-EOF
-    ;;
-  hermes)
-    cat <<'EOF'
-# Review the Hermes release notes and its installation method first.
-# Back up /home/hermes/.hermes, update only through the established Hermes
-# installer/environment, restart hermes-gateway.service, then run:
-bash scripts/step20c-post-update-validation.sh hermes
 EOF
     ;;
   homeassistant)

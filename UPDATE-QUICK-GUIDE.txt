@@ -42,7 +42,6 @@ Common targets:
   ct210     Debian packages in MQTT CT
   ct220     Debian packages in Hermes CT
   docker    Docker engine
-  hermes    Hermes application
 
 Home Assistant is updated through its web interface, not with APT.
 Never update several targets at once.
@@ -55,6 +54,9 @@ specific stable release has been selected and reviewed.
 
 Treat major Docker, Hermes, and Home Assistant releases similarly: read their
 release notes and use their dedicated procedure before changing anything.
+There is currently no implemented Hermes application-upgrade procedure.
+Do not upgrade Hermes with Step 20; CT 220 Debian security updates remain
+automatic.
 
 
 SNAPSHOTS
