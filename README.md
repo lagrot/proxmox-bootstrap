@@ -133,6 +133,8 @@ scripts/
 - `scripts/step20c-post-update-validation.sh`
 - `scripts/step20d-update-audit-schedule.sh`
 - `scripts/step20e-update-operations-validation.sh`
+- `scripts/step20f-update-target.sh`
+- `scripts/step20g-update-rollback.sh`
 
 ## Remote access
 
@@ -217,6 +219,8 @@ The `old/` directory contains scripts that are kept for historical reference but
 | Step 20C | Per-layer post-update regression routing | verified |
 | Step 20D | Weekly protected update-audit schedule and logging | verified |
 | Step 20E | Update operations validation | verified |
+| Step 20F | Controlled snapshot-protected CT patching | CT 210 dry-run verified |
+| Step 20G | Explicit maintenance snapshot rollback | dry-run pending |
 
 ## Hermes CT 220 baseline
 

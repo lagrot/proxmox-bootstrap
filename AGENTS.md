@@ -68,7 +68,13 @@ dashboard with 24-hour temperature and humidity graphs.
 Steps 20A-20E provide weekly read-only update auditing, protected status and
 logging, a recent-backup gate, non-mutating per-layer command plans, and
 post-update regression routing. No unattended upgrades or automatic reboots
-are enabled.
+are enabled by the audit schedule.
+Steps 20F-20G add controlled Debian patch execution for CTs 200, 210, and 220:
+a recent Step 12 backup is required, a stopped-state `local-lvm` snapshot
+protects each single-target update, required CT reboots and regressions are
+automated, and rollback remains explicit. Never apply this executor to the
+Proxmox host, HAOS, Frigate images, Hermes application releases, Docker major
+upgrades, or Zigbee firmware.
 Continue with:
 
 1. Decide whether to proceed with a one-camera face-recognition pilot, select
