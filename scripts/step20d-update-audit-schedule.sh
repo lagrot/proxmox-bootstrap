@@ -29,6 +29,7 @@ install -d -o root -g root -m 0700 /var/lib/proxmox-bootstrap
 touch /var/log/proxmox-bootstrap/update-audit.log
 chown root:adm /var/log/proxmox-bootstrap/update-audit.log
 chmod 0640 /var/log/proxmox-bootstrap/update-audit.log
+rm -f /etc/logrotate.d/proxmox-bootstrap-update-maintenance
 
 systemctl daemon-reload
 systemctl enable --now proxmox-bootstrap-update-audit.timer

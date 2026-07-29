@@ -1,110 +1,200 @@
 # Step 20 - Update Operations
 
-Step 20 provides update visibility and controlled maintenance boundaries
-without enabling unattended upgrades or automatic reboots.
+Step 20 has one narrow automation boundary:
 
-## Policy
+- CT 200, CT 210, and CT 220 can install Debian Security updates through one
+  controlled script.
+- Package installation is manual, one CT at a time, and snapshot protected.
+- Independent automatic installation and automatic rebooting are disabled.
+- Proxmox and application upgrades are never applied by this workflow.
+- Step 12 recovery backups remain a separate operation.
 
-- Run a read-only update audit every Monday after the Sunday backup.
-- Refresh package metadata, but never install packages from the timer.
-- Report Debian security-repository packages separately from other APT
-  updates.
-- Treat third-party security advisories as a release-note review task; APT
-  cannot classify every Docker, Home Assistant, Frigate, Hermes, or firmware
-  CVE.
-- Update one layer at a time, verify a recent validated backup first, and run
-  the matching regression suite afterward.
-- Keep Frigate pinned and use Steps 18A-18D for image upgrades.
-- Use the Home Assistant UI for Core, Supervisor, OS, integration, and app
-  updates.
-- Never update Zigbee coordinator firmware merely because a newer build
-  exists.
+For the condensed SSH runbook, use `UPDATE-QUICK-GUIDE.txt`.
+
+## Target names and package scope
+
+The target selects an LXC and its post-update validation route. It does not
+request a generic application or full-system upgrade.
+
+| Target | Eligible update scope | Explicitly excluded |
+|---|---|---|
+| `ct200` | Installed packages offered by Debian Security | Docker Engine/Compose from `download.docker.com`; pinned Frigate image |
+| `ct210` | Installed packages offered by Debian Security, including Mosquitto when Debian Security publishes a fix | Ordinary Debian feature updates and generic full upgrades |
+| `ct220` | Installed packages offered by Debian Security | Hermes application release |
+
+Mosquitto is eligible in CT 210 because it is installed as a native Debian
+package. Docker and Hermes use non-Debian installation sources, while Frigate
+is a pinned container image, so those application updates require their own
+procedures.
+
+## Normal operation
+
+Run:
+
+```bash
+bash scripts/step20-status.sh
+```
+
+The status shows:
+
+- the timestamp and package counts from the last weekly audit;
+- the latest recovery backup and whether it is current;
+- live reboot markers;
+- whether the controlled security policy is correctly configured;
+- any retained update snapshot and when its cleanup is allowed.
+
+Audit counts can be up to one week old and are labelled accordingly. The
+backup line reports the separate Step 12 recovery operation.
 
 ## Weekly audit
 
-Run manually:
+Run manually when needed:
 
 ```bash
 bash scripts/step20a-update-audit.sh
 ```
 
-The audit records:
+The installed host timer runs it each Monday after the Sunday backup. It
+refreshes APT metadata and records versions, pending packages, Debian Security
+packages, reboot markers, and recovery-backup age. It never installs packages
+or reboots a system.
 
-- Proxmox, kernel, Docker, Compose, Frigate, Mosquitto, Hermes, Home Assistant,
-  and Zigbee coordinator identity/revision information;
-- pending APT updates on the host and CTs 200, 210, and 220;
-- packages supplied by the Debian security repository;
-- host and container reboot markers;
-- whether the latest validated backup is no more than eight days old.
-
-ZHA does not expose the ZBDongle-P radio firmware through the standard HAOS
-hardware API. The audit reports the stable identity and USB bridge revision
-and marks the radio firmware as unavailable rather than inventing a version.
-
-Protected runtime output:
-
-- log: `/var/log/proxmox-bootstrap/update-audit.log`, mode `0640`;
-- status: `/var/lib/proxmox-bootstrap/update-audit-status.json`, mode `0600`.
-
-The log rotates weekly, is compressed after the first rotation, and is kept
-for 52 weeks. Logs and status files are runtime data and must not be committed.
-
-## Schedule
-
-Install and verify the timer:
+Install or refresh the timer:
 
 ```bash
 bash scripts/step20d-update-audit-schedule.sh
-bash scripts/step20e-update-operations-validation.sh
 ```
 
-The persistent timer runs each Monday at 06:00 Europe/Stockholm with up to ten
-minutes of randomized delay. It reports only; it cannot update or reboot a
-system.
+Protected runtime files:
 
-## Controlled maintenance
+- `/var/log/proxmox-bootstrap/update-audit.log`
+- `/var/lib/proxmox-bootstrap/update-audit-status.json`
 
-Generate the commands for one target:
+The JSON is machine state. Use `step20-status.sh` for the human view.
+
+## Controlled CT security updates
+
+Run the non-mutating prerequisite and package simulation:
 
 ```bash
-bash scripts/step20b-update-plan.sh TARGET
+bash scripts/step20f-unattended-upgrades.sh --dry-run
 ```
 
-Supported targets are `proxmox`, `ct200`, `docker`, `ct210`, `mqtt`, `ct220`,
-`hermes`, `homeassistant`, `frigate`, and `zigbee`. The planner refuses to
-continue without a successful update audit and a validated backup no more than
-eight days old. It only prints commands; the operator must review and run them.
+One-time deployment:
 
-After updating one layer, run:
+```bash
+bash scripts/step20f-unattended-upgrades.sh --confirm-install
+```
+
+Validate the deployed files, effective APT policy, and timers:
+
+```bash
+bash scripts/step20g-unattended-upgrades-validation.sh
+```
+
+The policy:
+
+- accepts Debian Security origins only;
+- preserves locally modified package configuration;
+- refreshes package metadata but does not install packages automatically;
+- disables automatic rebooting;
+- leaves installation, reboot-required handling, and validation to
+  `step20-update-ct.sh`.
+
+The Debian `unattended-upgrades` package is used as the tested security-only
+package selection and installation engine. Its automatic installation timer
+is disabled, so the operator-controlled script remains the only apply path.
+
+The Proxmox host, ordinary Debian updates, third-party Docker packages,
+Frigate images, Hermes releases, Home Assistant, and firmware are excluded.
+Normal operation for one CT:
+
+```bash
+bash scripts/step20-update-ct.sh ct210 --dry-run
+bash scripts/step20-update-ct.sh ct210 --confirm
+# After at least 24 hours:
+bash scripts/step20-update-ct.sh ct210 --cleanup
+```
+
+The script checks the live baseline before creating a snapshot. Confirm stops
+the CT, creates a consistent snapshot, starts it, validates again, installs
+only the simulated Debian Security package set, reboots only when Debian marks
+one required, and performs final regression validation. A failure keeps the
+snapshot and prints explicit inspection/rollback commands. Rollback is never
+automatic.
+
+The first CT 210 pilot, a controlled failure, a real snapshot rollback,
+re-patching, and managed cleanup passed. Cleanup revalidated MQTT, deleted only
+the recorded snapshot, and removed its protected state. The acceptance test
+used an explicit zero-age override; the normal command still enforces the
+24-hour observation period.
+
+The CT 220 pilot then installed 21 Debian Security updates with no reboot
+required. The Hermes provider smoke test, active gateway, doctor connectivity,
+package integrity, and systemd health passed afterward. Managed cleanup
+revalidated Hermes and removed only its recorded snapshot and state. This
+cleanup also used the explicit zero-age acceptance-test override.
+
+## Failure and rollback
+
+Inspect the exact retained snapshot:
+
+```bash
+pct listsnapshot 210
+```
+
+If rollback is selected after inspection:
+
+```bash
+pct stop 210
+pct rollback 210 EXACT_SNAPSHOT_NAME
+pct start 210
+bash scripts/step20c-post-update-validation.sh ct210
+```
+
+`EXACT_SNAPSHOT_NAME` is the `pbsec-...-ct210` name printed by the failed
+update and by `pct listsnapshot 210`. Rollback restores the pre-update CT disk,
+including its package versions. It does not retry the update.
+
+## Other maintenance
+
+The controlled CT updater does not provide generic apply commands for Proxmox,
+full CT upgrades, or applications. In particular:
+
+- Step 12 does not contain a Proxmox host backup or complete CT root filesystems.
+- Home Assistant updates use its web interface and its own backup.
+- Frigate upgrades use `docs/step18-frigate-upgrade.md`.
+- Docker, MQTT feature releases, Hermes, and Zigbee firmware need separately
+  tested procedures before they can be applied.
+
+After a separately reviewed change, existing regression routing remains
+available:
 
 ```bash
 bash scripts/step20c-post-update-validation.sh TARGET
 ```
 
-The target selects existing host, service, hardware, MQTT, Home Assistant,
-Frigate, Hermes, and Zigbee validation scripts. An activity-dependent camera
-event warning is acceptable when nobody moves in front of a camera; failed
-tracks are not.
+Snapshots are temporary rollback points, not backups. The updater retains a
+successful snapshot for at least 24 hours. Cleanup validates the CT again and
+deletes only the exact snapshot recorded in protected local state.
 
-## Initial verified audit
+## Full validation
 
-The initial refreshed audit on 2026-07-29 found:
+```bash
+bash scripts/step20e-update-operations-validation.sh
+```
 
-| Scope | Pending packages | Debian security packages |
-|---|---:|---:|
-| Proxmox host | 0 | 0 |
-| CT 200 | 88 | 17 |
-| CT 210 | 64 | 16 |
-| CT 220 | 66 | 17 |
+This validates the host audit timer and log rotation, protected status files,
+the non-mutating setup check, the deployed security policy, and the human
+status command. Focused MVP command and failure-path tests are available with:
 
-No packages were installed. The host and all three CTs had no reboot marker,
-and the latest validated backup was within the eight-day maintenance gate.
-These counts are transient operational state; use the latest protected audit
-rather than treating this table as current forever.
+```bash
+bash scripts/step20-update-ct-tests.sh
+```
 
 ## References
 
+- [Debian unattended-upgrades README](https://sources.debian.org/src/unattended-upgrades/2.13/README.md)
+- [Debian unattended-upgrade manual](https://manpages.debian.org/unstable/unattended-upgrades/unattended-upgrade.8.en.html)
 - [Proxmox VE administration guide](https://pve.proxmox.com/pve-docs/pve-admin-guide.pdf)
 - [Home Assistant OS update tasks](https://www.home-assistant.io/common-tasks/os/)
-- [Docker Engine on Debian](https://docs.docker.com/engine/install/debian/)
-- [Debian security information](https://www.debian.org/security/)

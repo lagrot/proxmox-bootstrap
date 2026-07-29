@@ -240,11 +240,14 @@ chmod -R 775 /mnt/frigate
 | Step 19A | Sonoff ZBDongle-P passthrough to HAOS | verified |
 | Step 19B | HAOS Zigbee hardware, ZHA, and first sensor | verified |
 | Step 19C | Native Home Assistant Indoor Climate dashboard | verified |
-| Step 20A | Read-only update and security audit | verified |
-| Step 20B | Backup-gated update command planner | verified |
+| Step 20A | Non-installing update and security audit | verified |
+| Step 20B | Non-mutating maintenance review and safety boundaries | verified |
 | Step 20C | Per-layer post-update validation routing | verified |
 | Step 20D | Weekly protected update-audit schedule | verified |
 | Step 20E | Update operations validation | verified |
+| Step 20F | Controlled Debian security-update policy for managed CTs | deployed |
+| Step 20G | Controlled security-update configuration validation | verified |
+| Step 20H | Snapshot-protected Debian Security update MVP | CT 210 and CT 220 update/cleanup verified; rollback verified on CT 210 |
 
 ## Service Decisions
 
@@ -668,26 +671,69 @@ theme-compatible, and independent of additional HACS frontend components.
 
 ## Update Operations
 
-Steps 20A-20E provide a controlled update-operations workflow without
-unattended upgrades or automatic reboots. The read-only audit refreshes package
-metadata, inventories Proxmox, kernel, Docker, Compose, Frigate, Mosquitto,
-Hermes, Home Assistant, and Zigbee information, reports Debian security
-packages separately, checks reboot markers, and requires a recent validated
-backup.
+Steps 20A-20E provide non-installing update visibility, maintenance safety
+boundaries, and existing regression routing. The audit inventories
+Proxmox, kernel, Docker, Compose, Frigate, Mosquitto, Hermes, Home Assistant,
+and Zigbee information, reports Debian security packages separately, checks
+reboot markers, and reports the age of the latest recovery backup.
 
 The audit runs each Monday at 06:00 Europe/Stockholm, after the Sunday backup,
 with up to ten minutes of randomized delay. Protected logs rotate weekly and
-are retained for 52 weeks; the root-only JSON status contains the current
-package counts and maintenance gates. The per-layer planner prints commands
-only, while post-update validation routes each target to the existing
-regression scripts.
-
-The initial refreshed audit found no pending host packages. CT 200 reported 88
-pending packages including 17 from Debian security, CT 210 reported 64
-including 16 security packages, and CT 220 reported 66 including 17 security
-packages. No packages were installed. These counts are transient and the
-protected current audit is authoritative. The procedure is documented in
+are retained for 52 weeks; the root-only JSON status contains the last audit
+result and package counts. The review command provides simulations or routes
+to a dedicated procedure; it never provides a generic application or host
+upgrade command. Post-update validation remains available after separately
+reviewed work. The procedure is documented in
 `docs/step20-update-operations.md`.
+
+Steps 20F-20H provide a deliberately small Debian Security update MVP for CT
+200, CT 210, and CT 220. The effective APT policy accepts Debian Security
+origins only, preserves local package configuration, and disables independent
+automatic package installation and automatic rebooting. The operator updates
+one CT at a time with `scripts/step20-update-ct.sh`: dry-run, confirm, then
+cleanup after a 24-hour observation period. Confirm validates the existing
+service, checks snapshot capacity, creates a stopped consistent Proxmox
+snapshot, installs security packages, handles a required reboot, and validates
+the service again.
+
+The target name selects an LXC and the matching regression tests; it is not an
+application update selector. CT 200 updates eligible Debian Security packages
+only, not Docker Engine/Compose from `download.docker.com` or the pinned
+Frigate image. CT 210 can also receive a Mosquitto fix when Debian publishes
+it through Debian Security because Mosquitto is a native Debian package.
+CT 220 does not update the Hermes application, which is installed outside
+Debian package management.
+
+The CT 210 pilot installed 20 Debian Security updates without requiring a
+reboot. MQTT authentication, anonymous-access rejection, and Frigate MQTT
+availability passed afterward. A controlled Mosquitto outage then proved that
+the validation detects failure and that a real Proxmox rollback restores the
+pre-update disk and package state. CT 210 was subsequently patched again and
+is healthy with no pending Debian Security packages. The managed cleanup path
+also passed: it revalidated MQTT, deleted only the recorded snapshot, and
+removed its protected state. This acceptance test used an explicit zero-age
+override; normal operation continues to enforce a 24-hour observation period.
+
+CT 220 then installed 21 Debian Security updates without requiring a reboot.
+Its Hermes LXC checks, OpenRouter provider smoke test, gateway status, service
+state, doctor connectivity, package integrity, and systemd health passed after
+the update. A transient OpenSSH package message about the systemd bus did not
+persist: systemd reported `running`, no units were failed, and the Hermes
+gateway remained active. Managed cleanup revalidated Hermes and removed the
+exact CT 220 snapshot and protected state. It used the same explicit zero-age
+acceptance-test override.
+
+Step 12 remains the authoritative backup, retention, and disaster-recovery
+workstream. Security updates do not create another backup. Their temporary
+Proxmox snapshots are rollback points, not backups. Proxmox, ordinary Debian
+packages, Docker/Frigate images, Hermes releases, Home Assistant, and firmware
+remain separate reviewed maintenance.
+
+`scripts/step20-status.sh` is the primary human operator interface for this
+workstream. It converts the protected machine-readable JSON into a compact
+summary of recovery-backup age, explicitly timestamped audit counts, live
+reboot markers, controlled-update policy, retained snapshot/cleanup state, and
+simple operating guidance.
 
 ## Later Tasks
 
@@ -710,9 +756,11 @@ The agreed near-term roadmap is:
 6. **Step 19 - Zigbee coordinator:** ZHA, HAOS USB passthrough, coordinator
    discovery, integration loading, and the first temperature/humidity sensor
    are verified.
-7. **Step 20 - Update operations:** weekly read-only auditing, protected
-   status/logging, backup-gated command planning, and post-update validation
-   routing are verified. Apply pending updates later, one layer at a time.
+7. **Step 20 - Update operations:** weekly non-installing auditing, protected
+   status/logging, and the snapshot-protected Debian Security update MVP are
+   deployed and verified on CT 210 and CT 220, including cleanup; real rollback
+   is verified on CT 210. Pilot CT 200 separately. Proxmox and applications
+   keep their reviewed procedures.
 
 The Proxmox host currently detects the ZBDongle-P as USB ID `10c4:ea60`
 (Silicon Labs CP210x UART Bridge) and exposes the stable host path

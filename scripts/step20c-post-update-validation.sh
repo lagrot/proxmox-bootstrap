@@ -4,9 +4,12 @@ set -euo pipefail
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd -- "${SCRIPT_DIR}/.." && pwd)"
 source "${PROJECT_ROOT}/lib/common.sh"
+source "${PROJECT_ROOT}/config/defaults.conf"
+[[ -f "${PROJECT_ROOT}/config/local.conf" ]] && source "${PROJECT_ROOT}/config/local.conf"
 STEP20_SCRIPT_DIR="${PROJECT_ROOT}/scripts"
 
 TARGET="${1:-}"
+TARGET="${TARGET,,}"
 [[ "${EUID}" -eq 0 ]] || die "Run as root"
 [[ -n "${TARGET}" ]] || die "Usage: $0 {proxmox|ct200|docker|ct210|mqtt|ct220|hermes|homeassistant|frigate|zigbee}"
 
@@ -45,7 +48,7 @@ case "${TARGET}" in
     run bash "${STEP20_SCRIPT_DIR}/step10n-frigate-homeassistant-smoketest.sh"
     ;;
   frigate)
-    current_version="$(pct exec 200 -- curl -fsS http://127.0.0.1:5000/api/version)"
+    current_version="$(pct exec "${DOCKER_CT_ID}" -- curl -fsS http://127.0.0.1:5000/api/version)"
     run bash "${STEP20_SCRIPT_DIR}/step18c-frigate-post-upgrade-validation.sh" \
       --expected-version "${current_version%%-*}" --baseline-test
     ;;

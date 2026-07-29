@@ -21,8 +21,7 @@ set -euo pipefail
 #   - /opt/hermes directories exist
 #   - /home/hermes/.hermes exists
 #   - hermes-gateway.service exists
-#   - service is disabled
-#   - service is inactive
+#   - service lifecycle state is consistent
 #   - sudoers helper exists and validates
 #   - bootstrap script does not obviously contain API keys
 #   - ripgrep is installed
@@ -220,36 +219,28 @@ check_systemd_service() {
     record_error "systemd does not know about ${HERMES_SERVICE_NAME}"
   fi
 
-  local enabled_state
+  local enabled_state active_state
   enabled_state="$(run_in_ct "systemctl is-enabled '${HERMES_SERVICE_NAME}' 2>/dev/null" || true)"
-
-  case "${enabled_state}" in
-    disabled)
-      log_info "${HERMES_SERVICE_NAME} is disabled, as expected"
-      ;;
-    enabled)
-      record_warn "${HERMES_SERVICE_NAME} is enabled. Expected disabled until provider/API-key config is ready"
-      ;;
-    *)
-      record_warn "${HERMES_SERVICE_NAME} enabled state is: ${enabled_state:-unknown}"
-      ;;
-  esac
-
-  local active_state
   active_state="$(run_in_ct "systemctl is-active '${HERMES_SERVICE_NAME}' 2>/dev/null" || true)"
 
-  case "${active_state}" in
-    inactive)
-      log_info "${HERMES_SERVICE_NAME} is inactive, as expected"
+  case "${enabled_state}:${active_state}" in
+    disabled:inactive)
+      log_info "${HERMES_SERVICE_NAME} is disabled and inactive; valid before gateway configuration"
       ;;
-    active)
-      record_warn "${HERMES_SERVICE_NAME} is active. Expected inactive until provider/API-key config is ready"
+    enabled:active)
+      log_info "${HERMES_SERVICE_NAME} is enabled and active; valid after gateway configuration"
       ;;
-    failed)
+    *:failed)
       record_error "${HERMES_SERVICE_NAME} is failed"
       ;;
+    enabled:inactive)
+      record_warn "${HERMES_SERVICE_NAME} is enabled but inactive"
+      ;;
+    disabled:active)
+      record_warn "${HERMES_SERVICE_NAME} is active but disabled and will not start at boot"
+      ;;
     *)
-      record_warn "${HERMES_SERVICE_NAME} active state is: ${active_state:-unknown}"
+      record_warn "${HERMES_SERVICE_NAME} state is enabled=${enabled_state:-unknown}, active=${active_state:-unknown}"
       ;;
   esac
 }

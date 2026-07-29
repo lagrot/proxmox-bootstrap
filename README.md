@@ -129,10 +129,15 @@ scripts/
 - `scripts/step19b-homeassistant-zigbee-validation.sh`
 - `scripts/step19c-homeassistant-climate-dashboard.sh`
 - `scripts/step20a-update-audit.sh`
-- `scripts/step20b-update-plan.sh`
 - `scripts/step20c-post-update-validation.sh`
 - `scripts/step20d-update-audit-schedule.sh`
 - `scripts/step20e-update-operations-validation.sh`
+- `scripts/step20f-unattended-upgrades.sh`
+- `scripts/step20g-unattended-upgrades-validation.sh`
+- `scripts/step20-update-ct.sh`
+- `scripts/step20-update-ct-tests.sh`
+- `scripts/step20-status.sh`
+- `UPDATE-QUICK-GUIDE.txt` (condensed SSH operator runbook)
 
 ## Remote access
 
@@ -144,6 +149,16 @@ The Zigbee coordinator procedure is documented in
 `docs/step19-homeassistant-zigbee.md`.
 The controlled update policy and audit procedure are documented in
 `docs/step20-update-operations.md`.
+
+Normal update-operations status:
+
+```bash
+bash scripts/step20-status.sh
+```
+
+The `ct200`, `ct210`, and `ct220` update targets select an LXC and its
+validation route. They install only eligible Debian Security packages; they
+are not generic Docker, Frigate, or Hermes application upgrade commands.
 
 Current verified remote access:
 
@@ -212,11 +227,14 @@ The `old/` directory contains scripts that are kept for historical reference but
 | Step 19A | Sonoff ZBDongle-P passthrough to HAOS | verified |
 | Step 19B | HAOS Zigbee hardware, ZHA, and first sensor validation | verified |
 | Step 19C | Native Home Assistant Indoor Climate dashboard | verified |
-| Step 20A | Read-only host, guest, software, and security update audit | verified |
-| Step 20B | Backup-gated per-layer update command planner | verified |
+| Step 20A | Non-installing host, guest, software, and security update audit | verified |
+| Step 20B | Non-mutating maintenance review and safety boundaries | verified |
 | Step 20C | Per-layer post-update regression routing | verified |
 | Step 20D | Weekly protected update-audit schedule and logging | verified |
 | Step 20E | Update operations validation | verified |
+| Step 20F | Controlled Debian security-update policy for managed CTs | deployed |
+| Step 20G | Controlled security-update configuration validation | verified |
+| Step 20H | Snapshot-protected Debian Security update MVP | CT 210 and CT 220 update/cleanup verified; rollback verified on CT 210 |
 
 ## Hermes CT 220 baseline
 

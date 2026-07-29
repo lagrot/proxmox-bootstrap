@@ -1,0 +1,85 @@
+HOMELAB UPDATE QUICK GUIDE
+==========================
+
+CONTAINER TARGETS
+-----------------
+  ct200 = Debian Security packages in the Docker/Frigate LXC
+  ct210 = Debian Security packages in the MQTT LXC
+  ct220 = Debian Security packages in the Hermes LXC
+
+The target selects the LXC and its validation tests. It is not an application
+upgrade command.
+
+PACKAGE SCOPE
+-------------
+Only installed packages offered by Debian Security are updated.
+
+  ct200 excludes Docker Engine/Compose from download.docker.com and the
+        pinned Frigate image.
+  ct210 may include Mosquitto when Debian Security publishes a fix because
+        Mosquitto is installed as a native Debian package.
+  ct220 excludes the Hermes application, which is not a Debian package.
+
+BACKUPS
+-------
+Backups are a separate Step 12 operation. They run weekly and retain eight
+validated sets. Security updates do not create another backup.
+
+Check backup and update status:
+  bash scripts/step20-status.sh
+
+SECURITY UPDATE
+---------------
+Update one container at a time. Start with ct210.
+
+1. Preview without changing the container:
+  bash scripts/step20-update-ct.sh ct210 --dry-run
+
+2. Create a snapshot, install Debian Security updates and verify MQTT:
+  bash scripts/step20-update-ct.sh ct210 --confirm
+
+3. After at least 24 hours, verify MQTT again and delete that snapshot:
+  bash scripts/step20-update-ct.sh ct210 --cleanup
+
+The script remembers the exact snapshot name. Do not type a snapshot name.
+
+If an update or validation fails, the script stops and keeps the snapshot.
+It never rolls back automatically.
+
+CHECK SNAPSHOTS
+---------------
+  pct listsnapshot 210
+
+ROLL BACK A FAILED CT210 UPDATE
+--------------------------------
+Only do this when the update failed and the retained snapshot was inspected.
+EXACT_SNAPSHOT_NAME is the name beginning with pbsec- shown above.
+
+  pct stop 210
+  pct rollback 210 EXACT_SNAPSHOT_NAME
+  pct start 210
+  bash scripts/step20c-post-update-validation.sh ct210
+
+Rollback was tested successfully on CT 210. It restores the pre-update
+packages and configuration. It does not automatically retry the update.
+
+TROUBLESHOOTING
+---------------
+Validate the controlled Debian Security policy:
+  bash scripts/step20g-unattended-upgrades-validation.sh ct210
+
+Check MQTT:
+  bash scripts/step20c-post-update-validation.sh ct210
+
+Inspect package health without repairing anything:
+  pct exec 210 -- dpkg --audit
+  pct exec 210 -- apt-get check
+
+If validation or package health fails, stop and inspect the error. Do not
+delete the snapshot or run package repair commands blindly.
+
+NOT INCLUDED
+------------
+This workflow does not update Proxmox, Home Assistant, Docker Engine/Compose
+packages from download.docker.com, Frigate images, Hermes application
+releases, or Zigbee firmware.

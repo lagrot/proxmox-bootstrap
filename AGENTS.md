@@ -27,6 +27,10 @@ public internet.
 - Work one step at a time and preserve the simple architecture.
 - Prefer readable, safe, idempotent Bash scripts.
 - Add or use validation scripts after deployment changes.
+- Test every operator-facing command exactly as documented before marking it
+  verified. Include invalid-input and failure-path tests, not only Bash syntax.
+- Give mutating workflows a real non-mutating mode, pilot risky changes on the
+  smallest suitable guest, and run an end-to-end smoke test before handoff.
 - Use Proxmox-native commands: `pct`, `qm`, and the Web UI.
 - Prefer `pct enter` and `pct exec` over installing SSH in LXCs.
 - Never commit secrets, API keys, tokens, `.env` files, logs, backups, or runtime data.
@@ -65,10 +69,28 @@ unchanged Coral access. The first end device, a THIRDREALITY `3RTHS24BZ`
 temperature and humidity sensor, is paired and reporting temperature, humidity,
 and battery states. Step 19C provides its native Home Assistant Indoor Climate
 dashboard with 24-hour temperature and humidity graphs.
-Steps 20A-20E provide weekly read-only update auditing, protected status and
-logging, a recent-backup gate, non-mutating per-layer command plans, and
-post-update regression routing. No unattended upgrades or automatic reboots
-are enabled.
+Steps 20A-20E provide weekly update auditing, protected status and logging,
+non-mutating maintenance review, and post-update regression routing. The audit
+refreshes APT metadata but never installs or reboots anything.
+Steps 20F-20H restrict Debian Security package installation to a manual,
+snapshot-protected, one-CT-at-a-time workflow. Independent automatic package
+installation and automatic rebooting are disabled in CTs 200, 210, and 220.
+The `ct200`, `ct210`, and `ct220` target names select an LXC and its validation
+route. CT 200 does not update Docker or Frigate, and CT 220 does not update the
+Hermes application. CT 210 may update Mosquitto when Debian Security publishes
+an eligible fix because Mosquitto is installed as a native Debian package.
+The CT 210 pilot proved security-only installation, service validation,
+failure detection, real Proxmox snapshot rollback, re-patching, and managed
+snapshot cleanup. CT 220 then proved the same update and cleanup path with its
+Hermes provider smoke test and active gateway validation remaining healthy.
+The cleanup tests used an explicit zero-age test override; normal operation
+still enforces the 24-hour observation period. Step 12 recovery backups remain
+a separate workstream. Proxmox, ordinary CT updates, HAOS, Frigate images,
+Hermes releases, Docker third-party packages, and Zigbee firmware remain
+deliberate maintenance.
+Use `scripts/step20-status.sh` as the human operator view. The protected JSON
+files are machine-readable state and should not be presented as the primary
+status interface.
 Continue with:
 
 1. Decide whether to proceed with a one-camera face-recognition pilot, select
@@ -81,8 +103,7 @@ Continue with:
    final.
 5. Let the first Zigbee sensor establish a stable baseline before considering
    its available firmware update or adding sensor-driven automations.
-6. Review the Step 20 audit and apply pending CT updates one layer at a time,
-   validating each layer before continuing.
+6. Decide when to pilot the verified security-update MVP on CT 200.
 
 Keep both verified camera baselines working while making these changes.
 
