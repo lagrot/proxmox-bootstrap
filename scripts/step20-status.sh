@@ -113,24 +113,31 @@ printf '\nLATEST MAINTENANCE\n'
 printf '%-20s %s\n' "Transaction:" "${latest_transaction}"
 printf '%-20s %s\n' "Result:" "${latest_transaction_status}"
 
-printf '\nRECOMMENDED ACTION\n'
+printf '\nRECOMMENDED MAINTENANCE QUEUE\n'
 if [[ "${audit_result}" != "SUCCESS" || "${backup_ready}" != "READY" ]]; then
   printf 'Resolve the failed audit or backup gate before maintenance.\n'
   printf 'Run: bash scripts/step20a-update-audit.sh\n'
-elif (( ct210_security > 0 )); then
-  printf 'CT 210 has %d security-related update(s).\n' "${ct210_security}"
-  printf 'Run: bash scripts/step20f-update-target.sh ct210 --dry-run\n'
-elif (( ct220_security > 0 )); then
-  printf 'CT 220 has %d security-related update(s).\n' "${ct220_security}"
-  printf 'Run: bash scripts/step20f-update-target.sh ct220 --dry-run\n'
-elif (( ct200_security > 0 )); then
-  printf 'CT 200 has %d security-related update(s).\n' "${ct200_security}"
-  printf 'Run: bash scripts/step20f-update-target.sh ct200 --dry-run\n'
-elif (( host_security > 0 )); then
-  printf 'The Proxmox host has %d security-related update(s); plan separate host maintenance.\n' "${host_security}"
-elif (( ct210_updates + ct220_updates + ct200_updates + host_updates > 0 )); then
-  printf 'Ordinary stable updates are available; schedule maintenance when convenient.\n'
 else
-  printf 'No pending package updates were reported by the latest audit.\n'
+  queue_count=0
+  for item in \
+    "ct210|CT 210|${ct210_updates}|${ct210_security}" \
+    "ct220|CT 220|${ct220_updates}|${ct220_security}" \
+    "ct200|CT 200|${ct200_updates}|${ct200_security}"; do
+    IFS='|' read -r target label total security <<<"${item}"
+    (( total > 0 )) || continue
+    ((queue_count+=1))
+    printf '%d. %s: %d update(s), %d security-related\n' \
+      "${queue_count}" "${label}" "${total}" "${security}"
+    printf '   bash scripts/step20f-update-target.sh %s --dry-run\n' "${target}"
+  done
+  if (( host_updates > 0 )); then
+    printf -- '- Proxmox: %d update(s), %d security-related; use a separate host-maintenance window.\n' \
+      "${host_updates}" "${host_security}"
+  fi
+  if (( queue_count == 0 && host_updates == 0 )); then
+    printf 'No pending package updates were reported by the latest audit.\n'
+  elif (( queue_count > 0 )); then
+    printf 'Run one CT at a time in the order shown; re-run this status after each update.\n'
+  fi
 fi
 printf '\n'
