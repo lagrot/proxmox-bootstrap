@@ -109,6 +109,12 @@ the recorded snapshot, and removed its protected state. The acceptance test
 used an explicit zero-age override; the normal command still enforces the
 24-hour observation period.
 
+The CT 220 pilot then installed 21 Debian Security updates with no reboot
+required. The Hermes provider smoke test, active gateway, doctor connectivity,
+package integrity, and systemd health passed afterward. Managed cleanup
+revalidated Hermes and removed only its recorded snapshot and state. This
+cleanup also used the explicit zero-age acceptance-test override.
+
 ## Failure and rollback
 
 Inspect the exact retained snapshot:

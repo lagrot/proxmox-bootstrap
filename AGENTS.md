@@ -77,11 +77,13 @@ snapshot-protected, one-CT-at-a-time workflow. Independent automatic package
 installation and automatic rebooting are disabled in CTs 200, 210, and 220.
 The CT 210 pilot proved security-only installation, service validation,
 failure detection, real Proxmox snapshot rollback, re-patching, and managed
-snapshot cleanup. The cleanup test used an explicit zero-age test override;
-normal operation still enforces the 24-hour observation period. Step 12
-recovery backups remain a separate workstream. Proxmox, ordinary CT updates,
-HAOS, Frigate images, Hermes releases, Docker third-party packages, and Zigbee
-firmware remain deliberate maintenance.
+snapshot cleanup. CT 220 then proved the same update and cleanup path with its
+Hermes provider smoke test and active gateway validation remaining healthy.
+The cleanup tests used an explicit zero-age test override; normal operation
+still enforces the 24-hour observation period. Step 12 recovery backups remain
+a separate workstream. Proxmox, ordinary CT updates, HAOS, Frigate images,
+Hermes releases, Docker third-party packages, and Zigbee firmware remain
+deliberate maintenance.
 Use `scripts/step20-status.sh` as the human operator view. The protected JSON
 files are machine-readable state and should not be presented as the primary
 status interface.
@@ -97,8 +99,7 @@ Continue with:
    final.
 5. Let the first Zigbee sensor establish a stable baseline before considering
    its available firmware update or adding sensor-driven automations.
-6. Decide when to pilot the verified security-update MVP on CT 220 and CT 200,
-   one container at a time.
+6. Decide when to pilot the verified security-update MVP on CT 200.
 
 Keep both verified camera baselines working while making these changes.
 

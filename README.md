@@ -229,7 +229,7 @@ The `old/` directory contains scripts that are kept for historical reference but
 | Step 20E | Update operations validation | verified |
 | Step 20F | Controlled Debian security-update policy for managed CTs | deployed |
 | Step 20G | Controlled security-update configuration validation | verified |
-| Step 20H | Snapshot-protected Debian Security update MVP | CT 210 update, rollback, and cleanup verified |
+| Step 20H | Snapshot-protected Debian Security update MVP | CT 210 and CT 220 update/cleanup verified; rollback verified on CT 210 |
 
 ## Hermes CT 220 baseline
 

@@ -705,6 +705,15 @@ also passed: it revalidated MQTT, deleted only the recorded snapshot, and
 removed its protected state. This acceptance test used an explicit zero-age
 override; normal operation continues to enforce a 24-hour observation period.
 
+CT 220 then installed 21 Debian Security updates without requiring a reboot.
+Its Hermes LXC checks, OpenRouter provider smoke test, gateway status, service
+state, doctor connectivity, package integrity, and systemd health passed after
+the update. A transient OpenSSH package message about the systemd bus did not
+persist: systemd reported `running`, no units were failed, and the Hermes
+gateway remained active. Managed cleanup revalidated Hermes and removed the
+exact CT 220 snapshot and protected state. It used the same explicit zero-age
+acceptance-test override.
+
 Step 12 remains the authoritative backup, retention, and disaster-recovery
 workstream. Security updates do not create another backup. Their temporary
 Proxmox snapshots are rollback points, not backups. Proxmox, ordinary Debian
@@ -740,9 +749,9 @@ The agreed near-term roadmap is:
    are verified.
 7. **Step 20 - Update operations:** weekly non-installing auditing, protected
    status/logging, and the snapshot-protected Debian Security update MVP are
-   deployed and verified on CT 210, including rollback and cleanup. Pilot CT
-   220 and CT 200 separately. Proxmox and applications keep their reviewed
-   procedures.
+   deployed and verified on CT 210 and CT 220, including cleanup; real rollback
+   is verified on CT 210. Pilot CT 200 separately. Proxmox and applications
+   keep their reviewed procedures.
 
 The Proxmox host currently detects the ZBDongle-P as USB ID `10c4:ea60`
 (Silicon Labs CP210x UART Bridge) and exposes the stable host path
