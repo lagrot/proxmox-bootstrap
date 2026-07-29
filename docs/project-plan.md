@@ -245,8 +245,8 @@ chmod -R 775 /mnt/frigate
 | Step 20C | Per-layer post-update validation routing | verified |
 | Step 20D | Weekly protected update-audit schedule | verified |
 | Step 20E | Update operations validation | verified |
-| Step 20F | Snapshot-protected single-CT patch executor | CT 210 dry-run verified |
-| Step 20G | Explicit maintenance snapshot rollback | dry-run pending |
+| Step 20F | Debian unattended security-update deployment | verified |
+| Step 20G | Unattended security-update validation | verified |
 
 ## Service Decisions
 
@@ -670,12 +670,11 @@ theme-compatible, and independent of additional HACS frontend components.
 
 ## Update Operations
 
-Steps 20A-20E provide a controlled update-operations workflow without
-unattended upgrades or automatic reboots. The read-only audit refreshes package
-metadata, inventories Proxmox, kernel, Docker, Compose, Frigate, Mosquitto,
-Hermes, Home Assistant, and Zigbee information, reports Debian security
-packages separately, checks reboot markers, and requires a recent validated
-backup.
+Steps 20A-20E provide read-only update visibility, command planning for
+deliberate maintenance, and existing regression routing. The audit inventories
+Proxmox, kernel, Docker, Compose, Frigate, Mosquitto, Hermes, Home Assistant,
+and Zigbee information, reports Debian security packages separately, checks
+reboot markers, and records recent validated-backup readiness.
 
 The audit runs each Monday at 06:00 Europe/Stockholm, after the Sunday backup,
 with up to ten minutes of randomized delay. Protected logs rotate weekly and
@@ -691,34 +690,29 @@ packages. No packages were installed. These counts are transient and the
 protected current audit is authoritative. The procedure is documented in
 `docs/step20-update-operations.md`.
 
-The patch-execution boundary is intentionally narrower than the audit. Steps
-20F-20G automate stable Debian package updates only for CT 200, CT 210, and CT
-220. Each transaction requires a Step 12 backup no older than eight days,
-verifies `local-lvm` snapshot headroom, stops one CT for a consistent
-pre-update snapshot, preserves local package configuration, reboots the CT
-when Debian records a reboot requirement, and runs the target regression
-suite. Successful managed snapshots are eligible for removal after seven
-days; failed transactions and manually created snapshots are never removed
-automatically. Rollback is disruptive and always requires a separate explicit
-confirmation.
+Steps 20F-20G use Debian's standard `unattended-upgrades` package for security
+repositories only in CT 200, CT 210, and CT 220. Debian's daily APT timers,
+minimal upgrade steps, configuration preservation, standard logs, and
+reboot-required handling replace the rejected custom per-update snapshot and
+transaction workflow. Routine security patching requires no weekly operator
+action. Proxmox, ordinary Debian packages, Docker/Frigate images, Hermes
+releases, Home Assistant, and firmware remain deliberate monthly or
+release-specific maintenance.
 
-Snapshots are temporary patch protection, not durable backups. Step 12 remains
-the authoritative backup, retention, and disaster-recovery workstream. CT
-200's `/mnt/frigate` bind mount is outside LXC snapshot and rollback scope;
-recordings and exports remain unchanged during a CT root-disk rollback.
+Deployment and validation are complete on all three CTs. Setup installed the
+`unattended-upgrades` package and configuration but did not apply the existing
+security backlog. The effective APT policy is restricted to Debian Security,
+and the standard randomized daily timers will process that backlog.
 
-The first Step 20F dry run used CT 210. It accepted the case-insensitive target,
-verified the 2026-07-28 Step 12 backup, measured `local-lvm` at six percent
-used, found no managed maintenance snapshots, refreshed CT 210 package
-metadata, and recorded 64 pending packages including 16 from Debian security.
-It created no snapshot, installed no package, and did not stop, reboot, or
-otherwise change the MQTT service.
+Step 12 remains the authoritative backup, retention, and disaster-recovery
+workstream. Snapshots are reserved for major release upgrades, storage
+changes, or migrations rather than ordinary security updates.
 
 `scripts/step20-status.sh` is the primary human operator interface for this
 workstream. It converts the protected machine-readable JSON into a compact
 summary of backup readiness, pending/security package counts, reboot markers,
-managed snapshots, scheduled backup/audit runs, latest maintenance state, and
-the recommended next command.
+automatic-security-update state, scheduled backup/audit runs, and simple
+operating guidance.
 
 ## Later Tasks
 
@@ -742,9 +736,9 @@ The agreed near-term roadmap is:
    discovery, integration loading, and the first temperature/humidity sensor
    are verified.
 7. **Step 20 - Update operations:** weekly read-only auditing, protected
-   status/logging, backup-gated command planning, CT 210 patch-executor dry
-   run, and post-update validation routing are verified. The first real
-   single-target patch transaction remains pending.
+   status/logging, and automatic Debian security-only updates for the three
+   managed CTs are verified. Monitor the first automatic run; reserve manual
+   maintenance for Proxmox and application releases.
 
 The Proxmox host currently detects the ZBDongle-P as USB ID `10c4:ea60`
 (Silicon Labs CP210x UART Bridge) and exposes the stable host path

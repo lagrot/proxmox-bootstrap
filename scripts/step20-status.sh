@@ -6,11 +6,8 @@ PROJECT_ROOT="$(cd -- "${STATUS_SCRIPT_DIR}/.." && pwd)"
 source "${PROJECT_ROOT}/config/defaults.conf"
 [[ -f "${PROJECT_ROOT}/config/local.conf" ]] && source "${PROJECT_ROOT}/config/local.conf"
 
-UPDATE_TRANSACTION_ROOT="${UPDATE_TRANSACTION_ROOT:-/var/lib/proxmox-bootstrap/update-transactions}"
-UPDATE_SNAPSHOT_PREFIX="${UPDATE_SNAPSHOT_PREFIX:-pbupd}"
-
 [[ "${EUID}" -eq 0 ]] || { printf 'ERROR: Run as root\n' >&2; exit 1; }
-for cmd in awk date find grep pct python3 sort systemctl tail; do
+for cmd in date grep pct python3 systemctl; do
   command -v "${cmd}" >/dev/null || { printf 'ERROR: Missing command: %s\n' "${cmd}" >&2; exit 1; }
 done
 [[ -f "${UPDATE_STATUS_FILE}" ]] \
@@ -74,22 +71,21 @@ next_timer() {
   [[ -n "${value}" ]] && printf '%s' "${value}" || printf 'not scheduled'
 }
 
-managed_snapshots() {
+auto_security_state() {
   local ct_id="$1"
-  pct listsnapshot "${ct_id}" 2>/dev/null \
-    | awk -v prefix="${UPDATE_SNAPSHOT_PREFIX}-" '$2 ~ ("^" prefix) {items = items (items ? ", " : "") $2; count++} END {if (count) print count " (" items ")"; else print "0"}'
+  if pct exec "${ct_id}" -- dpkg-query -W -f='${Status}' unattended-upgrades 2>/dev/null \
+      | grep -qx 'install ok installed' \
+    && pct exec "${ct_id}" -- systemctl is-enabled --quiet apt-daily-upgrade.timer 2>/dev/null \
+    && pct exec "${ct_id}" -- test -f /etc/apt/apt.conf.d/52homelab-unattended-upgrades 2>/dev/null; then
+    printf 'ENABLED'
+  else
+    printf 'NOT SET'
+  fi
 }
 
-latest_transaction="none"
-latest_transaction_status="none"
-if [[ -d "${UPDATE_TRANSACTION_ROOT}" ]]; then
-  latest_dir="$(find "${UPDATE_TRANSACTION_ROOT}" -mindepth 1 -maxdepth 1 -type d -printf '%f\n' | sort | tail -1)"
-  if [[ -n "${latest_dir}" && -f "${UPDATE_TRANSACTION_ROOT}/${latest_dir}/status.json" ]]; then
-    latest_transaction="${latest_dir}"
-    latest_transaction_status="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1])).get("status","unknown"))' \
-      "${UPDATE_TRANSACTION_ROOT}/${latest_dir}/status.json")"
-  fi
-fi
+ct200_auto="$(auto_security_state "${DOCKER_CT_ID:-200}")"
+ct210_auto="$(auto_security_state "${MQTT_CT_ID:-210}")"
+ct220_auto="$(auto_security_state "${HERMES_CT_ID:-220}")"
 
 printf '\nUPDATE OPERATIONS STATUS\n'
 printf '%s\n' '========================'
@@ -99,46 +95,30 @@ printf '%-20s %s\n' "Backup gate:" "${backup_ready}"
 printf '%-20s %s\n' "Last backup:" "${backup_time}"
 printf '%-20s %s\n' "Backup path:" "${backup_path}"
 
-printf '\n%-12s %10s %10s %10s %12s\n' "System" "Updates" "Security" "Reboot" "Snapshots"
-printf '%-12s %10s %10s %10s %12s\n' "Proxmox" "${host_updates}" "${host_security}" "${host_reboot}" "-"
-printf '%-12s %10s %10s %10s %12s\n' "CT 200" "${ct200_updates}" "${ct200_security}" "${ct200_reboot}" "$(managed_snapshots "${DOCKER_CT_ID:-200}")"
-printf '%-12s %10s %10s %10s %12s\n' "CT 210" "${ct210_updates}" "${ct210_security}" "${ct210_reboot}" "$(managed_snapshots "${MQTT_CT_ID:-210}")"
-printf '%-12s %10s %10s %10s %12s\n' "CT 220" "${ct220_updates}" "${ct220_security}" "${ct220_reboot}" "$(managed_snapshots "${HERMES_CT_ID:-220}")"
+printf '\n%-12s %10s %10s %10s %14s\n' "System" "Updates" "Security" "Reboot" "Auto-security"
+printf '%-12s %10s %10s %10s %14s\n' "Proxmox" "${host_updates}" "${host_security}" "${host_reboot}" "MANUAL"
+printf '%-12s %10s %10s %10s %14s\n' "CT 200" "${ct200_updates}" "${ct200_security}" "${ct200_reboot}" "${ct200_auto}"
+printf '%-12s %10s %10s %10s %14s\n' "CT 210" "${ct210_updates}" "${ct210_security}" "${ct210_reboot}" "${ct210_auto}"
+printf '%-12s %10s %10s %10s %14s\n' "CT 220" "${ct220_updates}" "${ct220_security}" "${ct220_reboot}" "${ct220_auto}"
 
 printf '\nSCHEDULE\n'
 printf '%-20s %s\n' "Next backup:" "$(next_timer proxmox-bootstrap-backup.timer)"
 printf '%-20s %s\n' "Next audit:" "$(next_timer proxmox-bootstrap-update-audit.timer)"
 
-printf '\nLATEST MAINTENANCE\n'
-printf '%-20s %s\n' "Transaction:" "${latest_transaction}"
-printf '%-20s %s\n' "Result:" "${latest_transaction_status}"
-
-printf '\nRECOMMENDED MAINTENANCE QUEUE\n'
+printf '\nOPERATING GUIDANCE\n'
 if [[ "${audit_result}" != "SUCCESS" || "${backup_ready}" != "READY" ]]; then
-  printf 'Resolve the failed audit or backup gate before maintenance.\n'
+  printf 'Resolve the failed audit or backup gate.\n'
   printf 'Run: bash scripts/step20a-update-audit.sh\n'
+elif [[ "${ct200_auto}" != ENABLED || "${ct210_auto}" != ENABLED || "${ct220_auto}" != ENABLED ]]; then
+  printf 'Automatic CT security updates are not fully configured.\n'
+  printf 'Review: bash scripts/step20f-unattended-upgrades.sh --dry-run\n'
+  printf 'Enable: bash scripts/step20f-unattended-upgrades.sh --confirm-install\n'
 else
-  queue_count=0
-  for item in \
-    "ct210|CT 210|${ct210_updates}|${ct210_security}" \
-    "ct220|CT 220|${ct220_updates}|${ct220_security}" \
-    "ct200|CT 200|${ct200_updates}|${ct200_security}"; do
-    IFS='|' read -r target label total security <<<"${item}"
-    (( total > 0 )) || continue
-    ((queue_count+=1))
-    printf '%d. %s: %d update(s), %d security-related\n' \
-      "${queue_count}" "${label}" "${total}" "${security}"
-    printf '   Review: bash scripts/step20f-update-target.sh %s --dry-run\n' "${target}"
-    printf '   Apply:  bash scripts/step20f-update-target.sh %s --confirm-update\n' "${target}"
-  done
+  printf 'Debian security updates for CT 200, CT 210, and CT 220 are automatic.\n'
+  printf 'No weekly patch action is required.\n'
   if (( host_updates > 0 )); then
-    printf -- '- Proxmox: %d update(s), %d security-related; use a separate host-maintenance window.\n' \
+    printf 'Proxmox has %d update(s), %d security-related; review during monthly host maintenance.\n' \
       "${host_updates}" "${host_security}"
-  fi
-  if (( queue_count == 0 && host_updates == 0 )); then
-    printf 'No pending package updates were reported by the latest audit.\n'
-  elif (( queue_count > 0 )); then
-    printf 'Run one CT at a time in the order shown; re-run this status after each update.\n'
   fi
 fi
 printf '\n'

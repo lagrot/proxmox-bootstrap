@@ -67,14 +67,14 @@ and battery states. Step 19C provides its native Home Assistant Indoor Climate
 dashboard with 24-hour temperature and humidity graphs.
 Steps 20A-20E provide weekly read-only update auditing, protected status and
 logging, a recent-backup gate, non-mutating per-layer command plans, and
-post-update regression routing. No unattended upgrades or automatic reboots
-are enabled by the audit schedule.
-Steps 20F-20G add controlled Debian patch execution for CTs 200, 210, and 220:
-a recent Step 12 backup is required, a stopped-state `local-lvm` snapshot
-protects each single-target update, required CT reboots and regressions are
-automated, and rollback remains explicit. Never apply this executor to the
-Proxmox host, HAOS, Frigate images, Hermes application releases, Docker major
-upgrades, or Zigbee firmware.
+post-update regression routing. The audit schedule never installs or reboots
+anything.
+Steps 20F-20G use Debian `unattended-upgrades` for security repositories only
+in CTs 200, 210, and 220 and are verified. Debian's daily timers,
+configuration preservation, standard logging, and reboot-required handling
+are authoritative. Proxmox,
+ordinary CT updates, HAOS, Frigate images, Hermes releases, Docker third-party
+packages, and Zigbee firmware remain deliberate maintenance.
 Use `scripts/step20-status.sh` as the human operator view. The protected JSON
 files are machine-readable state and should not be presented as the primary
 status interface.
@@ -90,8 +90,9 @@ Continue with:
    final.
 5. Let the first Zigbee sensor establish a stable baseline before considering
    its available firmware update or adding sensor-driven automations.
-6. Review the Step 20 audit and apply pending CT updates one layer at a time,
-   validating each layer before continuing.
+6. Monitor the first unattended Debian security-update run. No weekly CT
+   patching action is required; operator maintenance is reserved for the
+   Proxmox host and application releases.
 
 Keep both verified camera baselines working while making these changes.
 
