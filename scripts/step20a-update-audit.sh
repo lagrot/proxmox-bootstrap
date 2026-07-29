@@ -40,7 +40,9 @@ json_escape() {
 }
 
 package_audit() {
-  local label="$1" scope="$2" simulation updates security packages security_packages
+  local label="$1" scope="$2"
+  local simulation security_simulation security_list
+  local updates security packages security_packages
   log_info "Auditing package state: ${label}"
   if [[ "${UPDATE_AUDIT_REFRESH}" == "1" ]]; then
     log_info "Refreshing package metadata: ${label}"
@@ -60,9 +62,31 @@ package_audit() {
       || { record_error "${label}: package simulation failed"; return; }
   fi
   updates="$(awk '/^Inst / {count++} END {print count+0}' <<<"${simulation}")"
-  security="$(awk 'BEGIN{IGNORECASE=1} /^Inst / && /security/ {count++} END {print count+0}' <<<"${simulation}")"
   packages="$(awk '/^Inst / {print $2}' <<<"${simulation}" | paste -sd, -)"
-  security_packages="$(awk 'BEGIN{IGNORECASE=1} /^Inst / && /security/ {print $2}' <<<"${simulation}" | paste -sd, -)"
+  if [[ "${scope}" == "host" ]]; then
+    security="$(
+      awk 'BEGIN{IGNORECASE=1} /^Inst / && /security/ {count++} END {print count+0}' \
+        <<<"${simulation}"
+    )"
+    security_packages="$(
+      awk 'BEGIN{IGNORECASE=1} /^Inst / && /security/ {print $2}' \
+        <<<"${simulation}" | paste -sd, -
+    )"
+  else
+    security_simulation="$(
+      pct exec "${scope}" -- unattended-upgrade --dry-run --verbose 2>&1
+    )" || {
+      record_error "${label}: Debian Security simulation failed"
+      return
+    }
+    security_list="$(
+      sed -n 's/^Packages that will be upgraded: //p' \
+        <<<"${security_simulation}" \
+        | tail -1 | tr ' ' '\n' | sed '/^$/d' | sort -u
+    )"
+    security="$(awk 'NF {count++} END {print count+0}' <<<"${security_list}")"
+    security_packages="$(paste -sd, - <<<"${security_list}")"
+  fi
   log_info "${label}: pending=${updates} debian_security=${security}"
   [[ -z "${packages}" ]] || log_info "${label}: packages=${packages}"
   [[ -z "${security_packages}" ]] || log_warn "${label}: security_packages=${security_packages}"
@@ -116,7 +140,7 @@ log_info "======================================"
 
 [[ "${EUID}" -eq 0 ]] || die "Run as root"
 [[ "${UPDATE_MAX_BACKUP_AGE_DAYS}" =~ ^[1-9][0-9]*$ ]] || die "UPDATE_MAX_BACKUP_AGE_DAYS must be positive"
-for cmd in apt-get awk date flock paste pct pveversion python3 qm; do
+for cmd in apt-get awk date flock paste pct pveversion python3 qm sed sort tail tr; do
   command -v "${cmd}" >/dev/null || die "Missing command: ${cmd}"
 done
 mkdir -p "$(dirname "${LOG_FILE}")" "$(dirname "${UPDATE_STATUS_FILE}")"

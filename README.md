@@ -136,6 +136,7 @@ scripts/
 - `scripts/step20g-unattended-upgrades-validation.sh`
 - `scripts/step20-update-ct.sh`
 - `scripts/step20-update-ct-tests.sh`
+- `scripts/step20i-ct200-restore-test.sh`
 - `scripts/step20-status.sh`
 - `UPDATE-QUICK-GUIDE.txt` (condensed SSH operator runbook)
 
@@ -234,7 +235,8 @@ The `old/` directory contains scripts that are kept for historical reference but
 | Step 20E | Update operations validation | verified |
 | Step 20F | Controlled Debian security-update policy for managed CTs | deployed |
 | Step 20G | Controlled security-update configuration validation | verified |
-| Step 20H | Snapshot-protected Debian Security update MVP | CT 210 and CT 220 update/cleanup verified; rollback verified on CT 210 |
+| Step 20H | Controlled Debian Security update MVP | CT 200, CT 210, and CT 220 updates verified; CT 210 rollback verified |
+| Step 20I | CT 200 full-backup rollback and cleanup | stopped restore drill, update, and managed cleanup verified |
 
 ## Hermes CT 220 baseline
 

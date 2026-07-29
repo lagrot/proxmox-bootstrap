@@ -61,6 +61,8 @@ expect_success "Updater Bash syntax" bash -n "${UPDATER}"
 expect_success "Setup Bash syntax" bash -n "${TEST_SCRIPT_DIR}/step20f-unattended-upgrades.sh"
 expect_success "Validation Bash syntax" bash -n "${TEST_SCRIPT_DIR}/step20g-unattended-upgrades-validation.sh"
 expect_success "Status Bash syntax" bash -n "${TEST_SCRIPT_DIR}/step20-status.sh"
+expect_success "CT 200 restore-test Bash syntax" \
+  bash -n "${TEST_SCRIPT_DIR}/step20i-ct200-restore-test.sh"
 expect_success "Status reports managed snapshot observation state" \
   grep -q 'SNAPSHOT RETAINED' "${TEST_SCRIPT_DIR}/step20-status.sh"
 expect_success "Status reports managed snapshot cleanup state" \
@@ -70,6 +72,42 @@ expect_success "Updater uses a collision-safe script directory variable" \
   grep -q '^STEP20_UPDATE_SCRIPT_DIR=' "${UPDATER}"
 expect_success "Preview uses Debian's security-only engine" \
   grep -q 'unattended-upgrade --dry-run --verbose' "${UPDATER}"
+expect_success "No-update discovery precedes the full service baseline" \
+  awk '
+    /^pct status .*CT_ID/ { main = 1 }
+    main && /apt-get update/ && !refresh { refresh = NR }
+    main && /^security_plan$/ && !plan { plan = NR }
+    main && /SECURITY_COUNT == 0/ && !empty { empty = NR }
+    main && /^run_baseline$/ && !baseline { baseline = NR }
+    END {
+      exit !(refresh && plan > refresh && empty > plan && baseline > empty)
+    }
+  ' "${UPDATER}"
+expect_success "No-update result uses rollback-neutral wording" \
+  grep -Fq 'no rollback protection or service change is needed' "${UPDATER}"
+expect_success "Updater restores the metadata timer on exit" \
+  grep -Fq 'systemctl start apt-daily.timer' "${UPDATER}"
+expect_success "Failure restart waits before in-guest timer restoration" \
+  grep -Fq 'pct start "${CT_ID}" >/dev/null 2>&1 && wait_running' "${UPDATER}"
+expect_success "Snapshot preflight checks the CT feature API" \
+  grep -Fq -- '--feature snapshot --output-format json' "${UPDATER}"
+expect_success "CT 200 uses stopped full-rootfs backup protection" \
+  grep -Fq 'vzdump "${CT_ID}" --mode stop --compress zstd' "${UPDATER}"
+expect_success "CT 200 backup preserves media bind-mount configuration" \
+  grep -Fq 'Rollback archive does not preserve the CT ${CT_ID} media bind mount' \
+    "${UPDATER}"
+expect_success "CT 200 restore drill never starts its temporary CT" \
+  grep -Fq -- '--unique 1 --start 0 --onboot 0' \
+    "${TEST_SCRIPT_DIR}/step20i-ct200-restore-test.sh"
+expect_success "CT 200 restore drill rejects a VM ID collision" \
+  grep -Fq 'qm status "${RESTORE_CT_ID}"' \
+    "${TEST_SCRIPT_DIR}/step20i-ct200-restore-test.sh"
+expect_success "Status reports CT 200 full-backup protection" \
+  grep -Fq 'READY | stopped full-backup rollback' \
+    "${TEST_SCRIPT_DIR}/step20-status.sh"
+expect_success "Policy validation checks that the metadata timer is active" \
+  grep -Fq 'apt-daily timer active' \
+    "${TEST_SCRIPT_DIR}/step20g-unattended-upgrades-validation.sh"
 
 expect_failure "Missing target and mode rejected" 'Target and mode are required' \
   bash "${UPDATER}"
@@ -126,6 +164,9 @@ expect_success "Quick guide has exact cleanup command" \
 expect_success "Quick guide documents explicit snapshot rollback" \
   grep -Fq 'pct rollback 210 EXACT_SNAPSHOT_NAME' \
     "${PROJECT_ROOT}/UPDATE-QUICK-GUIDE.txt"
+expect_success "Quick guide documents explicit CT 200 full-backup restore" \
+  grep -Fq 'pct restore 200 CT200_BACKUP --force 1 --storage local-lvm' \
+    "${PROJECT_ROOT}/UPDATE-QUICK-GUIDE.txt"
 expect_success "Quick guide excludes third-party Docker packages" \
   grep -Fq 'download.docker.com' "${PROJECT_ROOT}/UPDATE-QUICK-GUIDE.txt"
 expect_success "Quick guide explains native Debian Mosquitto scope" \
@@ -136,6 +177,15 @@ expect_success "Quick guide excludes the Hermes application" \
     "${PROJECT_ROOT}/UPDATE-QUICK-GUIDE.txt"
 expect_success "README lists the controlled updater" \
   grep -Fq 'scripts/step20-update-ct.sh' "${PROJECT_ROOT}/README.md"
+expect_success "Status prints an exact runnable update command" \
+  grep -Fq 'bash scripts/step20-update-ct.sh ct200 --confirm' \
+    "${PROJECT_ROOT}/scripts/step20-status.sh"
+expect_success "Status explains that CT targets contain no space" \
+  grep -Fq 'one token, with no space' \
+    "${PROJECT_ROOT}/scripts/step20-status.sh"
+expect_success "Audit uses the same Debian security engine as the updater" \
+  grep -Fq 'unattended-upgrade --dry-run --verbose' \
+    "${PROJECT_ROOT}/scripts/step20a-update-audit.sh"
 
 (( errors == 0 )) || die "Security-update MVP tests failed with ${errors} error(s)"
 log_info "Security-update MVP tests completed successfully"

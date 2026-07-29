@@ -7,7 +7,7 @@ source "${PROJECT_ROOT}/config/defaults.conf"
 [[ -f "${PROJECT_ROOT}/config/local.conf" ]] && source "${PROJECT_ROOT}/config/local.conf"
 
 [[ "${EUID}" -eq 0 ]] || { printf 'ERROR: Run as root\n' >&2; exit 1; }
-for cmd in date pct python3 sha256sum systemctl; do
+for cmd in date hostname pct pvesh python3 sha256sum systemctl; do
   command -v "${cmd}" >/dev/null || {
     printf 'ERROR: Missing command: %s\n' "${cmd}" >&2
     exit 1
@@ -124,10 +124,55 @@ managed_snapshot_details() {
   fi
 }
 
+managed_backup_details() {
+  local target="$1" ct_id="$2"
+  local state_dir state_file saved_target saved_ct protection_type
+  local backup_dir backup_archive created_epoch result cleanup_epoch cleanup_display
+  state_dir="${SECURITY_UPDATE_STATE_DIR:-/var/lib/proxmox-bootstrap/security-updates}"
+  state_file="${state_dir}/${target}.state"
+  [[ -f "${state_file}" ]] || return 1
+
+  saved_target="$(awk -F= '$1 == "target" {print $2; exit}' "${state_file}")"
+  saved_ct="$(awk -F= '$1 == "ct_id" {print $2; exit}' "${state_file}")"
+  protection_type="$(awk -F= '$1 == "protection_type" {print $2; exit}' "${state_file}")"
+  backup_dir="$(awk -F= '$1 == "backup_dir" {print $2; exit}' "${state_file}")"
+  backup_archive="$(awk -F= '$1 == "backup_archive" {print $2; exit}' "${state_file}")"
+  created_epoch="$(awk -F= '$1 == "created_epoch" {print $2; exit}' "${state_file}")"
+  result="$(awk -F= '$1 == "result" {print $2; exit}' "${state_file}")"
+
+  if [[ "${saved_target}" != "${target}" || "${saved_ct}" != "${ct_id}" \
+      || "${protection_type}" != "backup" \
+      || ! "${created_epoch}" =~ ^[0-9]+$ \
+      || "${backup_dir}" != "${SECURITY_UPDATE_BACKUP_ROOT}/pbsec-"*"-${target}" \
+      || "${backup_archive}" != "${backup_dir}/vzdump-lxc-${ct_id}-"*".tar.zst" ]]; then
+    printf 'CT %s: STATE ERROR | inspect %s\n' "${ct_id}" "${state_file}"
+    return 0
+  fi
+  if [[ ! -f "${backup_dir}/.validated" || ! -s "${backup_archive}" ]]; then
+    printf 'CT %s: STATE ERROR | recorded rollback backup is missing\n' "${ct_id}"
+    return 0
+  fi
+  if [[ "${result}" != "success" ]]; then
+    printf 'CT %s: UPDATE FAILED | full backup retained; inspect before restore\n' "${ct_id}"
+    return 0
+  fi
+
+  cleanup_epoch="$((created_epoch + 86400))"
+  cleanup_display="$(date '+%Y-%m-%d %H:%M %Z' -d "@${cleanup_epoch}")"
+  if (( $(date +%s) < cleanup_epoch )); then
+    printf 'CT %s: BACKUP RETAINED | cleanup after %s\n' \
+      "${ct_id}" "${cleanup_display}"
+  else
+    printf 'CT %s: CLEANUP DUE | bash scripts/step20-update-ct.sh %s --cleanup\n' \
+      "${ct_id}" "${target}"
+  fi
+}
+
 controlled_security_details() {
   local target="$1" ct_id="$2"
   local local_hash remote_hash local_periodic_hash remote_periodic_hash
   local effective_policy origin_count allowed_count
+  local node
   local_hash="$(sha256sum "${PROJECT_ROOT}/config/52homelab-unattended-upgrades" | awk '{print $1}')"
   local_periodic_hash="$(sha256sum "${PROJECT_ROOT}/config/20homelab-auto-upgrades" | awk '{print $1}')"
   remote_hash="$(
@@ -152,8 +197,19 @@ controlled_security_details() {
     printf 'CT %s: UNAVAILABLE | container is not running\n' "${ct_id}"
     return
   fi
+  if [[ "${target}" != "ct200" ]]; then
+    node="$(hostname -s)"
+    if ! pvesh get "/nodes/${node}/lxc/${ct_id}/feature" \
+        --feature snapshot --output-format json 2>/dev/null \
+        | grep -Eq '"hasFeature"[[:space:]]*:[[:space:]]*1'; then
+      printf 'CT %s: BLOCKED | Proxmox snapshot feature unavailable\n' "${ct_id}"
+      return
+    fi
+  fi
   if ! pct exec "${ct_id}" -- dpkg-query -W -f='${Status}' unattended-upgrades 2>/dev/null \
       | grep -qx 'install ok installed' \
+    || ! pct exec "${ct_id}" -- systemctl is-enabled --quiet apt-daily.timer 2>/dev/null \
+    || ! pct exec "${ct_id}" -- systemctl is-active --quiet apt-daily.timer 2>/dev/null \
     || pct exec "${ct_id}" -- systemctl is-enabled --quiet apt-daily-upgrade.timer 2>/dev/null \
     || pct exec "${ct_id}" -- systemctl is-active --quiet apt-daily-upgrade.timer 2>/dev/null \
     || [[ "${remote_hash}" != "${local_hash}" ]] \
@@ -167,8 +223,12 @@ controlled_security_details() {
     return
   fi
 
-  if ! managed_snapshot_details "${target}" "${ct_id}"; then
-    printf 'CT %s: READY | automatic installation disabled\n' "${ct_id}"
+  if [[ "${target}" == "ct200" ]]; then
+    if ! managed_backup_details "${target}" "${ct_id}"; then
+      printf 'CT %s: READY | stopped full-backup rollback\n' "${ct_id}"
+    fi
+  elif ! managed_snapshot_details "${target}" "${ct_id}"; then
+    printf 'CT %s: READY | snapshot rollback\n' "${ct_id}"
   fi
 }
 
@@ -209,17 +269,31 @@ if [[ "${audit_result}" != "SUCCESS" && "${audit_result}" != "WARNING" ]]; then
 elif grep -qE 'NOT CONFIGURED|UNAVAILABLE' <<<"${controlled_lines}"; then
   printf 'Controlled CT security updates need attention.\n'
   printf 'Run: bash scripts/step20g-unattended-upgrades-validation.sh\n'
+elif grep -q 'BLOCKED' <<<"${controlled_lines}"; then
+  printf 'A snapshot-protected CT needs attention before it can be updated.\n'
 elif grep -qE 'UPDATE FAILED|STATE ERROR' <<<"${controlled_lines}"; then
-  printf 'A retained update snapshot needs inspection. Do not delete it blindly.\n'
+  printf 'Retained rollback protection needs inspection. Do not delete it blindly.\n'
 elif grep -q 'CLEANUP DUE' <<<"${controlled_lines}"; then
-  printf 'A successful update snapshot has completed its 24-hour observation period.\n'
+  printf 'Successful rollback protection has completed its 24-hour observation period.\n'
   printf 'Run the cleanup command shown above for that CT.\n'
-elif grep -q 'SNAPSHOT RETAINED' <<<"${controlled_lines}"; then
-  printf 'A successful update snapshot is in its 24-hour observation period.\n'
+elif grep -qE 'SNAPSHOT RETAINED|BACKUP RETAINED' <<<"${controlled_lines}"; then
+  printf 'Successful rollback protection is in its 24-hour observation period.\n'
   printf 'Leave it in place until the cleanup time shown above.\n'
 else
   printf 'No automatic package installation is enabled.\n'
-  printf 'Use step20-update-ct.sh for one snapshot-protected CT update.\n'
+  if (( ct200_security > 0 )); then
+    printf 'Patch one CT: bash scripts/step20-update-ct.sh ct200 --confirm\n'
+  elif (( ct210_security > 0 )); then
+    printf 'Patch one CT: bash scripts/step20-update-ct.sh ct210 --confirm\n'
+  elif (( ct220_security > 0 )); then
+    printf 'Patch one CT: bash scripts/step20-update-ct.sh ct220 --confirm\n'
+  else
+    printf 'The last audit reports no pending Debian Security updates in managed CTs.\n'
+  fi
+  if (( ct200_security > 0 || ct210_security > 0 || ct220_security > 0 )); then
+    printf 'Targets are ct200, ct210, or ct220 (one token, with no space).\n'
+    printf 'Optional preview: replace --confirm with --dry-run.\n'
+  fi
   printf 'Proxmox and application upgrades require separate reviewed procedures.\n'
 fi
 printf '\n'
