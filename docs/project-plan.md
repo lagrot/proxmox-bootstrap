@@ -240,6 +240,11 @@ chmod -R 775 /mnt/frigate
 | Step 19A | Sonoff ZBDongle-P passthrough to HAOS | verified |
 | Step 19B | HAOS Zigbee hardware, ZHA, and first sensor | verified |
 | Step 19C | Native Home Assistant Indoor Climate dashboard | verified |
+| Step 20A | Read-only update and security audit | verified |
+| Step 20B | Backup-gated update command planner | verified |
+| Step 20C | Per-layer post-update validation routing | verified |
+| Step 20D | Weekly protected update-audit schedule | verified |
+| Step 20E | Update operations validation | verified |
 
 ## Service Decisions
 
@@ -661,6 +666,29 @@ dashboard. It presents the sensor's current temperature and humidity with
 native cards so the first environmental dashboard remains compact,
 theme-compatible, and independent of additional HACS frontend components.
 
+## Update Operations
+
+Steps 20A-20E provide a controlled update-operations workflow without
+unattended upgrades or automatic reboots. The read-only audit refreshes package
+metadata, inventories Proxmox, kernel, Docker, Compose, Frigate, Mosquitto,
+Hermes, Home Assistant, and Zigbee information, reports Debian security
+packages separately, checks reboot markers, and requires a recent validated
+backup.
+
+The audit runs each Monday at 06:00 Europe/Stockholm, after the Sunday backup,
+with up to ten minutes of randomized delay. Protected logs rotate weekly and
+are retained for 52 weeks; the root-only JSON status contains the current
+package counts and maintenance gates. The per-layer planner prints commands
+only, while post-update validation routes each target to the existing
+regression scripts.
+
+The initial refreshed audit found no pending host packages. CT 200 reported 88
+pending packages including 17 from Debian security, CT 210 reported 64
+including 16 security packages, and CT 220 reported 66 including 17 security
+packages. No packages were installed. These counts are transient and the
+protected current audit is authoritative. The procedure is documented in
+`docs/step20-update-operations.md`.
+
 ## Later Tasks
 
 The agreed near-term roadmap is:
@@ -682,6 +710,9 @@ The agreed near-term roadmap is:
 6. **Step 19 - Zigbee coordinator:** ZHA, HAOS USB passthrough, coordinator
    discovery, integration loading, and the first temperature/humidity sensor
    are verified.
+7. **Step 20 - Update operations:** weekly read-only auditing, protected
+   status/logging, backup-gated command planning, and post-update validation
+   routing are verified. Apply pending updates later, one layer at a time.
 
 The Proxmox host currently detects the ZBDongle-P as USB ID `10c4:ea60`
 (Silicon Labs CP210x UART Bridge) and exposes the stable host path

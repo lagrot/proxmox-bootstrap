@@ -1,0 +1,11 @@
+[Unit]
+Description=Proxmox Bootstrap read-only update audit
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/root/proxmox-bootstrap/scripts/step20a-update-audit.sh
+Nice=10
+IOSchedulingClass=best-effort
+IOSchedulingPriority=7

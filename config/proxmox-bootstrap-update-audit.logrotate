@@ -1,0 +1,9 @@
+/var/log/proxmox-bootstrap/update-audit.log {
+    weekly
+    rotate 52
+    compress
+    delaycompress
+    missingok
+    notifempty
+    create 0640 root adm
+}

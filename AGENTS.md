@@ -65,6 +65,10 @@ unchanged Coral access. The first end device, a THIRDREALITY `3RTHS24BZ`
 temperature and humidity sensor, is paired and reporting temperature, humidity,
 and battery states. Step 19C provides its native Home Assistant Indoor Climate
 dashboard with 24-hour temperature and humidity graphs.
+Steps 20A-20E provide weekly read-only update auditing, protected status and
+logging, a recent-backup gate, non-mutating per-layer command plans, and
+post-update regression routing. No unattended upgrades or automatic reboots
+are enabled.
 Continue with:
 
 1. Decide whether to proceed with a one-camera face-recognition pilot, select
@@ -77,6 +81,8 @@ Continue with:
    final.
 5. Let the first Zigbee sensor establish a stable baseline before considering
    its available firmware update or adding sensor-driven automations.
+6. Review the Step 20 audit and apply pending CT updates one layer at a time,
+   validating each layer before continuing.
 
 Keep both verified camera baselines working while making these changes.
 

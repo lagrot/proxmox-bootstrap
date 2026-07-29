@@ -128,6 +128,11 @@ scripts/
 - `scripts/step19a-homeassistant-zigbee-usb.sh`
 - `scripts/step19b-homeassistant-zigbee-validation.sh`
 - `scripts/step19c-homeassistant-climate-dashboard.sh`
+- `scripts/step20a-update-audit.sh`
+- `scripts/step20b-update-plan.sh`
+- `scripts/step20c-post-update-validation.sh`
+- `scripts/step20d-update-audit-schedule.sh`
+- `scripts/step20e-update-operations-validation.sh`
 
 ## Remote access
 
@@ -137,6 +142,8 @@ The complete Frigate/Home Assistant integration procedure is documented in
 `docs/step10-frigate-homeassistant-integration.md`.
 The Zigbee coordinator procedure is documented in
 `docs/step19-homeassistant-zigbee.md`.
+The controlled update policy and audit procedure are documented in
+`docs/step20-update-operations.md`.
 
 Current verified remote access:
 
@@ -205,6 +212,11 @@ The `old/` directory contains scripts that are kept for historical reference but
 | Step 19A | Sonoff ZBDongle-P passthrough to HAOS | verified |
 | Step 19B | HAOS Zigbee hardware, ZHA, and first sensor validation | verified |
 | Step 19C | Native Home Assistant Indoor Climate dashboard | verified |
+| Step 20A | Read-only host, guest, software, and security update audit | verified |
+| Step 20B | Backup-gated per-layer update command planner | verified |
+| Step 20C | Per-layer post-update regression routing | verified |
+| Step 20D | Weekly protected update-audit schedule and logging | verified |
+| Step 20E | Update operations validation | verified |
 
 ## Hermes CT 220 baseline
 
