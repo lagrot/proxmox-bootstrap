@@ -135,6 +135,8 @@ scripts/
 - `scripts/step20e-update-operations-validation.sh`
 - `scripts/step20f-unattended-upgrades.sh`
 - `scripts/step20g-unattended-upgrades-validation.sh`
+- `scripts/step20-update-ct.sh`
+- `scripts/step20-update-ct-tests.sh`
 - `scripts/step20-status.sh`
 - `UPDATE-QUICK-GUIDE.txt` (condensed SSH operator runbook)
 
@@ -154,6 +156,10 @@ Normal update-operations status:
 ```bash
 bash scripts/step20-status.sh
 ```
+
+The `ct200`, `ct210`, and `ct220` update targets select an LXC and its
+validation route. They install only eligible Debian Security packages; they
+are not generic Docker, Frigate, or Hermes application upgrade commands.
 
 Current verified remote access:
 

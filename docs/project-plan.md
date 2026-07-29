@@ -245,8 +245,9 @@ chmod -R 775 /mnt/frigate
 | Step 20C | Per-layer post-update validation routing | verified |
 | Step 20D | Weekly protected update-audit schedule | verified |
 | Step 20E | Update operations validation | verified |
-| Step 20F | Debian unattended security-update deployment | deployed |
-| Step 20G | Unattended security-update configuration validation | verified; first new-policy run pending |
+| Step 20F | Controlled Debian security-update policy for managed CTs | deployed |
+| Step 20G | Controlled security-update configuration validation | verified |
+| Step 20H | Snapshot-protected Debian Security update MVP | CT 210 and CT 220 update/cleanup verified; rollback verified on CT 210 |
 
 ## Service Decisions
 
@@ -694,6 +695,14 @@ cleanup after a 24-hour observation period. Confirm validates the existing
 service, checks snapshot capacity, creates a stopped consistent Proxmox
 snapshot, installs security packages, handles a required reboot, and validates
 the service again.
+
+The target name selects an LXC and the matching regression tests; it is not an
+application update selector. CT 200 updates eligible Debian Security packages
+only, not Docker Engine/Compose from `download.docker.com` or the pinned
+Frigate image. CT 210 can also receive a Mosquitto fix when Debian publishes
+it through Debian Security because Mosquitto is a native Debian package.
+CT 220 does not update the Hermes application, which is installed outside
+Debian package management.
 
 The CT 210 pilot installed 20 Debian Security updates without requiring a
 reboot. MQTT authentication, anonymous-access rejection, and Frigate MQTT

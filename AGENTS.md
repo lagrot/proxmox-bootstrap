@@ -75,6 +75,10 @@ refreshes APT metadata but never installs or reboots anything.
 Steps 20F-20H restrict Debian Security package installation to a manual,
 snapshot-protected, one-CT-at-a-time workflow. Independent automatic package
 installation and automatic rebooting are disabled in CTs 200, 210, and 220.
+The `ct200`, `ct210`, and `ct220` target names select an LXC and its validation
+route. CT 200 does not update Docker or Frigate, and CT 220 does not update the
+Hermes application. CT 210 may update Mosquitto when Debian Security publishes
+an eligible fix because Mosquitto is installed as a native Debian package.
 The CT 210 pilot proved security-only installation, service validation,
 failure detection, real Proxmox snapshot rollback, re-patching, and managed
 snapshot cleanup. CT 220 then proved the same update and cleanup path with its

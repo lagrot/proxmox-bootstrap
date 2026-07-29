@@ -11,6 +11,22 @@ Step 20 has one narrow automation boundary:
 
 For the condensed SSH runbook, use `UPDATE-QUICK-GUIDE.txt`.
 
+## Target names and package scope
+
+The target selects an LXC and its post-update validation route. It does not
+request a generic application or full-system upgrade.
+
+| Target | Eligible update scope | Explicitly excluded |
+|---|---|---|
+| `ct200` | Installed packages offered by Debian Security | Docker Engine/Compose from `download.docker.com`; pinned Frigate image |
+| `ct210` | Installed packages offered by Debian Security, including Mosquitto when Debian Security publishes a fix | Ordinary Debian feature updates and generic full upgrades |
+| `ct220` | Installed packages offered by Debian Security | Hermes application release |
+
+Mosquitto is eligible in CT 210 because it is installed as a native Debian
+package. Docker and Hermes use non-Debian installation sources, while Frigate
+is a pinned container image, so those application updates require their own
+procedures.
+
 ## Normal operation
 
 Run:
@@ -84,6 +100,10 @@ The policy:
 - disables automatic rebooting;
 - leaves installation, reboot-required handling, and validation to
   `step20-update-ct.sh`.
+
+The Debian `unattended-upgrades` package is used as the tested security-only
+package selection and installation engine. Its automatic installation timer
+is disabled, so the operator-controlled script remains the only apply path.
 
 The Proxmox host, ordinary Debian updates, third-party Docker packages,
 Frigate images, Hermes releases, Home Assistant, and firmware are excluded.

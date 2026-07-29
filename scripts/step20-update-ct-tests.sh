@@ -6,6 +6,7 @@ PROJECT_ROOT="$(cd -- "${TEST_SCRIPT_DIR}/.." && pwd)"
 source "${PROJECT_ROOT}/lib/common.sh"
 
 UPDATER="${TEST_SCRIPT_DIR}/step20-update-ct.sh"
+PLANNER="${TEST_SCRIPT_DIR}/step20b-update-plan.sh"
 errors=0
 TEST_STATE_DIR=""
 
@@ -61,6 +62,7 @@ expect_success "Updater Bash syntax" bash -n "${UPDATER}"
 expect_success "Setup Bash syntax" bash -n "${TEST_SCRIPT_DIR}/step20f-unattended-upgrades.sh"
 expect_success "Validation Bash syntax" bash -n "${TEST_SCRIPT_DIR}/step20g-unattended-upgrades-validation.sh"
 expect_success "Status Bash syntax" bash -n "${TEST_SCRIPT_DIR}/step20-status.sh"
+expect_success "Planner Bash syntax" bash -n "${PLANNER}"
 expect_success "Status reports managed snapshot observation state" \
   grep -q 'SNAPSHOT RETAINED' "${TEST_SCRIPT_DIR}/step20-status.sh"
 expect_success "Status reports managed snapshot cleanup state" \
@@ -70,6 +72,11 @@ expect_success "Updater uses a collision-safe script directory variable" \
   grep -q '^STEP20_UPDATE_SCRIPT_DIR=' "${UPDATER}"
 expect_success "Preview uses Debian's security-only engine" \
   grep -q 'unattended-upgrade --dry-run --verbose' "${UPDATER}"
+expect_success "CT 200 planner command" bash "${PLANNER}" ct200
+expect_success "CT 210 planner command" bash "${PLANNER}" ct210
+expect_success "CT 220 planner command" bash "${PLANNER}" ct220
+expect_success "Automatic installation wording is absent" \
+  bash -c "! grep -Fq 'security updates are automatic' '${PLANNER}'"
 
 expect_failure "Missing target and mode rejected" 'Target and mode are required' \
   bash "${UPDATER}"
@@ -126,6 +133,16 @@ expect_success "Quick guide has exact cleanup command" \
 expect_success "Quick guide documents explicit snapshot rollback" \
   grep -Fq 'pct rollback 210 EXACT_SNAPSHOT_NAME' \
     "${PROJECT_ROOT}/UPDATE-QUICK-GUIDE.txt"
+expect_success "Quick guide excludes third-party Docker packages" \
+  grep -Fq 'download.docker.com' "${PROJECT_ROOT}/UPDATE-QUICK-GUIDE.txt"
+expect_success "Quick guide explains native Debian Mosquitto scope" \
+  grep -Fq 'Mosquitto is installed as a native Debian package' \
+    "${PROJECT_ROOT}/UPDATE-QUICK-GUIDE.txt"
+expect_success "Quick guide excludes the Hermes application" \
+  grep -Fq 'excludes the Hermes application' \
+    "${PROJECT_ROOT}/UPDATE-QUICK-GUIDE.txt"
+expect_success "README lists the controlled updater" \
+  grep -Fq 'scripts/step20-update-ct.sh' "${PROJECT_ROOT}/README.md"
 
 (( errors == 0 )) || die "Security-update MVP tests failed with ${errors} error(s)"
 log_info "Security-update MVP tests completed successfully"

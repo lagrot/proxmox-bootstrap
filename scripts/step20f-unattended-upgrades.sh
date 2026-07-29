@@ -52,7 +52,7 @@ for ct_id in "${CT_IDS[@]}"; do
 done
 
 if (( DRY_RUN == 1 )); then
-  log_info "UNATTENDED SECURITY UPDATE NON-MUTATING CHECK"
+  log_info "CONTROLLED DEBIAN SECURITY POLICY NON-MUTATING CHECK"
   apt-config -c "${PROJECT_ROOT}/config/20homelab-auto-upgrades" dump >/dev/null \
     || die "Periodic APT configuration is invalid"
   apt-config -c "${PROJECT_ROOT}/config/52homelab-unattended-upgrades" dump >/dev/null \

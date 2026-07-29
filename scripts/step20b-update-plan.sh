@@ -46,32 +46,47 @@ EOF
     ;;
   ct200)
     cat <<EOF
-REVIEW ONLY: CT ${DOCKER_CT_ID} Debian security updates are automatic.
+CONTROLLED UPDATE TARGET: CT ${DOCKER_CT_ID}
+Only installed packages offered by Debian Security are eligible.
+Docker Engine/Compose from download.docker.com and the Frigate image are not
+updated by this target.
 Step 12 backs up service configuration, not the complete CT root filesystem.
-No generic full-upgrade command is provided.
 
-Inspect the cached package transaction:
-  pct exec ${DOCKER_CT_ID} -- apt-get -s dist-upgrade
+Preview the exact security-only transaction:
+  bash scripts/step20-update-ct.sh ct200 --dry-run
+
+After review, follow UPDATE-QUICK-GUIDE.txt for confirm and cleanup.
+A generic full upgrade is not provided.
 EOF
     ;;
   ct210)
     cat <<EOF
-REVIEW ONLY: CT ${MQTT_CT_ID} Debian security updates are automatic.
+CONTROLLED UPDATE TARGET: CT ${MQTT_CT_ID}
+Only installed packages offered by Debian Security are eligible. This may
+include Mosquitto when Debian Security publishes a fix because Mosquitto is a
+native Debian package.
 Step 12 backs up Mosquitto configuration, not the complete CT root filesystem.
-No generic full-upgrade command is provided.
 
-Inspect the cached package transaction:
-  pct exec ${MQTT_CT_ID} -- apt-get -s dist-upgrade
+Preview the exact security-only transaction:
+  bash scripts/step20-update-ct.sh ct210 --dry-run
+
+After review, follow UPDATE-QUICK-GUIDE.txt for confirm and cleanup.
+A generic full upgrade is not provided.
 EOF
     ;;
   ct220)
     cat <<EOF
-REVIEW ONLY: CT ${HERMES_CT_ID} Debian security updates are automatic.
+CONTROLLED UPDATE TARGET: CT ${HERMES_CT_ID}
+Only installed packages offered by Debian Security are eligible.
+The Hermes application is not a Debian package and is not updated by this
+target.
 Step 12 backs up Hermes application data, not the complete CT root filesystem.
-No generic full-upgrade command is provided.
 
-Inspect the cached package transaction:
-  pct exec ${HERMES_CT_ID} -- apt-get -s dist-upgrade
+Preview the exact security-only transaction:
+  bash scripts/step20-update-ct.sh ct220 --dry-run
+
+After review, follow UPDATE-QUICK-GUIDE.txt for confirm and cleanup.
+A generic full upgrade is not provided.
 EOF
     ;;
   homeassistant)

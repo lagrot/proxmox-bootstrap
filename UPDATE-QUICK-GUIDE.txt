@@ -1,11 +1,24 @@
 HOMELAB UPDATE QUICK GUIDE
 ==========================
 
-CONTAINERS
-----------
-  ct200 = Docker and Frigate
-  ct210 = MQTT
-  ct220 = Hermes
+CONTAINER TARGETS
+-----------------
+  ct200 = Debian Security packages in the Docker/Frigate LXC
+  ct210 = Debian Security packages in the MQTT LXC
+  ct220 = Debian Security packages in the Hermes LXC
+
+The target selects the LXC and its validation tests. It is not an application
+upgrade command.
+
+PACKAGE SCOPE
+-------------
+Only installed packages offered by Debian Security are updated.
+
+  ct200 excludes Docker Engine/Compose from download.docker.com and the
+        pinned Frigate image.
+  ct210 may include Mosquitto when Debian Security publishes a fix because
+        Mosquitto is installed as a native Debian package.
+  ct220 excludes the Hermes application, which is not a Debian package.
 
 BACKUPS
 -------
@@ -67,5 +80,6 @@ delete the snapshot or run package repair commands blindly.
 
 NOT INCLUDED
 ------------
-This workflow does not update Proxmox, Home Assistant, Docker feature releases,
-Frigate images, Hermes application releases, or Zigbee firmware.
+This workflow does not update Proxmox, Home Assistant, Docker Engine/Compose
+packages from download.docker.com, Frigate images, Hermes application
+releases, or Zigbee firmware.
