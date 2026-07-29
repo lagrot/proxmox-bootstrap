@@ -95,6 +95,8 @@ for ct_id in "${CT_IDS[@]}"; do
     pct exec "${ct_id}" -- timeout 5 /usr/lib/apt/apt-helper wait-online
   check "CT ${ct_id} apt-daily timer enabled" \
     pct exec "${ct_id}" -- systemctl is-enabled --quiet apt-daily.timer
+  check "CT ${ct_id} apt-daily timer active" \
+    pct exec "${ct_id}" -- systemctl is-active --quiet apt-daily.timer
   check "CT ${ct_id} automatic install timer disabled" \
     bash -c "! pct exec '${ct_id}' -- systemctl is-enabled --quiet apt-daily-upgrade.timer"
   check "CT ${ct_id} automatic install timer inactive" \

@@ -20,34 +20,48 @@ Only installed packages offered by Debian Security are updated.
         Mosquitto is installed as a native Debian package.
   ct220 excludes the Hermes application, which is not a Debian package.
 
+ROLLBACK PROTECTION
+-------------------
+CT 200 cannot use an LXC snapshot because of its /mnt/frigate bind mount.
+The updater therefore creates a stopped full-rootfs backup before patching.
+Camera media is not copied or changed.
+
+CT 210 and CT 220 use temporary Proxmox LXC snapshots.
+
 BACKUPS
 -------
-Backups are a separate Step 12 operation. They run weekly and retain eight
-validated sets. Security updates do not create another backup.
+Weekly recovery backups are a separate Step 12 operation. They retain eight
+validated sets. CT 200 security updates additionally keep one temporary
+full-rootfs rollback backup until cleanup.
 
 Check backup and update status:
   bash scripts/step20-status.sh
 
 SECURITY UPDATE
 ---------------
-Update one container at a time. Start with ct210.
+Update one container at a time.
 
-1. Preview without changing the container:
+Optional. Refresh package metadata and preview without installing anything:
   bash scripts/step20-update-ct.sh ct210 --dry-run
 
-2. Create a snapshot, install Debian Security updates and verify MQTT:
+Patch. This repeats discovery, creates rollback protection, installs Debian
+Security updates and verifies the selected service:
   bash scripts/step20-update-ct.sh ct210 --confirm
 
-3. After at least 24 hours, verify MQTT again and delete that snapshot:
+After at least 24 hours, verify the service again and delete rollback protection:
   bash scripts/step20-update-ct.sh ct210 --cleanup
 
-The script remembers the exact snapshot name. Do not type a snapshot name.
+For CT 200 or CT 220, replace ct210 with ct200 or ct220. The script chooses
+the correct rollback type automatically.
 
-If an update or validation fails, the script stops and keeps the snapshot.
-It never rolls back automatically.
+The script remembers the exact snapshot or backup path.
+
+If an update or validation fails, the script stops and keeps rollback
+protection. It never rolls back automatically.
 
 CHECK SNAPSHOTS
 ---------------
+Only CT 210 and CT 220 use snapshots:
   pct listsnapshot 210
 
 ROLL BACK A FAILED CT210 UPDATE
@@ -63,6 +77,21 @@ EXACT_SNAPSHOT_NAME is the name beginning with pbsec- shown above.
 Rollback was tested successfully on CT 210. It restores the pre-update
 packages and configuration. It does not automatically retry the update.
 
+ROLL BACK A FAILED CT200 UPDATE
+-------------------------------
+The failed command prints the exact backup archive path. It is also the
+backup_archive= value in:
+  cat /var/lib/proxmox-bootstrap/security-updates/ct200.state
+
+Use that exact path as CT200_BACKUP below:
+  pct stop 200
+  pct restore 200 CT200_BACKUP --force 1 --storage local-lvm
+  pct start 200
+  bash scripts/step20c-post-update-validation.sh ct200
+
+This restores CT 200's root filesystem and configuration. It does not restore,
+delete, or change camera media under /mnt/frigate.
+
 TROUBLESHOOTING
 ---------------
 Validate the controlled Debian Security policy:
@@ -76,7 +105,7 @@ Inspect package health without repairing anything:
   pct exec 210 -- apt-get check
 
 If validation or package health fails, stop and inspect the error. Do not
-delete the snapshot or run package repair commands blindly.
+delete the rollback snapshot/backup or run package repair commands blindly.
 
 NOT INCLUDED
 ------------

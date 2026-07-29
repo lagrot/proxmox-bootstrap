@@ -680,21 +680,27 @@ reboot markers, and reports the age of the latest recovery backup.
 The audit runs each Monday at 06:00 Europe/Stockholm, after the Sunday backup,
 with up to ten minutes of randomized delay. Protected logs rotate weekly and
 are retained for 52 weeks; the root-only JSON status contains the last audit
-result and package counts. The review command provides simulations or routes
-to a dedicated procedure; it never provides a generic application or host
-upgrade command. Post-update validation remains available after separately
-reviewed work. The procedure is documented in
+result and package counts. Managed CT security counts come from the same
+Debian security-only policy engine used by the updater rather than a text
+match against generic APT output. Post-update validation remains available
+after separately reviewed work. The procedure is documented in
 `docs/step20-update-operations.md`.
 
 Steps 20F-20H provide a deliberately small Debian Security update MVP for CT
 200, CT 210, and CT 220. The effective APT policy accepts Debian Security
 origins only, preserves local package configuration, and disables independent
 automatic package installation and automatic rebooting. The operator updates
-one CT at a time with `scripts/step20-update-ct.sh`: dry-run, confirm, then
-cleanup after a 24-hour observation period. Confirm validates the existing
-service, checks snapshot capacity, creates a stopped consistent Proxmox
-snapshot, installs security packages, handles a required reboot, and validates
-the service again.
+one CT at a time with `scripts/step20-update-ct.sh`: optional dry-run, confirm,
+then cleanup after a 24-hour observation period. Confirm validates the
+existing service, checks snapshot capacity, creates a stopped consistent
+Proxmox snapshot, installs security packages, handles a required reboot, and
+validates the service again.
+
+Dry-run is an optional preview. Both dry-run and confirm refresh metadata and
+discover eligible packages before running the expensive service baseline. If
+no security updates exist, they exit without service validation, a snapshot,
+or package installation. The metadata timer is paused during the operation and
+restored on exit so it cannot race the operator command.
 
 The target name selects an LXC and the matching regression tests; it is not an
 application update selector. CT 200 updates eligible Debian Security packages
@@ -703,6 +709,24 @@ Frigate image. CT 210 can also receive a Mosquitto fix when Debian publishes
 it through Debian Security because Mosquitto is a native Debian package.
 CT 220 does not update the Hermes application, which is installed outside
 Debian package management.
+
+CT 200 cannot create a Proxmox LXC snapshot because its `/mnt/frigate` host
+bind mount makes the snapshot feature unavailable. It therefore uses a
+stopped, compressed `vzdump` archive of the full root filesystem and CT
+configuration as its rollback point. Proxmox excludes the media bind-mount
+contents, so camera media is neither copied nor changed.
+
+The stopped CT 200 restore drill is verified. It restored the archive to
+temporary CT 920, never started the temporary CT, confirmed the restored
+Frigate Compose and configuration files plus bind-mount configuration, and
+removed the temporary CT, disk, and test archive. CT 200 subsequently installed
+21 Debian Security updates with no reboot required. Frigate, both cameras,
+Home Assistant entities, MQTT availability, event recording, Intel VAAPI, and
+the USB Coral passed afterward. Its validated rollback archive follows the
+same 24-hour observation and explicit-cleanup rule as managed snapshots.
+Managed cleanup was also acceptance-tested: it revalidated CT 200, deleted
+only the recorded rollback directory, and removed protected state. The test
+used an explicit zero-age override; normal operation still enforces 24 hours.
 
 The CT 210 pilot installed 20 Debian Security updates without requiring a
 reboot. MQTT authentication, anonymous-access rejection, and Frigate MQTT
@@ -724,10 +748,10 @@ exact CT 220 snapshot and protected state. It used the same explicit zero-age
 acceptance-test override.
 
 Step 12 remains the authoritative backup, retention, and disaster-recovery
-workstream. Security updates do not create another backup. Their temporary
-Proxmox snapshots are rollback points, not backups. Proxmox, ordinary Debian
-packages, Docker/Frigate images, Hermes releases, Home Assistant, and firmware
-remain separate reviewed maintenance.
+workstream. CT 200's temporary full-rootfs archive and the CT 210/220 snapshots
+are short-lived update rollback points, not weekly recovery backups. Proxmox,
+ordinary Debian packages, Docker/Frigate images, Hermes releases, Home
+Assistant, and firmware remain separate reviewed maintenance.
 
 `scripts/step20-status.sh` is the primary human operator interface for this
 workstream. It converts the protected machine-readable JSON into a compact
@@ -757,10 +781,11 @@ The agreed near-term roadmap is:
    discovery, integration loading, and the first temperature/humidity sensor
    are verified.
 7. **Step 20 - Update operations:** weekly non-installing auditing, protected
-   status/logging, and the snapshot-protected Debian Security update MVP are
-   deployed and verified on CT 210 and CT 220, including cleanup; real rollback
-   is verified on CT 210. Pilot CT 200 separately. Proxmox and applications
-   keep their reviewed procedures.
+   status/logging, and the controlled Debian Security update MVP are deployed.
+   CT 210 and CT 220 use snapshots; CT 200 uses a restore-tested stopped
+   full-rootfs archive because its media bind mount disables LXC snapshots.
+   Updates pass on all three CTs, and real rollback is verified on CT 210.
+   Proxmox and applications keep their reviewed procedures.
 
 The Proxmox host currently detects the ZBDongle-P as USB ID `10c4:ea60`
 (Silicon Labs CP210x UART Bridge) and exposes the stable host path

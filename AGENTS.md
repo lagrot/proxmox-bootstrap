@@ -72,13 +72,24 @@ dashboard with 24-hour temperature and humidity graphs.
 Steps 20A-20E provide weekly update auditing, protected status and logging,
 non-mutating maintenance review, and post-update regression routing. The audit
 refreshes APT metadata but never installs or reboots anything.
-Steps 20F-20H restrict Debian Security package installation to a manual,
-snapshot-protected, one-CT-at-a-time workflow. Independent automatic package
+Steps 20F-20I restrict Debian Security package installation to a manual,
+rollback-protected, one-CT-at-a-time workflow. Independent automatic package
 installation and automatic rebooting are disabled in CTs 200, 210, and 220.
+Both preview and confirm refresh package metadata and discover security
+updates before expensive service validation. A no-update result exits early.
+The updater pauses and restores `apt-daily.timer` around the operation.
 The `ct200`, `ct210`, and `ct220` target names select an LXC and its validation
 route. CT 200 does not update Docker or Frigate, and CT 220 does not update the
 Hermes application. CT 210 may update Mosquitto when Debian Security publishes
 an eligible fix because Mosquitto is installed as a native Debian package.
+CT 200 cannot use LXC snapshots because its `/mnt/frigate` host bind mount
+makes that feature unavailable. It instead uses a stopped full-rootfs
+`vzdump` rollback archive. A stopped temporary restore to CT 920 verified the
+archive, restored Frigate files, preserved bind-mount configuration, and safe
+cleanup without starting the temporary CT. CT 200 then installed its pending
+Debian Security updates and passed the complete Frigate regression route. Its
+managed rollback-backup cleanup also passed with an explicit zero-age
+acceptance-test override; normal operation still enforces 24 hours.
 The CT 210 pilot proved security-only installation, service validation,
 failure detection, real Proxmox snapshot rollback, re-patching, and managed
 snapshot cleanup. CT 220 then proved the same update and cleanup path with its
@@ -103,7 +114,6 @@ Continue with:
    final.
 5. Let the first Zigbee sensor establish a stable baseline before considering
    its available firmware update or adding sensor-driven automations.
-6. Decide when to pilot the verified security-update MVP on CT 200.
 
 Keep both verified camera baselines working while making these changes.
 
