@@ -5,6 +5,7 @@ SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd -- "${SCRIPT_DIR}/.." && pwd)"
 source "${PROJECT_ROOT}/lib/common.sh"
 source "${PROJECT_ROOT}/config/defaults.conf"
+[[ -f "${PROJECT_ROOT}/config/local.conf" ]] && source "${PROJECT_ROOT}/config/local.conf"
 
 errors=0
 check() {
@@ -25,6 +26,24 @@ remote_matches() {
   [[ "${remote_hash}" == "${local_hash}" ]]
 }
 
+effective_policy_matches() {
+  local ct_id="$1" policy origin_count allowed_count
+  policy="$(pct exec "${ct_id}" -- apt-config dump 2>/dev/null)" || return 1
+  origin_count="$(
+    grep -c '^Unattended-Upgrade::Origins-Pattern:: "' <<<"${policy}" || true
+  )"
+  allowed_count="$(
+    grep -c '^Unattended-Upgrade::Allowed-Origins:: "' <<<"${policy}" || true
+  )"
+  grep -Fq 'APT::Periodic::Unattended-Upgrade "1";' <<<"${policy}" \
+    && grep -Fq 'origin=Debian,codename=${distro_codename},label=Debian-Security' <<<"${policy}" \
+    && grep -Fq 'origin=Debian,codename=${distro_codename}-security,label=Debian-Security' <<<"${policy}" \
+    && grep -Fq 'Unattended-Upgrade::Automatic-Reboot "true";' <<<"${policy}" \
+    && grep -Fq 'Unattended-Upgrade::MinimalSteps "true";' <<<"${policy}" \
+    && [[ "${origin_count}" == "2" ]] \
+    && [[ "${allowed_count}" == "0" ]]
+}
+
 [[ "${EUID}" -eq 0 ]] || die "Run as root"
 CT_IDS=("${MQTT_CT_ID:-210}" "${HERMES_CT_ID:-220}" "${DOCKER_CT_ID:-200}")
 
@@ -39,6 +58,8 @@ for ct_id in "${CT_IDS[@]}"; do
   check "CT ${ct_id} security policy matches" \
     remote_matches "${ct_id}" "${PROJECT_ROOT}/config/52homelab-unattended-upgrades" \
       /etc/apt/apt.conf.d/52homelab-unattended-upgrades
+  check "CT ${ct_id} effective APT security policy is loaded" \
+    effective_policy_matches "${ct_id}"
   check "CT ${ct_id} apt-daily timer enabled" \
     pct exec "${ct_id}" -- systemctl is-enabled --quiet apt-daily.timer
   check "CT ${ct_id} apt-daily-upgrade timer enabled" \

@@ -26,6 +26,7 @@ CT220_UPDATES=0
 CT220_SECURITY=0
 BACKUP_READY=false
 HOST_REBOOT=false
+STATUS_WRITTEN=0
 
 record_error() { log_error "$1"; ((AUDIT_ERRORS+=1)); }
 record_warn() { log_warn "$1"; ((AUDIT_WARNINGS+=1)); }
@@ -86,6 +87,27 @@ write_status() {
     "${BACKUP_READY}" "${HOST_REBOOT}" "${AUDIT_WARNINGS}" "${AUDIT_ERRORS}" >"${temp}"
   chmod 0600 "${temp}"
   mv -f "${temp}" "${UPDATE_STATUS_FILE}"
+  STATUS_WRITTEN=1
+}
+
+unexpected_failure() {
+  local rc="$?"
+  trap - ERR
+  if (( STATUS_WRITTEN == 0 )); then
+    AUDIT_ERRORS=$((AUDIT_ERRORS + 1))
+    write_status failed "Update audit stopped unexpectedly"
+  fi
+  exit "${rc}"
+}
+
+log_probe() {
+  local label="$1" value
+  shift
+  if value="$("$@" 2>&1)"; then
+    log_info "${label}: ${value%%$'\n'*}"
+  else
+    record_warn "${label}: unavailable"
+  fi
 }
 
 log_info "======================================"
@@ -104,6 +126,7 @@ chmod 0640 "${LOG_FILE}"
 chmod 0700 "$(dirname "${UPDATE_STATUS_FILE}")"
 exec 9>"${LOCK_FILE}"
 flock -n 9 || die "Another update audit is running"
+trap unexpected_failure ERR
 
 log_info "Checking latest validated backup..."
 if [[ -f "${BACKUP_STATUS_FILE}" && -f "${BACKUP_LAST_SUCCESS_FILE}" ]] \
@@ -125,21 +148,25 @@ else
 fi
 
 log_info "Installed versions:"
-log_info "Proxmox: $(pveversion)"
-log_info "Kernel: $(uname -r)"
-log_info "Docker: $(pct exec "${DOCKER_CT_ID}" -- docker version --format '{{.Server.Version}}')"
-log_info "Docker Compose: $(pct exec "${DOCKER_CT_ID}" -- docker compose version --short)"
-log_info "Frigate image: $(pct exec "${DOCKER_CT_ID}" -- docker inspect --format '{{.Config.Image}}' frigate)"
-log_info "Mosquitto: $(pct exec "${MQTT_CT_ID}" -- mosquitto -h 2>&1 | head -1)"
-log_info "Hermes: $(pct exec "${HERMES_CT_ID}" -- su - hermes -c 'hermes --version' 2>/dev/null | head -1)"
+log_probe "Proxmox" pveversion
+log_probe "Kernel" uname -r
+log_probe "Docker" pct exec "${DOCKER_CT_ID}" -- docker version --format '{{.Server.Version}}'
+log_probe "Docker Compose" pct exec "${DOCKER_CT_ID}" -- docker compose version --short
+log_probe "Frigate image" pct exec "${DOCKER_CT_ID}" -- docker inspect --format '{{.Config.Image}}' frigate
+log_probe "Mosquitto" pct exec "${MQTT_CT_ID}" -- \
+  dpkg-query -W -f='${Version}' mosquitto
+log_probe "Hermes" pct exec "${HERMES_CT_ID}" -- su - hermes -c 'hermes --version'
 
 if qm agent "${HA_VM_ID}" ping >/dev/null 2>&1; then
-  core_info="$(guest_ha_info core)"
-  os_info="$(guest_ha_info os)"
-  supervisor_info="$(guest_ha_info supervisor)"
-  log_info "Home Assistant Core: $(awk -F': ' '$1=="version"{print $2}' <<<"${core_info}") (latest $(awk -F': ' '$1=="version_latest"{print $2}' <<<"${core_info}"))"
-  log_info "Home Assistant OS: $(awk -F': ' '$1=="version"{print $2}' <<<"${os_info}") (latest $(awk -F': ' '$1=="version_latest"{print $2}' <<<"${os_info}"))"
-  log_info "Home Assistant Supervisor: $(awk -F': ' '$1=="version"{print $2}' <<<"${supervisor_info}") (latest $(awk -F': ' '$1=="version_latest"{print $2}' <<<"${supervisor_info}"))"
+  if core_info="$(guest_ha_info core)" \
+    && os_info="$(guest_ha_info os)" \
+    && supervisor_info="$(guest_ha_info supervisor)"; then
+    log_info "Home Assistant Core: $(awk -F': ' '$1=="version"{print $2}' <<<"${core_info}") (latest $(awk -F': ' '$1=="version_latest"{print $2}' <<<"${core_info}"))"
+    log_info "Home Assistant OS: $(awk -F': ' '$1=="version"{print $2}' <<<"${os_info}") (latest $(awk -F': ' '$1=="version_latest"{print $2}' <<<"${os_info}"))"
+    log_info "Home Assistant Supervisor: $(awk -F': ' '$1=="version"{print $2}' <<<"${supervisor_info}") (latest $(awk -F': ' '$1=="version_latest"{print $2}' <<<"${supervisor_info}"))"
+  else
+    record_warn "Home Assistant version information was not available"
+  fi
   zigbee_info="$(qm guest exec "${HA_VM_ID}" -- bash -c 'udevadm info --query=property --name=/dev/ttyUSB0 2>/dev/null | grep -E "^(ID_MODEL|ID_SERIAL|ID_REVISION)="' 2>/dev/null \
     | python3 -c 'import json,sys; print(json.load(sys.stdin).get("out-data","").strip())' || true)"
   if [[ -n "${zigbee_info}" ]]; then
@@ -149,13 +176,15 @@ if qm agent "${HA_VM_ID}" ping >/dev/null 2>&1; then
     record_warn "Zigbee coordinator identity was not available"
   fi
 else
-  record_error "Home Assistant guest agent is unavailable"
+  record_warn "Home Assistant guest agent is unavailable"
 fi
 
 [[ -e /var/run/reboot-required ]] && HOST_REBOOT=true
 log_info "Host reboot marker: ${HOST_REBOOT}"
 for ct_id in "${DOCKER_CT_ID}" "${MQTT_CT_ID}" "${HERMES_CT_ID}"; do
-  if pct exec "${ct_id}" -- test -e /var/run/reboot-required; then
+  if ! pct status "${ct_id}" 2>/dev/null | grep -q 'status: running'; then
+    record_warn "CT ${ct_id} is not running; reboot marker is unavailable"
+  elif pct exec "${ct_id}" -- test -e /var/run/reboot-required; then
     record_warn "CT ${ct_id} has a reboot-required marker"
   else
     log_info "CT ${ct_id} reboot marker: false"
@@ -169,6 +198,7 @@ package_audit "CT ${HERMES_CT_ID}" "${HERMES_CT_ID}" CT220_UPDATES CT220_SECURIT
 
 if (( AUDIT_ERRORS > 0 )); then
   write_status failed "Update audit failed"
+  trap - ERR
   die "Update audit failed with ${AUDIT_ERRORS} error(s)"
 fi
 if (( AUDIT_WARNINGS > 0 )); then
@@ -178,3 +208,4 @@ else
   write_status success "Update audit completed successfully"
   log_info "Update audit completed successfully"
 fi
+trap - ERR

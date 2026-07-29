@@ -222,13 +222,13 @@ The `old/` directory contains scripts that are kept for historical reference but
 | Step 19A | Sonoff ZBDongle-P passthrough to HAOS | verified |
 | Step 19B | HAOS Zigbee hardware, ZHA, and first sensor validation | verified |
 | Step 19C | Native Home Assistant Indoor Climate dashboard | verified |
-| Step 20A | Read-only host, guest, software, and security update audit | verified |
-| Step 20B | Backup-gated per-layer update command planner | verified |
+| Step 20A | Non-installing host, guest, software, and security update audit | verified |
+| Step 20B | Non-mutating maintenance review and safety boundaries | verified |
 | Step 20C | Per-layer post-update regression routing | verified |
 | Step 20D | Weekly protected update-audit schedule and logging | verified |
 | Step 20E | Update operations validation | verified |
-| Step 20F | Automatic Debian security updates for managed CTs | verified |
-| Step 20G | Unattended security-update validation | verified |
+| Step 20F | Automatic Debian security updates for managed CTs | deployed |
+| Step 20G | Unattended security-update configuration validation | verified; first new-policy run pending |
 
 ## Hermes CT 220 baseline
 
