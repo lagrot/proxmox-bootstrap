@@ -137,19 +137,24 @@ fi
 log_info "Running local MQTT publish/subscribe test..."
 TEST_TOPIC="homelab/validation"
 TEST_MESSAGE="mqtt-validation-ok-$(date +%s)"
-
-if pct exec "${MQTT_CT_ID}" -- bash -c "
-  timeout 5 mosquitto_sub -h 127.0.0.1 -p '${MQTT_PORT}' -t '${TEST_TOPIC}' -C 1 > /tmp/mqtt-validation.out &
-  sub_pid=\$!
-  sleep 1
-  mosquitto_pub -h 127.0.0.1 -p '${MQTT_PORT}' -t '${TEST_TOPIC}' -m '${TEST_MESSAGE}'
-  wait \${sub_pid}
-  grep -qx '${TEST_MESSAGE}' /tmp/mqtt-validation.out
-  rm -f /tmp/mqtt-validation.out
-"; then
-  log_info "Local MQTT publish/subscribe test succeeded"
+if pct exec "${MQTT_CT_ID}" -- grep -Rqs '^allow_anonymous[[:space:]]*false' \
+  /etc/mosquitto/mosquitto.conf /etc/mosquitto/conf.d; then
+  log_info "Anonymous access is disabled; authenticated functional testing is handled by Step 05D"
 else
-  record_error "Local MQTT publish/subscribe test failed"
+  if pct exec "${MQTT_CT_ID}" -- bash -c "
+    set -e
+    timeout 5 mosquitto_sub -h 127.0.0.1 -p '${MQTT_PORT}' -t '${TEST_TOPIC}' -C 1 > /tmp/mqtt-validation.out &
+    sub_pid=\$!
+    sleep 1
+    mosquitto_pub -h 127.0.0.1 -p '${MQTT_PORT}' -t '${TEST_TOPIC}' -m '${TEST_MESSAGE}'
+    wait \${sub_pid}
+    grep -qx '${TEST_MESSAGE}' /tmp/mqtt-validation.out
+    rm -f /tmp/mqtt-validation.out
+  "; then
+    log_info "Local MQTT publish/subscribe test succeeded"
+  else
+    record_error "Local MQTT publish/subscribe test failed"
+  fi
 fi
 
 log_info "Checking recent Mosquitto logs for errors..."

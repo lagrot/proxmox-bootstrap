@@ -152,7 +152,7 @@ else
 fi
 
 if grep -qiE 'mqtt.*(error|failed|refused|timeout|unreachable)' <<< "${RECENT_LOGS}"; then
-  record_error "Recent Frigate logs contain MQTT error-like messages"
+  record_warn "Frigate logs contain MQTT error-like messages; current availability is authoritative"
 else
   log_info "No obvious MQTT errors found since current Frigate start"
 fi

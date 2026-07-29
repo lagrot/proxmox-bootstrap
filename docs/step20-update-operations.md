@@ -147,6 +147,11 @@ requires a matching successful transaction record and never touches manual
 snapshots. Failed and rolled-back transaction snapshots remain until manually
 resolved.
 
+The CT 210 maintenance baseline deliberately stops the MQTT broker, so Frigate
+may retain a historical `MQTT disconnected` message. Current retained
+`frigate/available = online` is the decisive health check; historical
+error-like log messages are reported as warnings for later review.
+
 Protected output:
 
 - log: `/var/log/proxmox-bootstrap/update-maintenance.log`, mode `0640`;
