@@ -1,7 +1,7 @@
 # Step 20 - Update Operations
 
 Step 20 provides update visibility and controlled maintenance boundaries
-without enabling unattended upgrades or automatic reboots.
+without enabling unattended upgrades or automatic Proxmox-host reboots.
 
 ## Policy
 
@@ -19,6 +19,8 @@ without enabling unattended upgrades or automatic reboots.
   updates.
 - Never update Zigbee coordinator firmware merely because a newer build
   exists.
+- Treat Step 12 as the durable backup system. Step 20 snapshots are temporary
+  VMware-style pre-patch rollback points, not backups.
 
 ## Weekly audit
 
@@ -85,6 +87,77 @@ The target selects existing host, service, hardware, MQTT, Home Assistant,
 Frigate, Hermes, and Zigbee validation scripts. An activity-dependent camera
 event warning is acceptable when nobody moves in front of a camera; failed
 tracks are not.
+
+## Automated Debian CT patching
+
+Steps 20F-20G automate stable Debian package maintenance only for CT 200, CT
+210, and CT 220. They do not update the Proxmox host, Home Assistant, Frigate
+images, Hermes application releases, Docker major versions, or Zigbee
+firmware.
+
+Always start with a dry run:
+
+```bash
+bash scripts/step20f-update-target.sh ct210 --dry-run
+```
+
+Targets are case-insensitive. A dry run refreshes the target's APT metadata,
+verifies the latest Step 12 backup and snapshot capacity, records the proposed
+package transaction, and changes no snapshot, installed package, service, or
+guest power state.
+
+Apply one target:
+
+```bash
+bash scripts/step20f-update-target.sh ct210 --confirm-update
+```
+
+The executor:
+
+1. requires a validated Step 12 backup no older than eight days;
+2. refuses to run alongside backup/restore or another maintenance operation;
+3. requires `local-lvm` usage below 80 percent and fewer than two managed
+   maintenance snapshots for the target;
+4. stops the CT and creates a `pbupd-*` pre-update snapshot;
+5. restarts the unchanged CT and runs its baseline regression;
+6. installs all pending packages from its configured stable repositories,
+   preserving local configuration files;
+7. records `.dpkg-dist` or `.dpkg-new` files for operator review;
+8. reboots the CT when `/var/run/reboot-required` exists;
+9. runs the target regression suite and a final audit.
+
+Any failure stops the transaction. The snapshot and protected transaction
+record remain for diagnosis; rollback never runs automatically. Successful
+managed snapshots become eligible for cleanup after seven days. Cleanup
+requires a matching successful transaction record and never touches manual
+snapshots. Failed and rolled-back transaction snapshots remain until manually
+resolved.
+
+Protected output:
+
+- log: `/var/log/proxmox-bootstrap/update-maintenance.log`, mode `0640`;
+- transactions: `/var/lib/proxmox-bootstrap/update-transactions`, mode `0700`,
+  with root-only status and package records.
+
+Inspect a rollback first:
+
+```bash
+bash scripts/step20g-update-rollback.sh \
+  --transaction YYYYMMDD-HHMMSS-ct210 \
+  --dry-run
+```
+
+Perform it only after reviewing the failed transaction:
+
+```bash
+bash scripts/step20g-update-rollback.sh \
+  --transaction YYYYMMDD-HHMMSS-ct210 \
+  --confirm-rollback
+```
+
+Rollback discards root-disk changes made after the snapshot, starts the CT,
+and runs its regression suite. CT 200's `/mnt/frigate` bind mount is outside
+snapshot scope and is not rolled back.
 
 ## Initial verified audit
 

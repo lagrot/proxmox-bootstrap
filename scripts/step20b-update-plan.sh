@@ -8,6 +8,7 @@ source "${PROJECT_ROOT}/config/defaults.conf"
 [[ -f "${PROJECT_ROOT}/config/local.conf" ]] && source "${PROJECT_ROOT}/config/local.conf"
 
 TARGET="${1:-}"
+TARGET="${TARGET,,}"
 UPDATE_MAX_BACKUP_AGE_DAYS="${UPDATE_MAX_BACKUP_AGE_DAYS:-8}"
 
 usage() {

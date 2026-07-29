@@ -14,6 +14,7 @@ systemd-analyze verify \
   "${PROJECT_ROOT}/config/proxmox-bootstrap-update-audit.service" \
   "${PROJECT_ROOT}/config/proxmox-bootstrap-update-audit.timer"
 logrotate --debug "${PROJECT_ROOT}/config/proxmox-bootstrap-update-audit.logrotate" >/dev/null
+logrotate --debug "${PROJECT_ROOT}/config/proxmox-bootstrap-update-maintenance.logrotate" >/dev/null
 
 install -o root -g root -m 0644 \
   "${PROJECT_ROOT}/config/proxmox-bootstrap-update-audit.service" \
@@ -24,11 +25,17 @@ install -o root -g root -m 0644 \
 install -o root -g root -m 0644 \
   "${PROJECT_ROOT}/config/proxmox-bootstrap-update-audit.logrotate" \
   /etc/logrotate.d/proxmox-bootstrap-update-audit
+install -o root -g root -m 0644 \
+  "${PROJECT_ROOT}/config/proxmox-bootstrap-update-maintenance.logrotate" \
+  /etc/logrotate.d/proxmox-bootstrap-update-maintenance
 install -d -o root -g adm -m 0750 /var/log/proxmox-bootstrap
 install -d -o root -g root -m 0700 /var/lib/proxmox-bootstrap
 touch /var/log/proxmox-bootstrap/update-audit.log
+touch /var/log/proxmox-bootstrap/update-maintenance.log
 chown root:adm /var/log/proxmox-bootstrap/update-audit.log
+chown root:adm /var/log/proxmox-bootstrap/update-maintenance.log
 chmod 0640 /var/log/proxmox-bootstrap/update-audit.log
+chmod 0640 /var/log/proxmox-bootstrap/update-maintenance.log
 
 systemctl daemon-reload
 systemctl enable --now proxmox-bootstrap-update-audit.timer
