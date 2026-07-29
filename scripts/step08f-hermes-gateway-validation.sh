@@ -232,7 +232,7 @@ check_systemd_service_file() {
     record_warn "Could not confirm service user ${HERMES_USER}"
   fi
 
-  if run_in_ct "grep -q '^ExecStart=${HERMES_SYSTEM_BIN} gateway run$' '${HERMES_SERVICE_PATH}'"; then
+  if run_in_ct "grep -Eq '^ExecStart=(${HERMES_SYSTEM_BIN} gateway run|${HERMES_HOME}/\\.hermes/hermes-agent/venv/bin/python -m hermes_cli\\.main gateway run)$' '${HERMES_SERVICE_PATH}'"; then
     log_info "Service ExecStart is correct"
   else
     record_warn "Could not confirm expected ExecStart in ${HERMES_SERVICE_PATH}"
@@ -281,20 +281,33 @@ check_gateway_status_command() {
 check_recent_gateway_logs() {
   log_info "Checking recent Hermes gateway logs..."
 
-  local logs
-  logs="$(run_in_ct "journalctl -u '${HERMES_SERVICE_NAME}' --no-pager -n 120 2>/dev/null" || true)"
+  local logs service_started_at
+  service_started_at="$(
+    run_in_ct "systemctl show '${HERMES_SERVICE_NAME}' --property=ExecMainStartTimestamp --value" \
+      2>/dev/null || true
+  )"
+
+  if [[ -n "${service_started_at}" ]]; then
+    logs="$(
+      run_in_ct "journalctl -u '${HERMES_SERVICE_NAME}' --since '${service_started_at}' --no-pager 2>/dev/null" \
+        || true
+    )"
+  else
+    logs="$(run_in_ct "journalctl -u '${HERMES_SERVICE_NAME}' --no-pager -n 120 2>/dev/null" || true)"
+  fi
 
   if [[ -z "${logs}" ]]; then
     record_warn "No recent logs found for ${HERMES_SERVICE_NAME}"
     return
   fi
 
-  if echo "${logs}" | grep -Eiq 'traceback|exception|critical|fatal|failed|error'; then
-    record_error "Recent Hermes gateway logs contain possible fatal/error messages"
+  if echo "${logs}" \
+    | grep -Eiq 'Traceback \(most recent call last\)|Main process exited|Failed with result|(^|[[:space:]])(CRITICAL|FATAL)(:|[[:space:]])|unhandled exception'; then
+    record_error "Current Hermes gateway run contains a fatal/startup error"
     log_error "Review with:"
-    log_error "  pct exec ${HERMES_CT_ID} -- journalctl -u ${HERMES_SERVICE_NAME} --no-pager -n 120"
+    log_error "  pct exec ${HERMES_CT_ID} -- journalctl -u ${HERMES_SERVICE_NAME} --since '${service_started_at:-1 hour ago}' --no-pager"
   else
-    log_info "No obvious fatal/error messages found in recent gateway logs"
+    log_info "No fatal/startup errors found since the current gateway run started"
   fi
 
   if echo "${logs}" | grep -q 'No messaging platforms enabled'; then

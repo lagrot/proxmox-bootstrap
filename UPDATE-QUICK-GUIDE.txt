@@ -1,52 +1,71 @@
 HOMELAB UPDATE QUICK GUIDE
 ==========================
 
-Read over SSH:
-  cd /root/proxmox-bootstrap
-  less UPDATE-QUICK-GUIDE.txt
-
-Words in ALL_CAPS are placeholders. CTID means the numeric Proxmox
-container ID: 200 = Docker/Frigate, 210 = MQTT, and 220 = Hermes.
-
-NORMAL USE
+CONTAINERS
 ----------
-CT 200, 210, and 220 install Debian security updates automatically.
-The recovery backup is reported for visibility; it does not gate those updates.
+  ct200 = Docker and Frigate
+  ct210 = MQTT
+  ct220 = Hermes
 
-Run the one normal check:
+BACKUPS
+-------
+Backups are a separate Step 12 operation. They run weekly and retain eight
+validated sets. Security updates do not create another backup.
+
+Check backup and update status:
   bash scripts/step20-status.sh
 
-If all three CTs say ENABLED and no failed last run is shown, do nothing.
+SECURITY UPDATE
+---------------
+Update one container at a time. Start with ct210.
 
-MANUAL UPDATES
---------------
-Do not use a generic apt or Docker command to update applications.
-Home Assistant: Settings -> System -> Updates in its web interface.
-Frigate:        follow docs/step18-frigate-upgrade.md.
-Proxmox, Docker, MQTT feature releases, Hermes, and Zigbee firmware do not yet
-have one generic apply procedure. Ask the project owner and review the relevant
-release notes and recovery plan before changing them.
+1. Preview without changing the container:
+  bash scripts/step20-update-ct.sh ct210 --dry-run
 
-SNAPSHOTS
----------
-Snapshots are temporary rollback points, not backups.
-List:
-  pct listsnapshot CTID
-Example for MQTT CT 210:
+2. Create a snapshot, install Debian Security updates and verify MQTT:
+  bash scripts/step20-update-ct.sh ct210 --confirm
+
+3. After at least 24 hours, verify MQTT again and delete that snapshot:
+  bash scripts/step20-update-ct.sh ct210 --cleanup
+
+The script remembers the exact snapshot name. Do not type a snapshot name.
+
+If an update or validation fails, the script stops and keeps the snapshot.
+It never rolls back automatically.
+
+CHECK SNAPSHOTS
+---------------
   pct listsnapshot 210
-Delete only after the guest is healthy and the exact name is confirmed:
-  pct delsnapshot CTID SNAPSHOT_NAME
-Snapshot deletion cannot be undone. Never guess an ID or name.
+
+ROLL BACK A FAILED CT210 UPDATE
+--------------------------------
+Only do this when the update failed and the retained snapshot was inspected.
+EXACT_SNAPSHOT_NAME is the name beginning with pbsec- shown above.
+
+  pct stop 210
+  pct rollback 210 EXACT_SNAPSHOT_NAME
+  pct start 210
+  bash scripts/step20c-post-update-validation.sh ct210
+
+Rollback was tested successfully on CT 210. It restores the pre-update
+packages and configuration. It does not automatically retry the update.
 
 TROUBLESHOOTING
 ---------------
-Validate automatic-update configuration:
-  bash scripts/step20g-unattended-upgrades-validation.sh
-Inspect one CT's update log (replace CTID):
-  pct exec CTID -- journalctl -u apt-daily-upgrade.service --since "7 days ago" --no-pager
-Service checks:
-  MQTT:    bash scripts/step05d-mqtt-auth-validation.sh
-  Frigate: bash scripts/step10f-frigate-mqtt-validation.sh
-  Hermes:  bash scripts/step20c-post-update-validation.sh hermes
-If unsure, stop. Do not reboot Proxmox, delete a snapshot, or run an upgrade.
-Read docs/step20-update-operations.md or contact the project owner.
+Validate the controlled Debian Security policy:
+  bash scripts/step20g-unattended-upgrades-validation.sh ct210
+
+Check MQTT:
+  bash scripts/step20c-post-update-validation.sh ct210
+
+Inspect package health without repairing anything:
+  pct exec 210 -- dpkg --audit
+  pct exec 210 -- apt-get check
+
+If validation or package health fails, stop and inspect the error. Do not
+delete the snapshot or run package repair commands blindly.
+
+NOT INCLUDED
+------------
+This workflow does not update Proxmox, Home Assistant, Docker feature releases,
+Frigate images, Hermes application releases, or Zigbee firmware.

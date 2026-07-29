@@ -83,10 +83,51 @@ next_host_timer() {
   [[ -n "${value}" ]] && printf '%s' "${value}" || printf 'not scheduled'
 }
 
-auto_security_details() {
-  local ct_id="$1" local_hash remote_hash local_periodic_hash remote_periodic_hash
-  local effective_policy origin_count allowed_count service_result last_run next_run
-  local config_epoch last_run_epoch
+managed_snapshot_details() {
+  local target="$1" ct_id="$2"
+  local state_dir state_file saved_target saved_ct snapshot created_epoch result
+  local cleanup_epoch cleanup_display
+  state_dir="${SECURITY_UPDATE_STATE_DIR:-/var/lib/proxmox-bootstrap/security-updates}"
+  state_file="${state_dir}/${target}.state"
+  [[ -f "${state_file}" ]] || return 1
+
+  saved_target="$(awk -F= '$1 == "target" {print $2; exit}' "${state_file}")"
+  saved_ct="$(awk -F= '$1 == "ct_id" {print $2; exit}' "${state_file}")"
+  snapshot="$(awk -F= '$1 == "snapshot" {print $2; exit}' "${state_file}")"
+  created_epoch="$(awk -F= '$1 == "created_epoch" {print $2; exit}' "${state_file}")"
+  result="$(awk -F= '$1 == "result" {print $2; exit}' "${state_file}")"
+
+  if [[ "${saved_target}" != "${target}" || "${saved_ct}" != "${ct_id}" \
+      || ! "${created_epoch}" =~ ^[0-9]+$ \
+      || "${snapshot}" != pbsec-*"-${target}" ]]; then
+    printf 'CT %s: STATE ERROR | inspect %s\n' "${ct_id}" "${state_file}"
+    return 0
+  fi
+  if ! pct listsnapshot "${ct_id}" 2>/dev/null \
+      | awk '$2 != "current" {print $2}' | grep -Fxq "${snapshot}"; then
+    printf 'CT %s: STATE ERROR | recorded snapshot is missing\n' "${ct_id}"
+    return 0
+  fi
+  if [[ "${result}" != "success" ]]; then
+    printf 'CT %s: UPDATE FAILED | snapshot retained; inspect before rollback\n' "${ct_id}"
+    return 0
+  fi
+
+  cleanup_epoch="$((created_epoch + 86400))"
+  cleanup_display="$(date '+%Y-%m-%d %H:%M %Z' -d "@${cleanup_epoch}")"
+  if (( $(date +%s) < cleanup_epoch )); then
+    printf 'CT %s: SNAPSHOT RETAINED | cleanup after %s\n' \
+      "${ct_id}" "${cleanup_display}"
+  else
+    printf 'CT %s: CLEANUP DUE | bash scripts/step20-update-ct.sh %s --cleanup\n' \
+      "${ct_id}" "${target}"
+  fi
+}
+
+controlled_security_details() {
+  local target="$1" ct_id="$2"
+  local local_hash remote_hash local_periodic_hash remote_periodic_hash
+  local effective_policy origin_count allowed_count
   local_hash="$(sha256sum "${PROJECT_ROOT}/config/52homelab-unattended-upgrades" | awk '{print $1}')"
   local_periodic_hash="$(sha256sum "${PROJECT_ROOT}/config/20homelab-auto-upgrades" | awk '{print $1}')"
   remote_hash="$(
@@ -113,68 +154,41 @@ auto_security_details() {
   fi
   if ! pct exec "${ct_id}" -- dpkg-query -W -f='${Status}' unattended-upgrades 2>/dev/null \
       | grep -qx 'install ok installed' \
-    || ! pct exec "${ct_id}" -- systemctl is-enabled --quiet apt-daily-upgrade.timer 2>/dev/null \
-    || ! pct exec "${ct_id}" -- systemctl is-active --quiet apt-daily-upgrade.timer 2>/dev/null \
+    || pct exec "${ct_id}" -- systemctl is-enabled --quiet apt-daily-upgrade.timer 2>/dev/null \
+    || pct exec "${ct_id}" -- systemctl is-active --quiet apt-daily-upgrade.timer 2>/dev/null \
     || [[ "${remote_hash}" != "${local_hash}" ]] \
     || [[ "${remote_periodic_hash}" != "${local_periodic_hash}" ]] \
     || [[ "${origin_count}" != "2" || "${allowed_count}" != "0" ]] \
-    || ! grep -Fq 'APT::Periodic::Unattended-Upgrade "1";' <<<"${effective_policy}"; then
+    || ! grep -Fq 'APT::Periodic::Unattended-Upgrade "0";' <<<"${effective_policy}" \
+    || ! grep -Fq 'Unattended-Upgrade::Automatic-Reboot "false";' <<<"${effective_policy}" \
+    || pct exec "${ct_id}" -- systemctl is-enabled --quiet systemd-networkd.socket 2>/dev/null \
+    || ! pct exec "${ct_id}" -- timeout 5 /usr/lib/apt/apt-helper wait-online >/dev/null 2>&1; then
     printf 'CT %s: NOT CONFIGURED\n' "${ct_id}"
     return
   fi
 
-  service_result="$(
-    pct exec "${ct_id}" -- systemctl show apt-daily-upgrade.service \
-      -p Result --value 2>/dev/null || true
-  )"
-  last_run="$(
-    pct exec "${ct_id}" -- systemctl show apt-daily-upgrade.service \
-      -p InactiveExitTimestamp --value 2>/dev/null || true
-  )"
-  next_run="$(
-    pct exec "${ct_id}" -- systemctl show apt-daily-upgrade.timer \
-      -p NextElapseUSecRealtime --value 2>/dev/null || true
-  )"
-  config_epoch="$(
-    pct exec "${ct_id}" -- stat -c %Y \
-      /etc/apt/apt.conf.d/52homelab-unattended-upgrades 2>/dev/null || true
-  )"
-
-  last_run_epoch="$(date -d "${last_run}" +%s 2>/dev/null || true)"
-  if [[ -z "${last_run_epoch}" || -z "${config_epoch}" || "${last_run_epoch}" -lt "${config_epoch}" ]]; then
-    service_result="pending first run"
-    last_run="none under current policy"
-  elif [[ -z "${service_result}" ]]; then
-    service_result="unknown"
-  else
-    last_run="$(date '+%Y-%m-%d %H:%M %Z' -d "${last_run}" 2>/dev/null || printf '%s' "${last_run}")"
+  if ! managed_snapshot_details "${target}" "${ct_id}"; then
+    printf 'CT %s: READY | automatic installation disabled\n' "${ct_id}"
   fi
-  if [[ -n "${next_run}" ]]; then
-    next_run="$(date '+%Y-%m-%d %H:%M %Z' -d "${next_run}" 2>/dev/null || printf '%s' "${next_run}")"
-  else
-    next_run="not scheduled"
-  fi
-  printf 'CT %s: ENABLED | last=%s at %s | next=%s\n' \
-    "${ct_id}" "${service_result}" "${last_run}" "${next_run}"
 }
 
 ct200_reboot="$(reboot_state "${DOCKER_CT_ID:-200}")"
 ct210_reboot="$(reboot_state "${MQTT_CT_ID:-210}")"
 ct220_reboot="$(reboot_state "${HERMES_CT_ID:-220}")"
 
-auto_lines="$(
-  auto_security_details "${DOCKER_CT_ID:-200}"
-  auto_security_details "${MQTT_CT_ID:-210}"
-  auto_security_details "${HERMES_CT_ID:-220}"
+controlled_lines="$(
+  controlled_security_details ct200 "${DOCKER_CT_ID:-200}"
+  controlled_security_details ct210 "${MQTT_CT_ID:-210}"
+  controlled_security_details ct220 "${HERMES_CT_ID:-220}"
 )"
 
 printf '\nUPDATE OPERATIONS STATUS\n'
 printf '%s\n' '========================'
 printf '%-24s %s\n' "Last weekly audit:" "${audit_completed_display}"
 printf '%-24s %s\n' "Audit result:" "${audit_result}"
-printf '%-24s %s\n' "Recovery backup:" "${backup_state} (not an automatic-update gate)"
-printf '%-24s %s\n' "Last recovery backup:" "${backup_time}"
-printf '%-24s %s\n' "Backup path:" "${backup_path}"
+printf '%-24s %s\n' "Latest validated backup:" "${backup_state}"
+printf '%-24s %s\n' "Backup created:" "${backup_time}"
+printf '%-24s %s\n' "Backup location:" "${backup_path}"
 
 printf '\nLAST WEEKLY AUDIT COUNTS (may be stale)\n'
 printf '%-12s %10s %10s %10s\n' "System" "Updates" "Security" "Reboot"
@@ -183,7 +197,7 @@ printf '%-12s %10s %10s %10s\n' "CT 200" "${ct200_updates}" "${ct200_security}" 
 printf '%-12s %10s %10s %10s\n' "CT 210" "${ct210_updates}" "${ct210_security}" "${ct210_reboot}"
 printf '%-12s %10s %10s %10s\n' "CT 220" "${ct220_updates}" "${ct220_security}" "${ct220_reboot}"
 
-printf '\nAUTOMATIC DEBIAN SECURITY UPDATES\n%s\n' "${auto_lines}"
+printf '\nCONTROLLED DEBIAN SECURITY UPDATES\n%s\n' "${controlled_lines}"
 
 printf '\nSCHEDULE\n'
 printf '%-24s %s\n' "Next recovery backup:" "$(next_host_timer proxmox-bootstrap-backup.timer)"
@@ -192,16 +206,20 @@ printf '%-24s %s\n' "Next weekly audit:" "$(next_host_timer proxmox-bootstrap-up
 printf '\nGUIDANCE\n'
 if [[ "${audit_result}" != "SUCCESS" && "${audit_result}" != "WARNING" ]]; then
   printf 'The last weekly audit failed. Run: bash scripts/step20a-update-audit.sh\n'
-elif grep -qE 'NOT CONFIGURED|UNAVAILABLE' <<<"${auto_lines}"; then
-  printf 'Automatic CT security updates need attention.\n'
+elif grep -qE 'NOT CONFIGURED|UNAVAILABLE' <<<"${controlled_lines}"; then
+  printf 'Controlled CT security updates need attention.\n'
   printf 'Run: bash scripts/step20g-unattended-upgrades-validation.sh\n'
-elif grep -qE 'last=(failed|exit-code|timeout|resources|signal|core-dump|watchdog|start-limit-hit)' \
-    <<<"${auto_lines}"; then
-  printf 'An automatic update failed. Inspect the unattended-upgrades logs.\n'
-elif grep -q 'last=pending first run' <<<"${auto_lines}"; then
-  printf 'Configuration is healthy; verify the first run after its scheduled time.\n'
+elif grep -qE 'UPDATE FAILED|STATE ERROR' <<<"${controlled_lines}"; then
+  printf 'A retained update snapshot needs inspection. Do not delete it blindly.\n'
+elif grep -q 'CLEANUP DUE' <<<"${controlled_lines}"; then
+  printf 'A successful update snapshot has completed its 24-hour observation period.\n'
+  printf 'Run the cleanup command shown above for that CT.\n'
+elif grep -q 'SNAPSHOT RETAINED' <<<"${controlled_lines}"; then
+  printf 'A successful update snapshot is in its 24-hour observation period.\n'
+  printf 'Leave it in place until the cleanup time shown above.\n'
 else
-  printf 'No routine action is required. CT security updates are automatic.\n'
+  printf 'No automatic package installation is enabled.\n'
+  printf 'Use step20-update-ct.sh for one snapshot-protected CT update.\n'
   printf 'Proxmox and application upgrades require separate reviewed procedures.\n'
 fi
 printf '\n'
