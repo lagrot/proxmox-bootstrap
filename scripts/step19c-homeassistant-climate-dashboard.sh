@@ -18,7 +18,8 @@ HA_TOKEN="${HA_TOKEN:-}"
 HA_CLIMATE_DASHBOARD_URL_PATH="${HA_CLIMATE_DASHBOARD_URL_PATH:-climate-dashboard}"
 HA_CLIMATE_DASHBOARD_TITLE="${HA_CLIMATE_DASHBOARD_TITLE:-Indoor Climate}"
 HA_CLIMATE_DASHBOARD_ICON="${HA_CLIMATE_DASHBOARD_ICON:-mdi:home-thermometer-outline}"
-ZIGBEE_SENSOR_ENTITY_MATCH="${ZIGBEE_SENSOR_ENTITY_MATCH:-3rths24bz}"
+LIVING_ROOM_SENSOR_ENTITY_MATCH="${LIVING_ROOM_SENSOR_ENTITY_MATCH:-${ZIGBEE_SENSOR_ENTITY_MATCH:-3rths24bz}}"
+BEDROOM_SENSOR_ENTITY_MATCH="${BEDROOM_SENSOR_ENTITY_MATCH:-snzb_02dr2}"
 FORCE_UPDATE="${FORCE_UPDATE:-0}"
 
 log_info "=============================================="
@@ -42,15 +43,16 @@ ha_ip="$(qm agent "${HA_VM_ID}" network-get-interfaces 2>/dev/null \
 states_json="$(curl -fsS -H "Authorization: Bearer ${HA_TOKEN}" --max-time 15 \
   "http://${ha_ip}:${HA_HTTP_PORT:-8123}/api/states")"
 
-mapfile -t sensor_entities < <(
+discover_sensor_entities() {
+  local entity_match="$1"
   SENSOR_STATES="${states_json}" \
-  ZIGBEE_SENSOR_ENTITY_MATCH="${ZIGBEE_SENSOR_ENTITY_MATCH}" \
+  SENSOR_ENTITY_MATCH="${entity_match}" \
   python3 - <<'PY'
 import json
 import os
 
 states = json.loads(os.environ["SENSOR_STATES"])
-entity_match = os.environ["ZIGBEE_SENSOR_ENTITY_MATCH"].lower()
+entity_match = os.environ["SENSOR_ENTITY_MATCH"].lower()
 wanted = ("temperature", "humidity", "battery")
 found = {}
 
@@ -69,11 +71,19 @@ if missing:
 for device_class in wanted:
     print(found[device_class])
 PY
-)
+}
 
-temperature_entity="${sensor_entities[0]}"
-humidity_entity="${sensor_entities[1]}"
-battery_entity="${sensor_entities[2]}"
+living_room_entities_text="$(discover_sensor_entities "${LIVING_ROOM_SENSOR_ENTITY_MATCH}")"
+bedroom_entities_text="$(discover_sensor_entities "${BEDROOM_SENSOR_ENTITY_MATCH}")"
+mapfile -t living_room_entities <<<"${living_room_entities_text}"
+mapfile -t bedroom_entities <<<"${bedroom_entities_text}"
+
+living_temperature_entity="${living_room_entities[0]}"
+living_humidity_entity="${living_room_entities[1]}"
+living_battery_entity="${living_room_entities[2]}"
+bedroom_temperature_entity="${bedroom_entities[0]}"
+bedroom_humidity_entity="${bedroom_entities[1]}"
+bedroom_battery_entity="${bedroom_entities[2]}"
 
 log_info "Preparing compact native dashboard configuration..."
 dashboard_config_b64="$(base64 -w0 <<EOF
@@ -88,16 +98,16 @@ dashboard_config_b64="$(base64 -w0 <<EOF
       "sections": [
         {
           "type": "grid",
-          "column_span": 2,
+          "column_span": 1,
           "cards": [
             {
               "type": "heading",
-              "heading": "Indoor climate",
-              "icon": "mdi:home-thermometer-outline"
+              "heading": "Living Room",
+              "icon": "mdi:sofa-outline"
             },
             {
               "type": "sensor",
-              "entity": "${temperature_entity}",
+              "entity": "${living_temperature_entity}",
               "name": "Temperature",
               "icon": "mdi:thermometer",
               "graph": "line",
@@ -110,7 +120,7 @@ dashboard_config_b64="$(base64 -w0 <<EOF
             },
             {
               "type": "sensor",
-              "entity": "${humidity_entity}",
+              "entity": "${living_humidity_entity}",
               "name": "Humidity",
               "icon": "mdi:water-percent",
               "graph": "line",
@@ -123,7 +133,7 @@ dashboard_config_b64="$(base64 -w0 <<EOF
             },
             {
               "type": "tile",
-              "entity": "${battery_entity}",
+              "entity": "${living_battery_entity}",
               "name": "Sensor battery",
               "icon": "mdi:battery",
               "vertical": false,
@@ -136,11 +146,59 @@ dashboard_config_b64="$(base64 -w0 <<EOF
         },
         {
           "type": "grid",
-          "column_span": 2,
+          "column_span": 1,
           "cards": [
             {
               "type": "heading",
-              "heading": "History - last 7 days",
+              "heading": "Bedroom",
+              "icon": "mdi:bed-outline"
+            },
+            {
+              "type": "sensor",
+              "entity": "${bedroom_temperature_entity}",
+              "name": "Temperature",
+              "icon": "mdi:thermometer",
+              "graph": "line",
+              "hours_to_show": 24,
+              "detail": 2,
+              "grid_options": {
+                "columns": 12,
+                "rows": 3
+              }
+            },
+            {
+              "type": "sensor",
+              "entity": "${bedroom_humidity_entity}",
+              "name": "Humidity",
+              "icon": "mdi:water-percent",
+              "graph": "line",
+              "hours_to_show": 24,
+              "detail": 2,
+              "grid_options": {
+                "columns": 12,
+                "rows": 3
+              }
+            },
+            {
+              "type": "tile",
+              "entity": "${bedroom_battery_entity}",
+              "name": "Sensor battery",
+              "icon": "mdi:battery",
+              "vertical": false,
+              "grid_options": {
+                "columns": 12,
+                "rows": 1
+              }
+            }
+          ]
+        },
+        {
+          "type": "grid",
+          "column_span": 1,
+          "cards": [
+            {
+              "type": "heading",
+              "heading": "Living Room - last 7 days",
               "icon": "mdi:chart-line"
             },
             {
@@ -148,7 +206,7 @@ dashboard_config_b64="$(base64 -w0 <<EOF
               "title": "Temperature",
               "hours_to_show": 168,
               "entities": [
-                "${temperature_entity}"
+                "${living_temperature_entity}"
               ],
               "grid_options": {
                 "columns": 12,
@@ -160,7 +218,42 @@ dashboard_config_b64="$(base64 -w0 <<EOF
               "title": "Humidity",
               "hours_to_show": 168,
               "entities": [
-                "${humidity_entity}"
+                "${living_humidity_entity}"
+              ],
+              "grid_options": {
+                "columns": 12,
+                "rows": 5
+              }
+            }
+          ]
+        },
+        {
+          "type": "grid",
+          "column_span": 1,
+          "cards": [
+            {
+              "type": "heading",
+              "heading": "Bedroom - last 7 days",
+              "icon": "mdi:chart-line"
+            },
+            {
+              "type": "history-graph",
+              "title": "Temperature",
+              "hours_to_show": 168,
+              "entities": [
+                "${bedroom_temperature_entity}"
+              ],
+              "grid_options": {
+                "columns": 12,
+                "rows": 5
+              }
+            },
+            {
+              "type": "history-graph",
+              "title": "Humidity",
+              "hours_to_show": 168,
+              "entities": [
+                "${bedroom_humidity_entity}"
               ],
               "grid_options": {
                 "columns": 12,

@@ -654,18 +654,23 @@ continued Frigate USB access. Home Assistant and the Coral TPU regression
 checks passed.
 
 The first end device, a THIRDREALITY `3RTHS24BZ` temperature and humidity
-sensor, paired successfully through ZHA. Its built-in quirk loaded, the device
-completed initialization, and live temperature, humidity, and battery values
-were verified through the Home Assistant API. Transient Zigpy database and
-binding-table messages appeared during the interview but did not prevent
-initialization or subsequent reports. Firmware version 37 remains installed;
-the offered version 40 update is deferred until the baseline has remained
-stable. The operator procedure is documented in
+sensor in the Living Room, paired successfully through ZHA. Its built-in quirk
+loaded, the device completed initialization, and live temperature, humidity,
+and battery values were verified through the Home Assistant API. Transient
+Zigpy database and binding-table messages appeared during the interview but
+did not prevent initialization or subsequent reports. Firmware version 37
+remains installed; the offered version 40 update is deferred until the baseline
+has remained stable. The operator procedure is documented in
 `docs/step19-homeassistant-zigbee.md`.
 
+A SONOFF `SNZB-02DR2` is paired through ZHA in the Bedroom. Its live
+temperature, humidity, and battery entities are available and have been added
+to the native Indoor Climate dashboard alongside the Living Room sensor.
+
 Step 19C adds a reproducible native Home Assistant **Indoor Climate**
-dashboard. It presents the sensor's current temperature and humidity with
-24-hour line graphs plus a compact battery tile. The design intentionally uses
+dashboard. It presents both rooms' current temperature and humidity with
+24-hour line graphs plus compact battery tiles and separate seven-day history
+sections. The design intentionally uses
 native cards so the first environmental dashboard remains compact,
 theme-compatible, and independent of additional HACS frontend components.
 
