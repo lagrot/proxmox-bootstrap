@@ -529,6 +529,24 @@ Current implementation status:
 
 The second-camera integration is complete.
 
+## Camera Network Isolation Pilot
+
+An IPv4 WAN-block pilot is active for only the fixed Tapo C320WS at
+`192.168.8.110`. The Tele2-branded Huawei 5G CPE 5 router blocks TCP and UDP
+from all camera source ports to all WAN addresses and ports. A cellular-data
+Tapo test confirmed that its cloud live view is unavailable, while both local
+RTSP streams, Frigate health, Home Assistant recording state, MQTT, and the
+end-to-end smoke test remained healthy. Fresh post-change logs contained no
+C320WS errors, and Frigate reported zero skipped camera frames.
+
+The rule does not isolate the camera from other devices on the same LAN; a
+dedicated camera VLAN remains a possible later improvement. The C200 keeps its
+existing network access during the unattended C320WS observation period. Do
+not apply a C200 rule until recording continuity, events, snapshots, clips,
+timestamps, fresh logs, and the external Tapo cloud-path test are reviewed.
+The validation and rollback procedure is documented in
+`docs/step21-camera-network-isolation.md`.
+
 ## Two-Camera Frigate Dashboard
 
 The native dashboard automation now generates three responsive views for both
@@ -791,6 +809,10 @@ The agreed near-term roadmap is:
    full-rootfs archive because its media bind mount disables LXC snapshots.
    Updates pass on all three CTs, and real rollback is verified on CT 210.
    Proxmox and applications keep their reviewed procedures.
+8. **Step 21 - Camera network isolation:** the C320WS-only WAN-block pilot is
+   active and passed its immediate local regression and external cloud-path
+   checks. Complete the unattended observation period before considering the
+   C200 or a dedicated camera VLAN.
 
 The Proxmox host currently detects the ZBDongle-P as USB ID `10c4:ea60`
 (Silicon Labs CP210x UART Bridge) and exposes the stable host path
