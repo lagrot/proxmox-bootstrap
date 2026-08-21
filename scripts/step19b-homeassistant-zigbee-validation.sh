@@ -14,6 +14,8 @@ HA_HTTP_PORT="${HA_HTTP_PORT:-8123}"
 HA_TOKEN="${HA_TOKEN:-}"
 LIVING_ROOM_SENSOR_ENTITY_MATCH="${LIVING_ROOM_SENSOR_ENTITY_MATCH:-${ZIGBEE_SENSOR_ENTITY_MATCH:-3rths24bz}}"
 BEDROOM_SENSOR_ENTITY_MATCH="${BEDROOM_SENSOR_ENTITY_MATCH:-snzb_02dr2}"
+EAGLES_NEST_SENSOR_ENTITY_MATCH="${EAGLES_NEST_SENSOR_ENTITY_MATCH:-snzb_02dr2}"
+EAGLES_NEST_SENSOR_ENTITY_SUFFIX="${EAGLES_NEST_SENSOR_ENTITY_SUFFIX:-_2}"
 VALIDATION_ERRORS=0
 VALIDATION_WARNINGS=0
 
@@ -67,33 +69,38 @@ else
       sensor_states="$(curl -fsS -H "Authorization: Bearer ${HA_TOKEN}" --max-time 15 \
         "http://${ha_ip}:${HA_HTTP_PORT}/api/states" || true)"
       if SENSOR_STATES="${sensor_states}" \
-        SENSOR_ENTITY_MATCHES="${LIVING_ROOM_SENSOR_ENTITY_MATCH},${BEDROOM_SENSOR_ENTITY_MATCH}" \
+        SENSOR_ENTITY_SPECS="${LIVING_ROOM_SENSOR_ENTITY_MATCH}|;${BEDROOM_SENSOR_ENTITY_MATCH}|;${EAGLES_NEST_SENSOR_ENTITY_MATCH}|${EAGLES_NEST_SENSOR_ENTITY_SUFFIX}" \
         python3 - <<'PY'
 import json
 import os
+import re
 
 states = json.loads(os.environ["SENSOR_STATES"])
-entity_matches = [item.lower() for item in os.environ["SENSOR_ENTITY_MATCHES"].split(",")]
+entity_specs = [tuple(item.lower().split("|", 1)) for item in os.environ["SENSOR_ENTITY_SPECS"].split(";")]
 required_classes = {"temperature", "humidity", "battery"}
-valid_classes = {entity_match: set() for entity_match in entity_matches}
+valid_classes = {spec: set() for spec in entity_specs}
 
 for entity in states:
     entity_id = entity.get("entity_id", "").lower()
-    for entity_match in entity_matches:
+    for entity_match, entity_suffix in entity_specs:
         if entity_match not in entity_id:
+            continue
+        if entity_suffix and not entity_id.endswith(entity_suffix):
+            continue
+        if not entity_suffix and re.search(r"_[0-9]+$", entity_id):
             continue
         device_class = entity.get("attributes", {}).get("device_class")
         state = entity.get("state")
         if device_class in required_classes and state not in {"unknown", "unavailable", None, ""}:
             float(state)
-            valid_classes[entity_match].add(device_class)
+            valid_classes[(entity_match, entity_suffix)].add(device_class)
 
 raise SystemExit(0 if all(found == required_classes for found in valid_classes.values()) else 1)
 PY
       then
-        log_info "Home Assistant reports live temperature, humidity, and battery states for both sensors"
+        log_info "Home Assistant reports live temperature, humidity, and battery states for all configured sensors"
       else
-        record_error "Home Assistant does not report all expected Zigbee sensor states for both sensors"
+        record_error "Home Assistant does not report all expected Zigbee sensor states for all configured sensors"
       fi
     else
       record_error "Could not detect the Home Assistant LAN IP for sensor validation"

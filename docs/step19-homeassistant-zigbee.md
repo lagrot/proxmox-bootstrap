@@ -44,6 +44,12 @@ sensor in the Living Room. A SONOFF `SNZB-02DR2` temperature and humidity
 sensor is paired in the Bedroom. ZHA created live temperature, humidity,
 battery, firmware-update, and configuration entities for both devices.
 
+A second SONOFF `SNZB-02DR2` is paired in the Eagles Nest. Its initial Zigbee
+interview completed, but Home Assistant did not create entity-registry entries
+until the ZHA config entry was reloaded. After that targeted reload, live
+temperature, humidity, and battery entities appeared without restarting Home
+Assistant.
+
 During the initial interview, ZHA logged transient Zigpy database foreign-key
 errors and binding-table warnings. The device nevertheless completed
 initialization and continued reporting temperature and humidity. Treat those
@@ -57,20 +63,20 @@ an available update is not required for successful pairing.
 ## Indoor Climate dashboard
 
 Step 19C creates a compact native Home Assistant dashboard for the paired
-Living Room and Bedroom sensors:
+Living Room, Bedroom, and Eagles Nest sensors:
 
 ```bash
 bash scripts/step19c-homeassistant-climate-dashboard.sh
 ```
 
 The dashboard appears in the sidebar as **Indoor Climate** and uses only native
-Home Assistant cards. Each room has prominent temperature and humidity readings
+Home Assistant cards. Each location has prominent temperature and humidity readings
 with enlarged 24-hour line graphs; sensor battery is shown in a compact row
 beneath them. On narrow screens, Home Assistant adapts the section grid to the
 available width. This keeps the dashboard compact and avoids
 requiring Mushroom, card-mod, or another HACS frontend dependency.
 
-A separate history section for each room contains seven-day temperature and
+A separate history section for each location contains seven-day temperature and
 humidity graphs using Home Assistant's recorded raw history. This makes recent
 readings visible immediately instead of waiting for the hourly
 long-term-statistics process.
@@ -82,8 +88,11 @@ exists to justify that dependency.
 
 The script discovers each device's three live entities by model text rather
 than hardcoding complete entity IDs. If the entities are renamed, set
-`LIVING_ROOM_SENSOR_ENTITY_MATCH` or `BEDROOM_SENSOR_ENTITY_MATCH` in
-`config/local.conf` to text shared by that device's new IDs. The legacy
+`LIVING_ROOM_SENSOR_ENTITY_MATCH`, `BEDROOM_SENSOR_ENTITY_MATCH`, or
+`EAGLES_NEST_SENSOR_ENTITY_MATCH` in `config/local.conf` to text shared by that
+device's new IDs. Identical devices receive numeric Home Assistant entity
+suffixes; `EAGLES_NEST_SENSOR_ENTITY_SUFFIX` defaults to `_2` to distinguish
+the Eagles Nest unit from the unsuffixed Bedroom unit. The legacy
 `ZIGBEE_SENSOR_ENTITY_MATCH` variable remains a fallback for the Living Room
 device. The script preserves an existing dashboard by default. To deliberately
 replace it with the repository version, run:

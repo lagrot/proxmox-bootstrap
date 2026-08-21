@@ -529,22 +529,24 @@ Current implementation status:
 
 The second-camera integration is complete.
 
-## Camera Network Isolation Pilot
+## Camera Network Isolation
 
-An IPv4 WAN-block pilot is active for only the fixed Tapo C320WS at
-`192.168.8.110`. The Tele2-branded Huawei 5G CPE 5 router blocks TCP and UDP
-from all camera source ports to all WAN addresses and ports. A cellular-data
-Tapo test confirmed that its cloud live view is unavailable, while both local
-RTSP streams, Frigate health, Home Assistant recording state, MQTT, and the
-end-to-end smoke test remained healthy. Fresh post-change logs contained no
-C320WS errors, and Frigate reported zero skipped camera frames.
+IPv4 WAN-block rules are active for both fixed Tapo cameras at `192.168.8.110`
+(C320WS) and `192.168.8.107` (C200). The Tele2-branded Huawei 5G CPE 5 router
+blocks TCP and UDP from all camera source ports to all WAN addresses and ports.
+With phone Wi-Fi disabled and mobile data active, Tapo live view fails for both
+cameras, while local RTSP streams, Frigate health, Home Assistant recording
+state, MQTT, and the end-to-end smoke test remain healthy.
 
-The rule does not isolate the camera from other devices on the same LAN; a
-dedicated camera VLAN remains a possible later improvement. The C200 keeps its
-existing network access during the unattended C320WS observation period. Do
-not apply a C200 rule until recording continuity, events, snapshots, clips,
-timestamps, fresh logs, and the external Tapo cloud-path test are reviewed.
-The validation and rollback procedure is documented in
+The C320WS has recurring Intel VAAPI/FFmpeg detect-process errors in its
+historical Frigate logs; these are decoder-side recoverable events rather than
+WAN-block failures. The C200 validation has no corresponding recent camera
+errors. Treat the decoder issue as separate follow-up maintenance.
+
+The rules do not isolate the cameras from other devices on the same LAN; a
+dedicated camera VLAN remains a possible later improvement. The C320WS was
+observed for more than one week before the C200 rule was enabled. The
+validation and rollback procedure is documented in
 `docs/step21-camera-network-isolation.md`.
 
 ## Two-Camera Frigate Dashboard
@@ -685,8 +687,13 @@ A SONOFF `SNZB-02DR2` is paired through ZHA in the Bedroom. Its live
 temperature, humidity, and battery entities are available and have been added
 to the native Indoor Climate dashboard alongside the Living Room sensor.
 
+A second SONOFF `SNZB-02DR2` is paired through ZHA in the Eagles Nest. A
+targeted ZHA config-entry reload reconciled its initially missing entity
+registry entries. Its live temperature, humidity, and battery entities are
+included in the Indoor Climate dashboard and validation route.
+
 Step 19C adds a reproducible native Home Assistant **Indoor Climate**
-dashboard. It presents both rooms' current temperature and humidity with
+dashboard. It presents all three locations' current temperature and humidity with
 24-hour line graphs plus compact battery tiles and separate seven-day history
 sections. The design intentionally uses
 native cards so the first environmental dashboard remains compact,
@@ -809,10 +816,10 @@ The agreed near-term roadmap is:
    full-rootfs archive because its media bind mount disables LXC snapshots.
    Updates pass on all three CTs, and real rollback is verified on CT 210.
    Proxmox and applications keep their reviewed procedures.
-8. **Step 21 - Camera network isolation:** the C320WS-only WAN-block pilot is
-   active and passed its immediate local regression and external cloud-path
-   checks. Complete the unattended observation period before considering the
-   C200 or a dedicated camera VLAN.
+8. **Step 21 - Camera network isolation:** both Tapo cameras use active
+   router-side WAN-block rules. Local Frigate/Home Assistant operation and
+   mobile-data cloud-path checks are verified; a dedicated camera VLAN remains
+   optional future hardening.
 
 The Proxmox host currently detects the ZBDongle-P as USB ID `10c4:ea60`
 (Silicon Labs CP210x UART Bridge) and exposes the stable host path

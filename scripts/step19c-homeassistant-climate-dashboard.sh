@@ -20,6 +20,8 @@ HA_CLIMATE_DASHBOARD_TITLE="${HA_CLIMATE_DASHBOARD_TITLE:-Indoor Climate}"
 HA_CLIMATE_DASHBOARD_ICON="${HA_CLIMATE_DASHBOARD_ICON:-mdi:home-thermometer-outline}"
 LIVING_ROOM_SENSOR_ENTITY_MATCH="${LIVING_ROOM_SENSOR_ENTITY_MATCH:-${ZIGBEE_SENSOR_ENTITY_MATCH:-3rths24bz}}"
 BEDROOM_SENSOR_ENTITY_MATCH="${BEDROOM_SENSOR_ENTITY_MATCH:-snzb_02dr2}"
+EAGLES_NEST_SENSOR_ENTITY_MATCH="${EAGLES_NEST_SENSOR_ENTITY_MATCH:-snzb_02dr2}"
+EAGLES_NEST_SENSOR_ENTITY_SUFFIX="${EAGLES_NEST_SENSOR_ENTITY_SUFFIX:-_2}"
 FORCE_UPDATE="${FORCE_UPDATE:-0}"
 
 log_info "=============================================="
@@ -45,20 +47,31 @@ states_json="$(curl -fsS -H "Authorization: Bearer ${HA_TOKEN}" --max-time 15 \
 
 discover_sensor_entities() {
   local entity_match="$1"
+  local entity_suffix="${2:-}"
   SENSOR_STATES="${states_json}" \
   SENSOR_ENTITY_MATCH="${entity_match}" \
+  SENSOR_ENTITY_SUFFIX="${entity_suffix}" \
   python3 - <<'PY'
 import json
 import os
+import re
 
 states = json.loads(os.environ["SENSOR_STATES"])
 entity_match = os.environ["SENSOR_ENTITY_MATCH"].lower()
+entity_suffix = os.environ["SENSOR_ENTITY_SUFFIX"].lower()
 wanted = ("temperature", "humidity", "battery")
 found = {}
 
 for entity in states:
     entity_id = entity.get("entity_id", "")
     if entity_match not in entity_id.lower():
+        continue
+    if entity_suffix:
+        if not entity_id.lower().endswith(entity_suffix):
+            continue
+    elif re.search(r"_[0-9]+$", entity_id):
+        # Prefer the original unsuffixed entity when identical devices cause
+        # Home Assistant to append numeric suffixes to later entity IDs.
         continue
     device_class = entity.get("attributes", {}).get("device_class")
     if device_class in wanted and entity.get("state") not in {"unknown", "unavailable", None, ""}:
@@ -75,8 +88,14 @@ PY
 
 living_room_entities_text="$(discover_sensor_entities "${LIVING_ROOM_SENSOR_ENTITY_MATCH}")"
 bedroom_entities_text="$(discover_sensor_entities "${BEDROOM_SENSOR_ENTITY_MATCH}")"
+eagles_nest_entities_text="$(
+  discover_sensor_entities \
+    "${EAGLES_NEST_SENSOR_ENTITY_MATCH}" \
+    "${EAGLES_NEST_SENSOR_ENTITY_SUFFIX}"
+)"
 mapfile -t living_room_entities <<<"${living_room_entities_text}"
 mapfile -t bedroom_entities <<<"${bedroom_entities_text}"
+mapfile -t eagles_nest_entities <<<"${eagles_nest_entities_text}"
 
 living_temperature_entity="${living_room_entities[0]}"
 living_humidity_entity="${living_room_entities[1]}"
@@ -84,6 +103,9 @@ living_battery_entity="${living_room_entities[2]}"
 bedroom_temperature_entity="${bedroom_entities[0]}"
 bedroom_humidity_entity="${bedroom_entities[1]}"
 bedroom_battery_entity="${bedroom_entities[2]}"
+eagles_nest_temperature_entity="${eagles_nest_entities[0]}"
+eagles_nest_humidity_entity="${eagles_nest_entities[1]}"
+eagles_nest_battery_entity="${eagles_nest_entities[2]}"
 
 log_info "Preparing compact native dashboard configuration..."
 dashboard_config_b64="$(base64 -w0 <<EOF
@@ -94,7 +116,7 @@ dashboard_config_b64="$(base64 -w0 <<EOF
       "path": "climate",
       "icon": "mdi:home-thermometer-outline",
       "type": "sections",
-      "max_columns": 2,
+      "max_columns": 3,
       "sections": [
         {
           "type": "grid",
@@ -198,6 +220,54 @@ dashboard_config_b64="$(base64 -w0 <<EOF
           "cards": [
             {
               "type": "heading",
+              "heading": "Eagles Nest",
+              "icon": "mdi:bird"
+            },
+            {
+              "type": "sensor",
+              "entity": "${eagles_nest_temperature_entity}",
+              "name": "Temperature",
+              "icon": "mdi:thermometer",
+              "graph": "line",
+              "hours_to_show": 24,
+              "detail": 2,
+              "grid_options": {
+                "columns": 12,
+                "rows": 3
+              }
+            },
+            {
+              "type": "sensor",
+              "entity": "${eagles_nest_humidity_entity}",
+              "name": "Humidity",
+              "icon": "mdi:water-percent",
+              "graph": "line",
+              "hours_to_show": 24,
+              "detail": 2,
+              "grid_options": {
+                "columns": 12,
+                "rows": 3
+              }
+            },
+            {
+              "type": "tile",
+              "entity": "${eagles_nest_battery_entity}",
+              "name": "Sensor battery",
+              "icon": "mdi:battery",
+              "vertical": false,
+              "grid_options": {
+                "columns": 12,
+                "rows": 1
+              }
+            }
+          ]
+        },
+        {
+          "type": "grid",
+          "column_span": 1,
+          "cards": [
+            {
+              "type": "heading",
               "heading": "Living Room - last 7 days",
               "icon": "mdi:chart-line"
             },
@@ -254,6 +324,41 @@ dashboard_config_b64="$(base64 -w0 <<EOF
               "hours_to_show": 168,
               "entities": [
                 "${bedroom_humidity_entity}"
+              ],
+              "grid_options": {
+                "columns": 12,
+                "rows": 5
+              }
+            }
+          ]
+        },
+        {
+          "type": "grid",
+          "column_span": 1,
+          "cards": [
+            {
+              "type": "heading",
+              "heading": "Eagles Nest - last 7 days",
+              "icon": "mdi:chart-line"
+            },
+            {
+              "type": "history-graph",
+              "title": "Temperature",
+              "hours_to_show": 168,
+              "entities": [
+                "${eagles_nest_temperature_entity}"
+              ],
+              "grid_options": {
+                "columns": 12,
+                "rows": 5
+              }
+            },
+            {
+              "type": "history-graph",
+              "title": "Humidity",
+              "hours_to_show": 168,
+              "entities": [
+                "${eagles_nest_humidity_entity}"
               ],
               "grid_options": {
                 "columns": 12,
