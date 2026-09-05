@@ -15,6 +15,7 @@ the authoritative project context and durable decisions.
 | CT 200 | Docker Compose and Frigate | `192.168.8.104:8971` |
 | CT 210 | Native Mosquitto MQTT broker | `192.168.8.103:1883` |
 | CT 220 | Hermes Agent gateway and Slack bot | `192.168.8.102` |
+| CT 230 | Outbound-only Cloudflare Tunnel gateway | DHCP-reserved LAN address |
 
 Frigate uses the dedicated `/mnt/frigate` SATA SSD, Intel iGPU decoding, and a
 USB Coral TPU. Hermes runs as the unprivileged `hermes` user with a system-wide
@@ -34,7 +35,7 @@ public internet.
 - Use Proxmox-native commands: `pct`, `qm`, and the Web UI.
 - Prefer `pct enter` and `pct exec` over installing SSH in LXCs.
 - Never commit secrets, API keys, tokens, `.env` files, logs, backups, or runtime data.
-- Do not expose Proxmox, Home Assistant, Frigate, MQTT, or Hermes directly to the internet; use Tailscale for remote access.
+- Do not expose Proxmox, Home Assistant, Frigate, MQTT, or Hermes directly to the internet; use Tailscale or an explicitly protected Cloudflare gateway for selected public hostnames.
 - Treat `old/` as historical reference only; it is not part of the active workflow.
 - Do not modify unrelated user changes in a dirty worktree.
 
@@ -103,6 +104,12 @@ Use `scripts/step20-status.sh` as the human operator view. The protected JSON
 files are machine-readable state and should not be presented as the primary
 status interface.
 Continue with:
+
+0. Keep the Step 22 Cloudflare gateway repeatable and validated; do not publish
+   a hostname until its Cloudflare Access policy is validated. The owner-only
+   OTP policy and published route for `ha.ostmarken.se` now pass machine
+   validation and the authenticated mobile-data browser test. Step 22B is
+   complete. Treat the camera route as a separate protected change.
 
 1. Decide whether to proceed with a one-camera face-recognition pilot, select
    the camera based on final placement and privacy, and define acceptance
