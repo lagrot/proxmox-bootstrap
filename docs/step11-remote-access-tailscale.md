@@ -81,24 +81,33 @@ scratch** and name it `proxmox-bootstrap-automation`. Configure these policies:
   Providers, and Groups — Edit**.
 - **Specified Domains → ostmarken.se**: **DNS — Edit** and **Zone — Read**.
 
-Choose a one-year expiration and leave client IP filtering empty. Store the
-one-time secret as:
+Choose a one-year expiration and leave client IP filtering empty. Add the
+entire block below to `config/local.conf`; the token and account ID alone are
+not the complete Step 22 configuration. Replace the five placeholder values
+with the values from Cloudflare. Keep the remaining deployed homelab values as
+shown:
 
 ```bash
 CLOUDFLARE_API_TOKEN='one-time-secret-value'
-```
-
-Also store the Cloudflare account ID and the named tunnel ID:
-
-```bash
 CLOUDFLARE_ACCOUNT_ID='32-character-account-id'
 CLOUDFLARE_ZONE_ID='32-character-zone-id'
 CLOUDFLARE_TUNNEL_ID='tunnel-uuid'
 CLOUDFLARE_GATEWAY_CT_ID='230'
+CLOUDFLARE_TUNNEL_NAME='nad9-remote-gateway'
 CLOUDFLARE_HA_HOSTNAME='ha.ostmarken.se'
 CLOUDFLARE_HA_OWNER_EMAIL='owner@example.com'
 CLOUDFLARE_ZERO_TRUST_TEAM_NAME='ostmarken'
 CLOUDFLARE_ZERO_TRUST_ORGANIZATION_NAME='Ostmarken'
+```
+
+All ten variables must occur exactly once and be non-empty. The validation
+scripts report a missing value without printing secrets. For the deployed
+system, verify the completed file with:
+
+```bash
+bash scripts/step22-cloudflare-gateway-validation.sh
+bash scripts/step22a-cloudflare-access-validation.sh --access-only
+bash scripts/step22b-cloudflare-homeassistant-validation.sh
 ```
 
 The active Account API token is named `proxmox-bootstrap-automation`. It
