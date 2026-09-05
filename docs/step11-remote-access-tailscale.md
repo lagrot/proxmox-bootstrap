@@ -111,8 +111,15 @@ The gateway validation script performs this work without printing either
 secret:
 
 ```bash
+bash scripts/step22-cloudflare-gateway.sh --dry-run
+bash scripts/step22-cloudflare-gateway.sh --apply
 bash scripts/step22-cloudflare-gateway-validation.sh
 ```
+
+`--dry-run` is non-mutating. `--apply` creates or reuses CT230 and the named
+tunnel, installs the official package, and starts the connector service. The
+script is idempotent and does not publish a hostname or create an application
+route.
 
 See Cloudflare's [API token documentation](https://developers.cloudflare.com/fundamentals/api/get-started/create-token/)
 and [Tunnel API documentation](https://developers.cloudflare.com/cloudflare-one/networks/connectors/cloudflare-tunnel/get-started/create-remote-tunnel-api/)
