@@ -12,7 +12,11 @@ ZIGBEE_USB_ID="${ZIGBEE_USB_ID:-10c4:ea60}"
 ZIGBEE_USB_SERIAL="${ZIGBEE_USB_SERIAL:-008d95d7e99def11be87cba661ce3355}"
 HA_HTTP_PORT="${HA_HTTP_PORT:-8123}"
 HA_TOKEN="${HA_TOKEN:-}"
-ZIGBEE_SENSOR_ENTITY_MATCH="${ZIGBEE_SENSOR_ENTITY_MATCH:-3rths24bz}"
+LIVING_ROOM_SENSOR_ENTITY_MATCH="${LIVING_ROOM_SENSOR_ENTITY_MATCH:-${ZIGBEE_SENSOR_ENTITY_MATCH:-3rths24bz}}"
+BEDROOM_SENSOR_ENTITY_MATCH="${BEDROOM_SENSOR_ENTITY_MATCH:-snzb_02dr2}"
+EAGLES_NEST_SENSOR_ENTITY_MATCH="${EAGLES_NEST_SENSOR_ENTITY_MATCH:-snzb_02dr2}"
+EAGLES_NEST_SENSOR_ENTITY_SUFFIX="${EAGLES_NEST_SENSOR_ENTITY_SUFFIX:-_2}"
+OUTSIDE_SENSOR_ENTITY_MATCH="${OUTSIDE_SENSOR_ENTITY_MATCH:-snzb_02ld}"
 VALIDATION_ERRORS=0
 VALIDATION_WARNINGS=0
 
@@ -61,36 +65,45 @@ else
       record_error "Home Assistant does not report a loaded ZHA config entry"
     fi
 
-    log_info "Checking the paired Zigbee temperature and humidity sensor..."
+    log_info "Checking the paired Zigbee environmental sensors..."
     if [[ -n "${ha_ip}" ]]; then
       sensor_states="$(curl -fsS -H "Authorization: Bearer ${HA_TOKEN}" --max-time 15 \
         "http://${ha_ip}:${HA_HTTP_PORT}/api/states" || true)"
       if SENSOR_STATES="${sensor_states}" \
-        ZIGBEE_SENSOR_ENTITY_MATCH="${ZIGBEE_SENSOR_ENTITY_MATCH}" \
+        SENSOR_ENTITY_SPECS="${LIVING_ROOM_SENSOR_ENTITY_MATCH}||temperature,humidity,battery;${BEDROOM_SENSOR_ENTITY_MATCH}||temperature,humidity,battery;${EAGLES_NEST_SENSOR_ENTITY_MATCH}|${EAGLES_NEST_SENSOR_ENTITY_SUFFIX}|temperature,humidity,battery;${OUTSIDE_SENSOR_ENTITY_MATCH}||temperature,battery" \
         python3 - <<'PY'
 import json
 import os
+import re
 
 states = json.loads(os.environ["SENSOR_STATES"])
-entity_match = os.environ["ZIGBEE_SENSOR_ENTITY_MATCH"].lower()
-required_classes = {"temperature", "humidity", "battery"}
-valid_classes = set()
+entity_specs = []
+for item in os.environ["SENSOR_ENTITY_SPECS"].split(";"):
+    entity_match, entity_suffix, required = item.lower().split("|", 2)
+    entity_specs.append((entity_match, entity_suffix, frozenset(required.split(","))))
+valid_classes = {spec: set() for spec in entity_specs}
 
 for entity in states:
-    if entity_match not in entity.get("entity_id", "").lower():
-        continue
-    device_class = entity.get("attributes", {}).get("device_class")
-    state = entity.get("state")
-    if device_class in required_classes and state not in {"unknown", "unavailable", None, ""}:
-        float(state)
-        valid_classes.add(device_class)
+    entity_id = entity.get("entity_id", "").lower()
+    for entity_match, entity_suffix, required_classes in entity_specs:
+        if entity_match not in entity_id:
+            continue
+        if entity_suffix and not entity_id.endswith(entity_suffix):
+            continue
+        if not entity_suffix and re.search(r"_[0-9]+$", entity_id):
+            continue
+        device_class = entity.get("attributes", {}).get("device_class")
+        state = entity.get("state")
+        if device_class in required_classes and state not in {"unknown", "unavailable", None, ""}:
+            float(state)
+            valid_classes[(entity_match, entity_suffix, required_classes)].add(device_class)
 
-raise SystemExit(0 if valid_classes == required_classes else 1)
+raise SystemExit(0 if all(found == spec[2] for spec, found in valid_classes.items()) else 1)
 PY
       then
-        log_info "Home Assistant reports live temperature, humidity, and battery states"
+        log_info "Home Assistant reports all expected live states for the configured sensors"
       else
-        record_error "Home Assistant does not report all expected Zigbee sensor states"
+        record_error "Home Assistant does not report all expected live Zigbee sensor states"
       fi
     else
       record_error "Could not detect the Home Assistant LAN IP for sensor validation"

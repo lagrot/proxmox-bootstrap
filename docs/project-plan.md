@@ -529,6 +529,26 @@ Current implementation status:
 
 The second-camera integration is complete.
 
+## Camera Network Isolation
+
+IPv4 WAN-block rules are active for both fixed Tapo cameras at `192.168.8.110`
+(C320WS) and `192.168.8.107` (C200). The Tele2-branded Huawei 5G CPE 5 router
+blocks TCP and UDP from all camera source ports to all WAN addresses and ports.
+With phone Wi-Fi disabled and mobile data active, Tapo live view fails for both
+cameras, while local RTSP streams, Frigate health, Home Assistant recording
+state, MQTT, and the end-to-end smoke test remain healthy.
+
+The C320WS has recurring Intel VAAPI/FFmpeg detect-process errors in its
+historical Frigate logs; these are decoder-side recoverable events rather than
+WAN-block failures. The C200 validation has no corresponding recent camera
+errors. Treat the decoder issue as separate follow-up maintenance.
+
+The rules do not isolate the cameras from other devices on the same LAN; a
+dedicated camera VLAN remains a possible later improvement. The C320WS was
+observed for more than one week before the C200 rule was enabled. The
+validation and rollback procedure is documented in
+`docs/step21-camera-network-isolation.md`.
+
 ## Two-Camera Frigate Dashboard
 
 The native dashboard automation now generates three responsive views for both
@@ -654,19 +674,34 @@ continued Frigate USB access. Home Assistant and the Coral TPU regression
 checks passed.
 
 The first end device, a THIRDREALITY `3RTHS24BZ` temperature and humidity
-sensor, paired successfully through ZHA. Its built-in quirk loaded, the device
-completed initialization, and live temperature, humidity, and battery values
-were verified through the Home Assistant API. Transient Zigpy database and
-binding-table messages appeared during the interview but did not prevent
-initialization or subsequent reports. Firmware version 37 remains installed;
-the offered version 40 update is deferred until the baseline has remained
-stable. The operator procedure is documented in
+sensor in the Living Room, paired successfully through ZHA. Its built-in quirk
+loaded, the device completed initialization, and live temperature, humidity,
+and battery values were verified through the Home Assistant API. Transient
+Zigpy database and binding-table messages appeared during the interview but
+did not prevent initialization or subsequent reports. Firmware version 37
+remains installed; the offered version 40 update is deferred until the baseline
+has remained stable. The operator procedure is documented in
 `docs/step19-homeassistant-zigbee.md`.
 
+A SONOFF `SNZB-02DR2` is paired through ZHA in the Bedroom. Its live
+temperature, humidity, and battery entities are available and have been added
+to the native Indoor Climate dashboard alongside the Living Room sensor.
+
+A second SONOFF `SNZB-02DR2` is paired through ZHA in the Eagles Nest. A
+targeted ZHA config-entry reload reconciled its initially missing entity
+registry entries. Its live temperature, humidity, and battery entities are
+included in the Indoor Climate dashboard and validation route.
+
+A SONOFF `SNZB-02LD` is paired through ZHA outside. Its live temperature and
+battery entities are included in the Outdoor Climate dashboard and validation
+route. This thermometer does not expose a humidity entity.
+
 Step 19C adds a reproducible native Home Assistant **Indoor Climate**
-dashboard. It presents the sensor's current temperature and humidity with
-24-hour line graphs plus a compact battery tile. The design intentionally uses
-native cards so the first environmental dashboard remains compact,
+dashboard. It presents the three indoor locations' current temperature and
+humidity using 24-hour line graphs, compact battery tiles, and separate
+seven-day history sections. A separate Outdoor Climate dashboard presents the
+outside temperature and battery with its own history. The design intentionally
+uses native cards so the environmental dashboards remain compact,
 theme-compatible, and independent of additional HACS frontend components.
 
 ## Update Operations
@@ -786,6 +821,10 @@ The agreed near-term roadmap is:
    full-rootfs archive because its media bind mount disables LXC snapshots.
    Updates pass on all three CTs, and real rollback is verified on CT 210.
    Proxmox and applications keep their reviewed procedures.
+8. **Step 21 - Camera network isolation:** both Tapo cameras use active
+   router-side WAN-block rules. Local Frigate/Home Assistant operation and
+   mobile-data cloud-path checks are verified; a dedicated camera VLAN remains
+   optional future hardening.
 
 The Proxmox host currently detects the ZBDongle-P as USB ID `10c4:ea60`
 (Silicon Labs CP210x UART Bridge) and exposes the stable host path

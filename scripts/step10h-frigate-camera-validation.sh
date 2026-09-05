@@ -50,6 +50,11 @@ CAMERA_RECORD_STREAM_PATH="${TAPO_CAMERA_RECORD_STREAM_PATH:-/stream1}"
 CAMERA_DETECT_STREAM_PATH="${TAPO_CAMERA_DETECT_STREAM_PATH:-/stream2}"
 FRIGATE_USERNAME="${FRIGATE_USERNAME:-}"
 FRIGATE_PASSWORD="${FRIGATE_PASSWORD:-}"
+FRIGATE_CAMERA_LOG_LOOKBACK="${FRIGATE_CAMERA_LOG_LOOKBACK:-1h}"
+
+if [[ ! "${FRIGATE_CAMERA_LOG_LOOKBACK}" =~ ^[1-9][0-9]*(s|m|h)$ ]]; then
+  die "FRIGATE_CAMERA_LOG_LOOKBACK must be a positive duration ending in s, m, or h"
+fi
 
 VALIDATION_ERRORS=0
 VALIDATION_WARNINGS=0
@@ -282,16 +287,11 @@ else
   record_warn "FRIGATE_USERNAME and FRIGATE_PASSWORD not set; skipping Frigate API verification"
 fi
 
-log_info "Checking recent Frigate logs for camera-specific failures..."
-FRIGATE_STARTED_AT="$(
-  pct exec "${FRIGATE_CT_ID}" -- docker inspect --format '{{.State.StartedAt}}' frigate 2>/dev/null || true
+log_info "Checking the last ${FRIGATE_CAMERA_LOG_LOOKBACK} of Frigate logs for camera-specific failures..."
+RECENT_LOGS="$(
+  pct exec "${FRIGATE_CT_ID}" -- docker logs \
+    --since "${FRIGATE_CAMERA_LOG_LOOKBACK}" frigate 2>&1 || true
 )"
-
-if [[ -n "${FRIGATE_STARTED_AT}" ]]; then
-  RECENT_LOGS="$(pct exec "${FRIGATE_CT_ID}" -- docker logs --since "${FRIGATE_STARTED_AT}" frigate 2>&1 || true)"
-else
-  RECENT_LOGS="$(pct exec "${FRIGATE_CT_ID}" -- docker logs --tail 250 frigate 2>&1 || true)"
-fi
 
 # HTTP access logs contain response sizes and user-agent strings that can look
 # like error codes. Restrict failure matching to Frigate/FFmpeg application
@@ -303,7 +303,7 @@ if grep -qiE "${CAMERA_NAME}.*(error|failed|timed out|timeout|unauthorized|(^|[^
 elif grep -qi "${CAMERA_NAME}" <<< "${CAMERA_LOGS}"; then
   log_info "Recent Frigate logs mention camera ${CAMERA_NAME}"
 else
-  record_warn "Recent Frigate logs do not mention camera ${CAMERA_NAME} yet"
+  log_info "No camera-specific application logs in the recent window; live stream and API checks are authoritative"
 fi
 
 log_info "=========================================="

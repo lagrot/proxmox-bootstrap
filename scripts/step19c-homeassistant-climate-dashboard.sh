@@ -18,7 +18,14 @@ HA_TOKEN="${HA_TOKEN:-}"
 HA_CLIMATE_DASHBOARD_URL_PATH="${HA_CLIMATE_DASHBOARD_URL_PATH:-climate-dashboard}"
 HA_CLIMATE_DASHBOARD_TITLE="${HA_CLIMATE_DASHBOARD_TITLE:-Indoor Climate}"
 HA_CLIMATE_DASHBOARD_ICON="${HA_CLIMATE_DASHBOARD_ICON:-mdi:home-thermometer-outline}"
-ZIGBEE_SENSOR_ENTITY_MATCH="${ZIGBEE_SENSOR_ENTITY_MATCH:-3rths24bz}"
+HA_OUTDOOR_CLIMATE_DASHBOARD_URL_PATH="${HA_OUTDOOR_CLIMATE_DASHBOARD_URL_PATH:-outdoor-climate}"
+HA_OUTDOOR_CLIMATE_DASHBOARD_TITLE="${HA_OUTDOOR_CLIMATE_DASHBOARD_TITLE:-Outdoor Climate}"
+HA_OUTDOOR_CLIMATE_DASHBOARD_ICON="${HA_OUTDOOR_CLIMATE_DASHBOARD_ICON:-mdi:pine-tree}"
+LIVING_ROOM_SENSOR_ENTITY_MATCH="${LIVING_ROOM_SENSOR_ENTITY_MATCH:-${ZIGBEE_SENSOR_ENTITY_MATCH:-3rths24bz}}"
+BEDROOM_SENSOR_ENTITY_MATCH="${BEDROOM_SENSOR_ENTITY_MATCH:-snzb_02dr2}"
+EAGLES_NEST_SENSOR_ENTITY_MATCH="${EAGLES_NEST_SENSOR_ENTITY_MATCH:-snzb_02dr2}"
+EAGLES_NEST_SENSOR_ENTITY_SUFFIX="${EAGLES_NEST_SENSOR_ENTITY_SUFFIX:-_2}"
+OUTSIDE_SENSOR_ENTITY_MATCH="${OUTSIDE_SENSOR_ENTITY_MATCH:-snzb_02ld}"
 FORCE_UPDATE="${FORCE_UPDATE:-0}"
 
 log_info "=============================================="
@@ -42,21 +49,35 @@ ha_ip="$(qm agent "${HA_VM_ID}" network-get-interfaces 2>/dev/null \
 states_json="$(curl -fsS -H "Authorization: Bearer ${HA_TOKEN}" --max-time 15 \
   "http://${ha_ip}:${HA_HTTP_PORT:-8123}/api/states")"
 
-mapfile -t sensor_entities < <(
+discover_sensor_entities() {
+  local entity_match="$1"
+  local entity_suffix="${2:-}"
+  local required_classes="${3:-temperature,humidity,battery}"
   SENSOR_STATES="${states_json}" \
-  ZIGBEE_SENSOR_ENTITY_MATCH="${ZIGBEE_SENSOR_ENTITY_MATCH}" \
+  SENSOR_ENTITY_MATCH="${entity_match}" \
+  SENSOR_ENTITY_SUFFIX="${entity_suffix}" \
+  SENSOR_REQUIRED_CLASSES="${required_classes}" \
   python3 - <<'PY'
 import json
 import os
+import re
 
 states = json.loads(os.environ["SENSOR_STATES"])
-entity_match = os.environ["ZIGBEE_SENSOR_ENTITY_MATCH"].lower()
-wanted = ("temperature", "humidity", "battery")
+entity_match = os.environ["SENSOR_ENTITY_MATCH"].lower()
+entity_suffix = os.environ["SENSOR_ENTITY_SUFFIX"].lower()
+wanted = tuple(os.environ["SENSOR_REQUIRED_CLASSES"].split(","))
 found = {}
 
 for entity in states:
     entity_id = entity.get("entity_id", "")
     if entity_match not in entity_id.lower():
+        continue
+    if entity_suffix:
+        if not entity_id.lower().endswith(entity_suffix):
+            continue
+    elif re.search(r"_[0-9]+$", entity_id):
+        # Prefer the original unsuffixed entity when identical devices cause
+        # Home Assistant to append numeric suffixes to later entity IDs.
         continue
     device_class = entity.get("attributes", {}).get("device_class")
     if device_class in wanted and entity.get("state") not in {"unknown", "unavailable", None, ""}:
@@ -69,11 +90,32 @@ if missing:
 for device_class in wanted:
     print(found[device_class])
 PY
-)
+}
 
-temperature_entity="${sensor_entities[0]}"
-humidity_entity="${sensor_entities[1]}"
-battery_entity="${sensor_entities[2]}"
+living_room_entities_text="$(discover_sensor_entities "${LIVING_ROOM_SENSOR_ENTITY_MATCH}")"
+bedroom_entities_text="$(discover_sensor_entities "${BEDROOM_SENSOR_ENTITY_MATCH}")"
+eagles_nest_entities_text="$(
+  discover_sensor_entities \
+    "${EAGLES_NEST_SENSOR_ENTITY_MATCH}" \
+    "${EAGLES_NEST_SENSOR_ENTITY_SUFFIX}"
+)"
+outside_entities_text="$(discover_sensor_entities "${OUTSIDE_SENSOR_ENTITY_MATCH}" "" "temperature,battery")"
+mapfile -t living_room_entities <<<"${living_room_entities_text}"
+mapfile -t bedroom_entities <<<"${bedroom_entities_text}"
+mapfile -t eagles_nest_entities <<<"${eagles_nest_entities_text}"
+mapfile -t outside_entities <<<"${outside_entities_text}"
+
+living_temperature_entity="${living_room_entities[0]}"
+living_humidity_entity="${living_room_entities[1]}"
+living_battery_entity="${living_room_entities[2]}"
+bedroom_temperature_entity="${bedroom_entities[0]}"
+bedroom_humidity_entity="${bedroom_entities[1]}"
+bedroom_battery_entity="${bedroom_entities[2]}"
+eagles_nest_temperature_entity="${eagles_nest_entities[0]}"
+eagles_nest_humidity_entity="${eagles_nest_entities[1]}"
+eagles_nest_battery_entity="${eagles_nest_entities[2]}"
+outside_temperature_entity="${outside_entities[0]}"
+outside_battery_entity="${outside_entities[1]}"
 
 log_info "Preparing compact native dashboard configuration..."
 dashboard_config_b64="$(base64 -w0 <<EOF
@@ -84,20 +126,20 @@ dashboard_config_b64="$(base64 -w0 <<EOF
       "path": "climate",
       "icon": "mdi:home-thermometer-outline",
       "type": "sections",
-      "max_columns": 2,
+      "max_columns": 3,
       "sections": [
         {
           "type": "grid",
-          "column_span": 2,
+          "column_span": 1,
           "cards": [
             {
               "type": "heading",
-              "heading": "Indoor climate",
-              "icon": "mdi:home-thermometer-outline"
+              "heading": "Living Room",
+              "icon": "mdi:sofa-outline"
             },
             {
               "type": "sensor",
-              "entity": "${temperature_entity}",
+              "entity": "${living_temperature_entity}",
               "name": "Temperature",
               "icon": "mdi:thermometer",
               "graph": "line",
@@ -110,7 +152,7 @@ dashboard_config_b64="$(base64 -w0 <<EOF
             },
             {
               "type": "sensor",
-              "entity": "${humidity_entity}",
+              "entity": "${living_humidity_entity}",
               "name": "Humidity",
               "icon": "mdi:water-percent",
               "graph": "line",
@@ -123,7 +165,7 @@ dashboard_config_b64="$(base64 -w0 <<EOF
             },
             {
               "type": "tile",
-              "entity": "${battery_entity}",
+              "entity": "${living_battery_entity}",
               "name": "Sensor battery",
               "icon": "mdi:battery",
               "vertical": false,
@@ -136,11 +178,107 @@ dashboard_config_b64="$(base64 -w0 <<EOF
         },
         {
           "type": "grid",
-          "column_span": 2,
+          "column_span": 1,
           "cards": [
             {
               "type": "heading",
-              "heading": "History - last 7 days",
+              "heading": "Bedroom",
+              "icon": "mdi:bed-outline"
+            },
+            {
+              "type": "sensor",
+              "entity": "${bedroom_temperature_entity}",
+              "name": "Temperature",
+              "icon": "mdi:thermometer",
+              "graph": "line",
+              "hours_to_show": 24,
+              "detail": 2,
+              "grid_options": {
+                "columns": 12,
+                "rows": 3
+              }
+            },
+            {
+              "type": "sensor",
+              "entity": "${bedroom_humidity_entity}",
+              "name": "Humidity",
+              "icon": "mdi:water-percent",
+              "graph": "line",
+              "hours_to_show": 24,
+              "detail": 2,
+              "grid_options": {
+                "columns": 12,
+                "rows": 3
+              }
+            },
+            {
+              "type": "tile",
+              "entity": "${bedroom_battery_entity}",
+              "name": "Sensor battery",
+              "icon": "mdi:battery",
+              "vertical": false,
+              "grid_options": {
+                "columns": 12,
+                "rows": 1
+              }
+            }
+          ]
+        },
+        {
+          "type": "grid",
+          "column_span": 1,
+          "cards": [
+            {
+              "type": "heading",
+              "heading": "Eagles Nest",
+              "icon": "mdi:bird"
+            },
+            {
+              "type": "sensor",
+              "entity": "${eagles_nest_temperature_entity}",
+              "name": "Temperature",
+              "icon": "mdi:thermometer",
+              "graph": "line",
+              "hours_to_show": 24,
+              "detail": 2,
+              "grid_options": {
+                "columns": 12,
+                "rows": 3
+              }
+            },
+            {
+              "type": "sensor",
+              "entity": "${eagles_nest_humidity_entity}",
+              "name": "Humidity",
+              "icon": "mdi:water-percent",
+              "graph": "line",
+              "hours_to_show": 24,
+              "detail": 2,
+              "grid_options": {
+                "columns": 12,
+                "rows": 3
+              }
+            },
+            {
+              "type": "tile",
+              "entity": "${eagles_nest_battery_entity}",
+              "name": "Sensor battery",
+              "icon": "mdi:battery",
+              "vertical": false,
+              "grid_options": {
+                "columns": 12,
+                "rows": 1
+              }
+            }
+          ]
+        },
+        {
+          "type": "grid",
+          "column_span": 1,
+          "cards": [
+            {
+              "type": "heading",
+              "heading": "Living Room - last 7 days",
               "icon": "mdi:chart-line"
             },
             {
@@ -148,7 +286,7 @@ dashboard_config_b64="$(base64 -w0 <<EOF
               "title": "Temperature",
               "hours_to_show": 168,
               "entities": [
-                "${temperature_entity}"
+                "${living_temperature_entity}"
               ],
               "grid_options": {
                 "columns": 12,
@@ -160,7 +298,150 @@ dashboard_config_b64="$(base64 -w0 <<EOF
               "title": "Humidity",
               "hours_to_show": 168,
               "entities": [
-                "${humidity_entity}"
+                "${living_humidity_entity}"
+              ],
+              "grid_options": {
+                "columns": 12,
+                "rows": 5
+              }
+            }
+          ]
+        },
+        {
+          "type": "grid",
+          "column_span": 1,
+          "cards": [
+            {
+              "type": "heading",
+              "heading": "Bedroom - last 7 days",
+              "icon": "mdi:chart-line"
+            },
+            {
+              "type": "history-graph",
+              "title": "Temperature",
+              "hours_to_show": 168,
+              "entities": [
+                "${bedroom_temperature_entity}"
+              ],
+              "grid_options": {
+                "columns": 12,
+                "rows": 5
+              }
+            },
+            {
+              "type": "history-graph",
+              "title": "Humidity",
+              "hours_to_show": 168,
+              "entities": [
+                "${bedroom_humidity_entity}"
+              ],
+              "grid_options": {
+                "columns": 12,
+                "rows": 5
+              }
+            }
+          ]
+        },
+        {
+          "type": "grid",
+          "column_span": 1,
+          "cards": [
+            {
+              "type": "heading",
+              "heading": "Eagles Nest - last 7 days",
+              "icon": "mdi:chart-line"
+            },
+            {
+              "type": "history-graph",
+              "title": "Temperature",
+              "hours_to_show": 168,
+              "entities": [
+                "${eagles_nest_temperature_entity}"
+              ],
+              "grid_options": {
+                "columns": 12,
+                "rows": 5
+              }
+            },
+            {
+              "type": "history-graph",
+              "title": "Humidity",
+              "hours_to_show": 168,
+              "entities": [
+                "${eagles_nest_humidity_entity}"
+              ],
+              "grid_options": {
+                "columns": 12,
+                "rows": 5
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
+EOF
+)"
+
+outdoor_dashboard_config_b64="$(base64 -w0 <<EOF
+{
+  "views": [
+    {
+      "title": "Outside",
+      "path": "outside",
+      "icon": "mdi:pine-tree",
+      "type": "sections",
+      "max_columns": 2,
+      "sections": [
+        {
+          "type": "grid",
+          "cards": [
+            {
+              "type": "heading",
+              "heading": "Outside",
+              "icon": "mdi:pine-tree"
+            },
+            {
+              "type": "sensor",
+              "entity": "${outside_temperature_entity}",
+              "name": "Temperature",
+              "icon": "mdi:thermometer",
+              "graph": "line",
+              "hours_to_show": 24,
+              "detail": 2,
+              "grid_options": {
+                "columns": 12,
+                "rows": 3
+              }
+            },
+            {
+              "type": "tile",
+              "entity": "${outside_battery_entity}",
+              "name": "Sensor battery",
+              "icon": "mdi:battery",
+              "vertical": false,
+              "grid_options": {
+                "columns": 12,
+                "rows": 1
+              }
+            }
+          ]
+        },
+        {
+          "type": "grid",
+          "cards": [
+            {
+              "type": "heading",
+              "heading": "Outside - last 7 days",
+              "icon": "mdi:chart-line"
+            },
+            {
+              "type": "history-graph",
+              "title": "Temperature",
+              "hours_to_show": 168,
+              "entities": [
+                "${outside_temperature_entity}"
               ],
               "grid_options": {
                 "columns": 12,
@@ -279,4 +560,32 @@ else
 fi
 
 log_info "Dashboard URL: /${HA_CLIMATE_DASHBOARD_URL_PATH}"
+log_info "Creating or checking dashboard '${HA_OUTDOOR_CLIMATE_DASHBOARD_URL_PATH}'..."
+outdoor_guest_result="$(
+  qm guest exec "${HA_VM_ID}" -- /usr/bin/docker exec \
+    -e "HASS_TOKEN=${HA_TOKEN}" \
+    -e "DASHBOARD_URL_PATH=${HA_OUTDOOR_CLIMATE_DASHBOARD_URL_PATH}" \
+    -e "DASHBOARD_TITLE=${HA_OUTDOOR_CLIMATE_DASHBOARD_TITLE}" \
+    -e "DASHBOARD_ICON=${HA_OUTDOOR_CLIMATE_DASHBOARD_ICON}" \
+    -e "FORCE_UPDATE=${FORCE_UPDATE}" \
+    -e "DASHBOARD_CONFIG_B64=${outdoor_dashboard_config_b64}" \
+    -e "PYTHON_CODE_B64=${python_code_b64}" \
+    homeassistant python3 -c \
+    'import base64,os; exec(compile(base64.b64decode(os.environ["PYTHON_CODE_B64"]), "climate-dashboard.py", "exec"))' \
+    2>&1
+)"
+
+if grep -q 'dashboard_created=' <<<"${outdoor_guest_result}"; then
+  log_info "Outdoor Climate dashboard created"
+elif grep -q 'dashboard_exists=' <<<"${outdoor_guest_result}"; then
+  log_info "Outdoor Climate dashboard already exists; existing configuration preserved"
+elif grep -q 'dashboard_config_saved=' <<<"${outdoor_guest_result}"; then
+  log_info "Outdoor Climate dashboard configuration updated"
+else
+  log_error "Home Assistant Outdoor Climate dashboard creation failed"
+  log_error "$(head -c 800 <<<"${outdoor_guest_result}")"
+  exit 1
+fi
+
+log_info "Outdoor Climate dashboard URL: /${HA_OUTDOOR_CLIMATE_DASHBOARD_URL_PATH}"
 log_info "Home Assistant climate dashboard completed successfully"
