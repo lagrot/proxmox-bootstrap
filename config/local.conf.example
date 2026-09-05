@@ -22,3 +22,10 @@ FRIGATE_PASSWORD=""
 # MQTT credentials used by step05c and step05d. Keep real values in local.conf only.
 MQTT_USERNAME=""
 MQTT_PASSWORD=""
+
+# Cloudflare Tunnel gateway. Keep real tokens only in config/local.conf.
+CLOUDFLARE_ACCOUNT_ID=""
+CLOUDFLARE_API_TOKEN=""
+CLOUDFLARE_TUNNEL_API_TOKEN=""
+CLOUDFLARE_GATEWAY_CT_ID="230"
+CLOUDFLARE_TUNNEL_ID=""

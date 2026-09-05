@@ -843,3 +843,19 @@ Additional later work:
 - Improve Hermes gateway validation log checks if needed.
 - Configure OpenAI OAuth / Codex later if needed.
 - Configure web search / xAI later if needed.
+
+## Step 22 - Cloudflare remote gateway
+
+The Cloudflare zone `ostmarken.se` is active with DNSSEC disabled during the
+nameserver migration. CT230 (`remote-gateway`) is an unprivileged Debian 13
+container with DHCP networking and no inbound port forwarding. Cloudflare's
+official `cloudflared` package is installed as a system service. The remotely
+managed tunnel `nad9-remote-gateway` is healthy and has not published any
+hostname or application route yet.
+
+`scripts/step22-cloudflare-gateway-validation.sh` is the read-only validation
+and smoke test. It verifies CT230, the local `cloudflared` service, the tunnel
+API status, remote configuration, and active connections without printing
+credentials. The next controlled change is to add Cloudflare Access protection
+and then publish `ha.ostmarken.se`; camera access remains a separate explicit
+route and must not be exposed before its Access policy is tested.
