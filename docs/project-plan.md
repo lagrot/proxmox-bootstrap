@@ -692,11 +692,16 @@ targeted ZHA config-entry reload reconciled its initially missing entity
 registry entries. Its live temperature, humidity, and battery entities are
 included in the Indoor Climate dashboard and validation route.
 
+A SONOFF `SNZB-02LD` is paired through ZHA outside. Its live temperature and
+battery entities are included in the Outdoor Climate dashboard and validation
+route. This thermometer does not expose a humidity entity.
+
 Step 19C adds a reproducible native Home Assistant **Indoor Climate**
-dashboard. It presents all three locations' current temperature and humidity with
-24-hour line graphs plus compact battery tiles and separate seven-day history
-sections. The design intentionally uses
-native cards so the first environmental dashboard remains compact,
+dashboard. It presents the three indoor locations' current temperature and
+humidity using 24-hour line graphs, compact battery tiles, and separate
+seven-day history sections. A separate Outdoor Climate dashboard presents the
+outside temperature and battery with its own history. The design intentionally
+uses native cards so the environmental dashboards remain compact,
 theme-compatible, and independent of additional HACS frontend components.
 
 ## Update Operations

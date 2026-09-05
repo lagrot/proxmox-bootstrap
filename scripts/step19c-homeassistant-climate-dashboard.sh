@@ -18,10 +18,14 @@ HA_TOKEN="${HA_TOKEN:-}"
 HA_CLIMATE_DASHBOARD_URL_PATH="${HA_CLIMATE_DASHBOARD_URL_PATH:-climate-dashboard}"
 HA_CLIMATE_DASHBOARD_TITLE="${HA_CLIMATE_DASHBOARD_TITLE:-Indoor Climate}"
 HA_CLIMATE_DASHBOARD_ICON="${HA_CLIMATE_DASHBOARD_ICON:-mdi:home-thermometer-outline}"
+HA_OUTDOOR_CLIMATE_DASHBOARD_URL_PATH="${HA_OUTDOOR_CLIMATE_DASHBOARD_URL_PATH:-outdoor-climate}"
+HA_OUTDOOR_CLIMATE_DASHBOARD_TITLE="${HA_OUTDOOR_CLIMATE_DASHBOARD_TITLE:-Outdoor Climate}"
+HA_OUTDOOR_CLIMATE_DASHBOARD_ICON="${HA_OUTDOOR_CLIMATE_DASHBOARD_ICON:-mdi:pine-tree}"
 LIVING_ROOM_SENSOR_ENTITY_MATCH="${LIVING_ROOM_SENSOR_ENTITY_MATCH:-${ZIGBEE_SENSOR_ENTITY_MATCH:-3rths24bz}}"
 BEDROOM_SENSOR_ENTITY_MATCH="${BEDROOM_SENSOR_ENTITY_MATCH:-snzb_02dr2}"
 EAGLES_NEST_SENSOR_ENTITY_MATCH="${EAGLES_NEST_SENSOR_ENTITY_MATCH:-snzb_02dr2}"
 EAGLES_NEST_SENSOR_ENTITY_SUFFIX="${EAGLES_NEST_SENSOR_ENTITY_SUFFIX:-_2}"
+OUTSIDE_SENSOR_ENTITY_MATCH="${OUTSIDE_SENSOR_ENTITY_MATCH:-snzb_02ld}"
 FORCE_UPDATE="${FORCE_UPDATE:-0}"
 
 log_info "=============================================="
@@ -48,9 +52,11 @@ states_json="$(curl -fsS -H "Authorization: Bearer ${HA_TOKEN}" --max-time 15 \
 discover_sensor_entities() {
   local entity_match="$1"
   local entity_suffix="${2:-}"
+  local required_classes="${3:-temperature,humidity,battery}"
   SENSOR_STATES="${states_json}" \
   SENSOR_ENTITY_MATCH="${entity_match}" \
   SENSOR_ENTITY_SUFFIX="${entity_suffix}" \
+  SENSOR_REQUIRED_CLASSES="${required_classes}" \
   python3 - <<'PY'
 import json
 import os
@@ -59,7 +65,7 @@ import re
 states = json.loads(os.environ["SENSOR_STATES"])
 entity_match = os.environ["SENSOR_ENTITY_MATCH"].lower()
 entity_suffix = os.environ["SENSOR_ENTITY_SUFFIX"].lower()
-wanted = ("temperature", "humidity", "battery")
+wanted = tuple(os.environ["SENSOR_REQUIRED_CLASSES"].split(","))
 found = {}
 
 for entity in states:
@@ -93,9 +99,11 @@ eagles_nest_entities_text="$(
     "${EAGLES_NEST_SENSOR_ENTITY_MATCH}" \
     "${EAGLES_NEST_SENSOR_ENTITY_SUFFIX}"
 )"
+outside_entities_text="$(discover_sensor_entities "${OUTSIDE_SENSOR_ENTITY_MATCH}" "" "temperature,battery")"
 mapfile -t living_room_entities <<<"${living_room_entities_text}"
 mapfile -t bedroom_entities <<<"${bedroom_entities_text}"
 mapfile -t eagles_nest_entities <<<"${eagles_nest_entities_text}"
+mapfile -t outside_entities <<<"${outside_entities_text}"
 
 living_temperature_entity="${living_room_entities[0]}"
 living_humidity_entity="${living_room_entities[1]}"
@@ -106,6 +114,8 @@ bedroom_battery_entity="${bedroom_entities[2]}"
 eagles_nest_temperature_entity="${eagles_nest_entities[0]}"
 eagles_nest_humidity_entity="${eagles_nest_entities[1]}"
 eagles_nest_battery_entity="${eagles_nest_entities[2]}"
+outside_temperature_entity="${outside_entities[0]}"
+outside_battery_entity="${outside_entities[1]}"
 
 log_info "Preparing compact native dashboard configuration..."
 dashboard_config_b64="$(base64 -w0 <<EOF
@@ -374,6 +384,79 @@ dashboard_config_b64="$(base64 -w0 <<EOF
 EOF
 )"
 
+outdoor_dashboard_config_b64="$(base64 -w0 <<EOF
+{
+  "views": [
+    {
+      "title": "Outside",
+      "path": "outside",
+      "icon": "mdi:pine-tree",
+      "type": "sections",
+      "max_columns": 2,
+      "sections": [
+        {
+          "type": "grid",
+          "cards": [
+            {
+              "type": "heading",
+              "heading": "Outside",
+              "icon": "mdi:pine-tree"
+            },
+            {
+              "type": "sensor",
+              "entity": "${outside_temperature_entity}",
+              "name": "Temperature",
+              "icon": "mdi:thermometer",
+              "graph": "line",
+              "hours_to_show": 24,
+              "detail": 2,
+              "grid_options": {
+                "columns": 12,
+                "rows": 3
+              }
+            },
+            {
+              "type": "tile",
+              "entity": "${outside_battery_entity}",
+              "name": "Sensor battery",
+              "icon": "mdi:battery",
+              "vertical": false,
+              "grid_options": {
+                "columns": 12,
+                "rows": 1
+              }
+            }
+          ]
+        },
+        {
+          "type": "grid",
+          "cards": [
+            {
+              "type": "heading",
+              "heading": "Outside - last 7 days",
+              "icon": "mdi:chart-line"
+            },
+            {
+              "type": "history-graph",
+              "title": "Temperature",
+              "hours_to_show": 168,
+              "entities": [
+                "${outside_temperature_entity}"
+              ],
+              "grid_options": {
+                "columns": 12,
+                "rows": 5
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
+EOF
+)"
+
 python_code_b64="$(base64 -w0 <<'PYTHON'
 import base64
 import json
@@ -477,4 +560,32 @@ else
 fi
 
 log_info "Dashboard URL: /${HA_CLIMATE_DASHBOARD_URL_PATH}"
+log_info "Creating or checking dashboard '${HA_OUTDOOR_CLIMATE_DASHBOARD_URL_PATH}'..."
+outdoor_guest_result="$(
+  qm guest exec "${HA_VM_ID}" -- /usr/bin/docker exec \
+    -e "HASS_TOKEN=${HA_TOKEN}" \
+    -e "DASHBOARD_URL_PATH=${HA_OUTDOOR_CLIMATE_DASHBOARD_URL_PATH}" \
+    -e "DASHBOARD_TITLE=${HA_OUTDOOR_CLIMATE_DASHBOARD_TITLE}" \
+    -e "DASHBOARD_ICON=${HA_OUTDOOR_CLIMATE_DASHBOARD_ICON}" \
+    -e "FORCE_UPDATE=${FORCE_UPDATE}" \
+    -e "DASHBOARD_CONFIG_B64=${outdoor_dashboard_config_b64}" \
+    -e "PYTHON_CODE_B64=${python_code_b64}" \
+    homeassistant python3 -c \
+    'import base64,os; exec(compile(base64.b64decode(os.environ["PYTHON_CODE_B64"]), "climate-dashboard.py", "exec"))' \
+    2>&1
+)"
+
+if grep -q 'dashboard_created=' <<<"${outdoor_guest_result}"; then
+  log_info "Outdoor Climate dashboard created"
+elif grep -q 'dashboard_exists=' <<<"${outdoor_guest_result}"; then
+  log_info "Outdoor Climate dashboard already exists; existing configuration preserved"
+elif grep -q 'dashboard_config_saved=' <<<"${outdoor_guest_result}"; then
+  log_info "Outdoor Climate dashboard configuration updated"
+else
+  log_error "Home Assistant Outdoor Climate dashboard creation failed"
+  log_error "$(head -c 800 <<<"${outdoor_guest_result}")"
+  exit 1
+fi
+
+log_info "Outdoor Climate dashboard URL: /${HA_OUTDOOR_CLIMATE_DASHBOARD_URL_PATH}"
 log_info "Home Assistant climate dashboard completed successfully"

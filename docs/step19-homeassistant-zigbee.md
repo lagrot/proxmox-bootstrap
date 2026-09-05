@@ -50,6 +50,9 @@ until the ZHA config entry was reloaded. After that targeted reload, live
 temperature, humidity, and battery entities appeared without restarting Home
 Assistant.
 
+A SONOFF `SNZB-02LD` is paired outside. It reports live temperature and battery
+states but does not expose a humidity entity.
+
 During the initial interview, ZHA logged transient Zigpy database foreign-key
 errors and binding-table warnings. The device nevertheless completed
 initialization and continued reporting temperature and humidity. Treat those
@@ -62,23 +65,25 @@ an available update is not required for successful pairing.
 
 ## Indoor Climate dashboard
 
-Step 19C creates a compact native Home Assistant dashboard for the paired
-Living Room, Bedroom, and Eagles Nest sensors:
+Step 19C creates compact native Home Assistant dashboards for the paired
+Living Room, Bedroom, Eagles Nest, and Outside sensors:
 
 ```bash
 bash scripts/step19c-homeassistant-climate-dashboard.sh
 ```
 
-The dashboard appears in the sidebar as **Indoor Climate** and uses only native
-Home Assistant cards. Each location has prominent temperature and humidity readings
-with enlarged 24-hour line graphs; sensor battery is shown in a compact row
-beneath them. On narrow screens, Home Assistant adapts the section grid to the
-available width. This keeps the dashboard compact and avoids
+The indoor dashboard appears in the sidebar as **Indoor Climate** and uses only
+native Home Assistant cards. It contains the Living Room, Bedroom, and Eagles
+Nest locations, with prominent temperature and humidity readings. All indoor
+readings use enlarged 24-hour line graphs, and sensor battery is shown in a
+compact row beneath them. On narrow screens, Home Assistant adapts the section
+grid to the available width. This keeps the dashboard compact and avoids
 requiring Mushroom, card-mod, or another HACS frontend dependency.
 
-A separate history section for each location contains seven-day temperature and
-humidity graphs using Home Assistant's recorded raw history. This makes recent
-readings visible immediately instead of waiting for the hourly
+A separate **Outdoor Climate** dashboard appears in the sidebar for the outside
+thermometer. It contains the outside temperature, battery, 24-hour graph, and
+seven-day temperature history; the device does not expose humidity. This makes
+recent readings visible immediately instead of waiting for the hourly
 long-term-statistics process.
 The graphs begin with limited data and fill naturally as Home Assistant's
 recorder accumulates history. The native graphs deliberately use automatic
@@ -86,11 +91,12 @@ Y-axis scaling. Fixed or user-selectable axis ranges would require an
 additional custom frontend card and are deferred until enough real history
 exists to justify that dependency.
 
-The script discovers each device's three live entities by model text rather
+The script discovers each device's expected live entities by model text rather
 than hardcoding complete entity IDs. If the entities are renamed, set
 `LIVING_ROOM_SENSOR_ENTITY_MATCH`, `BEDROOM_SENSOR_ENTITY_MATCH`, or
 `EAGLES_NEST_SENSOR_ENTITY_MATCH` in `config/local.conf` to text shared by that
-device's new IDs. Identical devices receive numeric Home Assistant entity
+device's new IDs. Use `OUTSIDE_SENSOR_ENTITY_MATCH` for the outside thermometer.
+Identical devices receive numeric Home Assistant entity
 suffixes; `EAGLES_NEST_SENSOR_ENTITY_SUFFIX` defaults to `_2` to distinguish
 the Eagles Nest unit from the unsuffixed Bedroom unit. The legacy
 `ZIGBEE_SENSOR_ENTITY_MATCH` variable remains a fallback for the Living Room
