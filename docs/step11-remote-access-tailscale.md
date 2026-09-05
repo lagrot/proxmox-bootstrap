@@ -65,6 +65,59 @@ The tunnel is intended for selected protected hostnames such as
 `ha.ostmarken.se` and `landet.ostmarken.se`; Tailscale remains the preferred
 administrative access path.
 
+## Cloudflare API access setup
+
+API secrets are stored only in the ignored `config/local.conf` file. Never
+commit them or paste them into chat.
+
+### DNS token
+
+In Cloudflare, open **Manage account → Account API tokens → Create token** and
+use the predefined **Edit zone DNS** template. Restrict its policy to the
+specified domain `ostmarken.se`, choose a one-year expiration, leave client IP
+filtering empty, and create the token. Store the one-time secret as:
+
+```bash
+CLOUDFLARE_API_TOKEN='secret-value'
+```
+
+### Cloudflared token
+
+Create a second Account API token with **Start from scratch**. Use **Entire
+Account** scope, search for `Cloudflare One Connector`, and select **Edit** on
+the row **Cloudflare One Connector: cloudflared**. Do not select Read, WARP, or
+the broader Cloudflare One Connectors permission. Choose a one-year expiration
+and leave client IP filtering empty. Store its one-time secret as:
+
+```bash
+CLOUDFLARE_TUNNEL_API_TOKEN='secret-value'
+```
+
+Also store the Cloudflare account ID and the named tunnel ID:
+
+```bash
+CLOUDFLARE_ACCOUNT_ID='32-character-account-id'
+CLOUDFLARE_TUNNEL_ID='tunnel-uuid'
+CLOUDFLARE_GATEWAY_CT_ID='230'
+```
+
+Account API tokens are verified with the account-specific endpoint:
+
+```text
+GET /client/v4/accounts/{ACCOUNT_ID}/tokens/verify
+```
+
+The gateway validation script performs this work without printing either
+secret:
+
+```bash
+bash scripts/step22-cloudflare-gateway-validation.sh
+```
+
+See Cloudflare's [API token documentation](https://developers.cloudflare.com/fundamentals/api/get-started/create-token/)
+and [Tunnel API documentation](https://developers.cloudflare.com/cloudflare-one/networks/connectors/cloudflare-tunnel/get-started/create-remote-tunnel-api/)
+for the current permission names and endpoints.
+
 ## Tailscale Access Model
 
 Current devices:
