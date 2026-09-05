@@ -44,6 +44,27 @@ Service URLs:
 | MQTT broker | `192.168.8.103:1883` |
 | Hermes Web UI | `http://192.168.8.102:9119` |
 
+## Cloudflare Tunnel Gateway
+
+CT230 (`remote-gateway`) is an unprivileged Debian 13 container running
+Cloudflare's official `cloudflared` package as a system service. The named
+tunnel `nad9-remote-gateway` is remotely managed and currently healthy. It is
+outbound-only: the Tele2 router has no inbound port forwarding, and no LAN
+service is exposed until an explicit Cloudflare Access policy and hostname
+route are created.
+
+The read-only validation and smoke test is:
+
+```bash
+bash scripts/step22-cloudflare-gateway-validation.sh
+```
+
+It validates CT230, the local service, the Cloudflare API status, remote
+configuration, and active tunnel connections without printing credentials.
+The tunnel is intended for selected protected hostnames such as
+`ha.ostmarken.se` and `landet.ostmarken.se`; Tailscale remains the preferred
+administrative access path.
+
 ## Tailscale Access Model
 
 Current devices:

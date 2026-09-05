@@ -31,6 +31,10 @@ CT 220: hermes-agent
   Purpose: Hermes Agent / gateway / optional Web UI
   IP: 192.168.8.102
   Web UI: http://192.168.8.102:9119
+
+CT 230: remote-gateway
+  Purpose: Outbound-only Cloudflare Tunnel connector
+  IP: DHCP reservation / current address is discovered from Proxmox
 ```
 
 ## DHCP reservations
@@ -138,11 +142,17 @@ scripts/
 - `scripts/step20-update-ct-tests.sh`
 - `scripts/step20i-ct200-restore-test.sh`
 - `scripts/step20-status.sh`
+- `scripts/step22-cloudflare-gateway-validation.sh`
 - `UPDATE-QUICK-GUIDE.txt` (condensed SSH operator runbook)
 
 ## Remote access
 
 Remote access is documented in `docs/step11-remote-access-tailscale.md`.
+
+The Cloudflare remote gateway is documented there as a protected, outbound-only
+alternative for selected Home Assistant and Frigate hostnames. It does not
+replace Tailscale for administration and does not publish any service by
+default.
 
 The complete Frigate/Home Assistant integration procedure is documented in
 `docs/step10-frigate-homeassistant-integration.md`.
