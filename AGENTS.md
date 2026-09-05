@@ -106,8 +106,10 @@ status interface.
 Continue with:
 
 0. Keep the Step 22 Cloudflare gateway repeatable and validated; do not publish
-   a hostname until its Cloudflare Access policy and end-to-end smoke test are
-   complete.
+   a hostname until its Cloudflare Access policy is validated. The owner-only
+   OTP policy and published route for `ha.ostmarken.se` now pass machine
+   validation and the authenticated mobile-data browser test. Step 22B is
+   complete. Treat the camera route as a separate protected change.
 
 1. Decide whether to proceed with a one-camera face-recognition pilot, select
    the camera based on final placement and privacy, and define acceptance

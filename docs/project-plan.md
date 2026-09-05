@@ -850,12 +850,38 @@ The Cloudflare zone `ostmarken.se` is active with DNSSEC disabled during the
 nameserver migration. CT230 (`remote-gateway`) is an unprivileged Debian 13
 container with DHCP networking and no inbound port forwarding. Cloudflare's
 official `cloudflared` package is installed as a system service. The remotely
-managed tunnel `nad9-remote-gateway` is healthy and has not published any
-hostname or application route yet.
+managed tunnel `nad9-remote-gateway` is healthy. It publishes only the
+Access-protected Home Assistant hostname described below.
+
+Step 22A is complete. The repeatable Access workflow created a Cloudflare
+One-time PIN identity provider and a self-hosted application for
+`ha.ostmarken.se`. Its only policy allows the exact owner email and also
+requires that OTP identity provider. Independent validation confirms there is
+exactly one policy. The generated Zero Trust team domain was subsequently
+renamed through the same repeatable API workflow to
+`ostmarken.cloudflareaccess.com`, with display name `Ostmarken`; Access
+redirect validation confirms the new domain is active.
+
+One combined Account API token, `proxmox-bootstrap-automation`, now supplies
+the narrowly scoped zone, tunnel, identity-provider, and Access permissions
+needed by the repeatable scripts. The former DNS-only token and two temporary
+cloudflared tokens are revoked. CT230's separate runtime connector credential
+remains installed and active. The Access policy currently authorizes only the
+owner's exact email; future people require both an exact-email policy entry and
+their own non-administrator Home Assistant account.
+
+Step 22B is complete. Home Assistant 2026.9 uses
+its supported staged HTTP configuration API to trust only CT230's discovered
+IPv4 `/32`; the setting survived restart, passed a forwarded-request check,
+was explicitly promoted, and has no pending rollback. The tunnel routes
+`ha.ostmarken.se` to Home Assistant, its proxied CNAME targets the named tunnel,
+and an unauthenticated public request is redirected to Cloudflare Access. The
+end-to-end mobile-data test passed: Cloudflare OTP accepted the owner email and
+the normal Home Assistant administrator account successfully opened Home
+Assistant through the protected public URL.
 
 `scripts/step22-cloudflare-gateway-validation.sh` is the read-only validation
 and smoke test. It verifies CT230, the local `cloudflared` service, the tunnel
 API status, remote configuration, and active connections without printing
-credentials. The next controlled change is to add Cloudflare Access protection
-and then publish `ha.ostmarken.se`; camera access remains a separate explicit
-route and must not be exposed before its Access policy is tested.
+credentials. Camera access remains a separate explicit route and must not be
+exposed before its own Access policy is tested.

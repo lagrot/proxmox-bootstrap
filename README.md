@@ -143,16 +143,22 @@ scripts/
 - `scripts/step20i-ct200-restore-test.sh`
 - `scripts/step20-status.sh`
 - `scripts/step22-cloudflare-gateway-validation.sh`
+- `scripts/step22a-cloudflare-access.sh`
+- `scripts/step22a-cloudflare-access-validation.sh`
+- `scripts/step22b-cloudflare-homeassistant-publish.sh`
+- `scripts/step22b-cloudflare-homeassistant-validation.sh`
 - `UPDATE-QUICK-GUIDE.txt` (condensed SSH operator runbook)
 
 ## Remote access
 
 Remote access is documented in `docs/step11-remote-access-tailscale.md`.
 
-The Cloudflare remote gateway is documented there as a protected, outbound-only
-alternative for selected Home Assistant and Frigate hostnames. It does not
-replace Tailscale for administration and does not publish any service by
-default.
+The Cloudflare remote gateway and owner-only OTP Access setup are documented
+there as a protected, outbound-only alternative for selected Home Assistant
+and Frigate hostnames. It does not replace Tailscale for administration.
+Step 22A creates the Access barrier without publishing. Step 22B publishes
+Home Assistant only after that barrier passes and includes repeatable local,
+API, and unauthenticated external validation.
 
 The complete Frigate/Home Assistant integration procedure is documented in
 `docs/step10-frigate-homeassistant-integration.md`.

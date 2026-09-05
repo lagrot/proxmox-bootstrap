@@ -10,24 +10,38 @@ source "${PROJECT_ROOT}/config/defaults.conf"
 CT_ID="${CLOUDFLARE_GATEWAY_CT_ID:-230}"
 ACCOUNT_ID="${CLOUDFLARE_ACCOUNT_ID:-}"
 TUNNEL_ID="${CLOUDFLARE_TUNNEL_ID:-}"
-TOKEN="${CLOUDFLARE_TUNNEL_API_TOKEN:-}"
+TUNNEL_NAME="${CLOUDFLARE_TUNNEL_NAME:-nad9-remote-gateway}"
+TOKEN="${CLOUDFLARE_API_TOKEN:-}"
 
 usage() {
   cat <<'EOF'
-Usage: step21-cloudflare-gateway-validation.sh [--help]
+Usage: step22-cloudflare-gateway-validation.sh [--help]
 
 Read-only validation of CT230 and its Cloudflare Tunnel connection.
-Requires CLOUDFLARE_ACCOUNT_ID and CLOUDFLARE_TUNNEL_API_TOKEN in config/local.conf.
+Requires CLOUDFLARE_ACCOUNT_ID and CLOUDFLARE_API_TOKEN in config/local.conf.
 EOF
 }
 
 [[ "${1:-}" != "--help" ]] || { usage; exit 0; }
 [[ $# -eq 0 ]] || die "Unknown argument: $1"
 [[ "${EUID}" -eq 0 ]] || die "Run as root"
-for cmd in curl pct; do command -v "${cmd}" >/dev/null || die "Missing command: ${cmd}"; done
+for cmd in curl pct python3; do command -v "${cmd}" >/dev/null || die "Missing command: ${cmd}"; done
 [[ -n "${ACCOUNT_ID}" ]] || die "CLOUDFLARE_ACCOUNT_ID is not set"
-[[ -n "${TOKEN}" ]] || die "CLOUDFLARE_TUNNEL_API_TOKEN is not set"
-[[ -n "${TUNNEL_ID}" ]] || die "CLOUDFLARE_TUNNEL_ID is not set"
+[[ -n "${TOKEN}" ]] || die "CLOUDFLARE_API_TOKEN is not set"
+
+if [[ -z "${TUNNEL_ID}" ]]; then
+  tunnels="$(curl -fsS -G -H "Authorization: Bearer ${TOKEN}" \
+    --data-urlencode "name=${TUNNEL_NAME}" \
+    "https://api.cloudflare.com/client/v4/accounts/${ACCOUNT_ID}/cfd_tunnel")" \
+    || die "Could not list Cloudflare tunnels"
+  TUNNEL_ID="$(TUNNEL_NAME="${TUNNEL_NAME}" python3 -c '
+import json, os, sys
+items = [x for x in json.load(sys.stdin).get("result", []) if x.get("name") == os.environ["TUNNEL_NAME"] and not x.get("deleted_at")]
+if len(items) != 1:
+    raise SystemExit("Expected exactly one matching tunnel")
+print(items[0]["id"])
+' <<<"${tunnels}")" || die "Could not discover tunnel ${TUNNEL_NAME}"
+fi
 
 [[ "$(pct status "${CT_ID}" 2>/dev/null)" == "status: running" ]] || die "CT ${CT_ID} is not running"
 pct exec "${CT_ID}" -- systemctl is-active --quiet cloudflared || die "cloudflared is not active in CT ${CT_ID}"

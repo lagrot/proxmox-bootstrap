@@ -12,7 +12,7 @@ CT_ID="${CLOUDFLARE_GATEWAY_CT_ID:-230}"
 CT_HOSTNAME="${CLOUDFLARE_GATEWAY_CT_HOSTNAME:-remote-gateway}"
 TUNNEL_NAME="${CLOUDFLARE_TUNNEL_NAME:-nad9-remote-gateway}"
 ACCOUNT_ID="${CLOUDFLARE_ACCOUNT_ID:-}"
-TOKEN="${CLOUDFLARE_TUNNEL_API_TOKEN:-}"
+TOKEN="${CLOUDFLARE_API_TOKEN:-}"
 TUNNEL_ID="${CLOUDFLARE_TUNNEL_ID:-}"
 TEMPLATE="${CLOUDFLARE_GATEWAY_TEMPLATE:-local:vztmpl/debian-13-standard_13.1-2_amd64.tar.zst}"
 
@@ -33,9 +33,9 @@ case "$1" in
 esac
 
 [[ "${EUID}" -eq 0 ]] || die "Run as root"
-for cmd in curl openssl pct; do command -v "$cmd" >/dev/null || die "Missing command: $cmd"; done
+for cmd in curl openssl pct python3; do command -v "$cmd" >/dev/null || die "Missing command: $cmd"; done
 [[ -n "${ACCOUNT_ID}" ]] || die "CLOUDFLARE_ACCOUNT_ID is not set"
-[[ -n "${TOKEN}" ]] || die "CLOUDFLARE_TUNNEL_API_TOKEN is not set"
+[[ -n "${TOKEN}" ]] || die "CLOUDFLARE_API_TOKEN is not set"
 
 log_info "Step 22 Cloudflare gateway: ${MODE}"
 log_info "CT ${CT_ID}, tunnel ${TUNNEL_NAME}"
@@ -78,14 +78,20 @@ if [[ -z "${TUNNEL_ID}" ]]; then
     --data-urlencode "name=${TUNNEL_NAME}" \
     "https://api.cloudflare.com/client/v4/accounts/${ACCOUNT_ID}/cfd_tunnel")" \
     || die "Could not list Cloudflare tunnels"
-  TUNNEL_ID="$(sed -n 's/.*"result":\[.*"id":"\([^"]*\)".*/\1/p' <<<"${tunnels}")"
+  TUNNEL_ID="$(TUNNEL_NAME="${TUNNEL_NAME}" python3 -c '
+import json, os, sys
+items = [x for x in json.load(sys.stdin).get("result", []) if x.get("name") == os.environ["TUNNEL_NAME"] and not x.get("deleted_at")]
+if len(items) > 1:
+    raise SystemExit("Multiple active tunnels have the requested name")
+print(items[0]["id"] if items else "")
+' <<<"${tunnels}")" || die "Could not select Cloudflare tunnel"
   if [[ -z "${TUNNEL_ID}" ]]; then
     created="$(curl -fsS -X POST -H "Authorization: Bearer ${TOKEN}" \
       -H 'Content-Type: application/json' \
       --data "{\"name\":\"${TUNNEL_NAME}\",\"config_src\":\"cloudflare\"}" \
       "https://api.cloudflare.com/client/v4/accounts/${ACCOUNT_ID}/cfd_tunnel")" \
       || die "Could not create Cloudflare tunnel"
-    TUNNEL_ID="$(sed -n 's/.*"id":"\([^"]*\)".*/\1/p' <<<"${created}")"
+    TUNNEL_ID="$(python3 -c 'import json,sys; print(json.load(sys.stdin).get("result", {}).get("id", ""))' <<<"${created}")"
   fi
 fi
 [[ "${TUNNEL_ID}" =~ ^[0-9a-fA-F-]{36}$ ]] || die "Could not determine a valid tunnel ID"
