@@ -105,21 +105,22 @@ files are machine-readable state and should not be presented as the primary
 status interface.
 Continue with:
 
-0. Keep the Step 22 Cloudflare gateway repeatable and validated; do not publish
-   a hostname until its Cloudflare Access policy is validated. The owner-only
-   OTP policy and published route for `ha.ostmarken.se` now pass machine
-   validation and the authenticated mobile-data browser test. Step 22B is
-   complete. Treat the camera route as a separate protected change.
+0. Plan Step 22C as a separate, protected `landet.ostmarken.se` route to the
+   simplified Home Assistant camera/review dashboard. Keep it unpublished
+   until its own Cloudflare Access policy, repeatable API workflow, validation,
+   rollback, and unauthenticated external smoke test are ready. Do not expose
+   Frigate directly, and require invited people to use non-administrator Home
+   Assistant accounts.
 
-1. Decide whether to proceed with a one-camera face-recognition pilot, select
-   the camera based on final placement and privacy, and define acceptance
-   criteria before deployment.
-2. Design camera notifications without creating excessive alerts.
+1. Correct the physical placement of both cameras. Face recognition, zones,
+   masks, detection tuning, and final notification tuning are deferred until
+   placement is final.
+2. After placement, decide whether to proceed with a one-camera
+   face-recognition pilot based on privacy and defined acceptance criteria,
+   then design camera notifications without creating excessive alerts.
 3. Research Hermes Agent integration with Home Assistant and decide whether
    CT 220 should remain the isolated Hermes gateway.
-4. Configure zones, masks, and detection tuning after camera placement is
-   final.
-5. Let the first Zigbee sensor establish a stable baseline before considering
+4. Let the first Zigbee sensor establish a stable baseline before considering
    its available firmware update or adding sensor-driven automations.
 
 Keep both verified camera baselines working while making these changes.

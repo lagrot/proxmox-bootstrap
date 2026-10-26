@@ -886,7 +886,8 @@ API status, remote configuration, and active connections without printing
 credentials. Camera access remains a separate explicit route and must not be
 exposed before its own Access policy is tested.
 
-Step 22C provides the controlled native connector upgrade workflow. Its
+The controlled native connector upgrade workflow is provided by
+`scripts/step22c-cloudflared-upgrade.sh`. Its
 read-only preview reports the installed version and proposed work using cached
 APT metadata. Apply refreshes metadata and selects the stable numeric APT
 candidate available from Cloudflare's official repository. If already current,
@@ -907,3 +908,19 @@ workflow tests also cover preflight failure, snapshot failure, installation
 failure, post-upgrade validation failure, rollback orchestration, and avoiding
 downgrades. Real rollback was not exercised. Keep the rollback snapshot through
 observation and a fresh owner mobile-data OTP acceptance test before cleanup.
+
+Step 22C is planned but not deployed. It will publish
+`landet.ostmarken.se` as a separately protected route to the simplified Home
+Assistant camera/review dashboard. It must use the existing outbound-only
+tunnel without exposing Frigate directly. Before publication, add a dedicated
+Cloudflare Access application and exact-user policy, implement the change as a
+repeatable API-driven script with dry-run and rollback behavior, and pass both
+machine validation and an unauthenticated external Access-redirect smoke test.
+Each invited person must also receive a separate non-administrator Home
+Assistant account; Cloudflare access is an additional barrier, not a substitute
+for Home Assistant authorization.
+
+The cameras are not yet in their final physical positions. Defer the Step 14B
+face-recognition pilot, zones, masks, detection tuning, and final notification
+tuning until placement is corrected. Preserve both verified camera baselines
+while moving them and rerun their existing validations afterward.
