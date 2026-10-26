@@ -33,6 +33,14 @@ The two-camera local-only deployment is now active. The C320WS observation
 period completed before the C200 rule was added. The rules block vendor-cloud
 access while preserving Frigate's local RTSP paths.
 
+Later ONVIF inspection found an incorrect August UTC date on the C200 despite
+healthy Frigate/HA recording. The historical timestamp acceptance below is
+not evidence of current camera clock synchronization. The local NTP pilot is
+tracked separately in [Step 21C](step21-camera-local-ntp.md). The C200 corrected
+its clock from the host after a controlled reboot. The C320WS subsequently
+contacted the same local server and synchronized without needing a reboot.
+Both passed the integration smoke test after rollout.
+
 The Huawei rule covers IPv4 TCP and UDP. The cellular Tapo test is the
 authoritative check that the camera's usable cloud path is blocked; do not
 infer complete protocol isolation from the rule text alone. A future dedicated

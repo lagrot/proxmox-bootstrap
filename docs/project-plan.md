@@ -844,6 +844,47 @@ Additional later work:
 - Configure OpenAI OAuth / Codex later if needed.
 - Configure web search / xAI later if needed.
 
+## Step 21C - Camera local NTP pilot
+
+Reuse the host's existing synchronized Chrony service, with a discovered LAN
+bind address and access limited to the two camera IPv4 addresses. Deployment,
+rollback, reapply, allowed/denied access validation, and idempotency passed.
+No new guest, upstream time source, firewall exception, or package was added.
+The per-camera ONVIF workflow saves protected NTP rollback state and requires
+both retained configuration and UTC within five seconds of the host.
+
+The C200 initially reported an August date and did not synchronize immediately
+after setting the local server. A controlled reboot proved a request/reply
+exchange with the host, corrected UTC within five seconds, correct reported
+local CET time, and restored Frigate/Home Assistant recording with zero failed
+smoke-test tracks. Firmware reports DHCP/default NTP after reboot despite using
+the manual server at startup. The strict checker initially rejected this and
+restored settings. The explicit manual setting was reapplied without another
+reboot, then passed readback, clock checks, and idempotency.
+A subsequent NTP poll was observed as well as the startup exchange.
+
+The separate `--validate-sync` route checks clock and host client evidence,
+explicitly warning about default readback. The per-camera `--apply-reboot` mode
+requires a new host client request as well as clock correction. This revised
+reboot checker is covered by isolated tests; no second reboot was performed.
+An ONVIF clock-mode refresh is excluded because it changed the reported DST
+flag; after reboot the original flag returned.
+
+The separate C320WS rollout then set the same manual local NTP server. Chrony
+observed its first request and the camera corrected its small UTC offset
+without rebooting. The explicit reboot command detected the working clock and
+client evidence and exited without a reboot. Both cameras passed strict NTP
+readback, UTC-within-five-seconds checks, host-client evidence, and repeated
+apply without writes. The post-rollout Frigate/Home Assistant integration smoke
+test passed with zero failed tracks and only activity-dependent warnings.
+Protected original NTP settings are retained separately for both cameras.
+The owner also confirmed correct visible date/time overlays on both cameras,
+approximately two seconds apart.
+Deployment and current synchronization are complete; long-term polling,
+future C320WS boot behavior, and the next daylight-saving transition remain
+observation items. Camera WAN blocking remains in place. See
+`docs/step21-camera-local-ntp.md`.
+
 ## Step 22 - Cloudflare remote gateway
 
 The Cloudflare zone `ostmarken.se` is active with DNSSEC disabled during the

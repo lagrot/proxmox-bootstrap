@@ -142,6 +142,8 @@ scripts/
 - `scripts/step20-update-ct-tests.sh`
 - `scripts/step20i-ct200-restore-test.sh`
 - `scripts/step20-status.sh`
+- `scripts/step21c-camera-local-ntp.sh`
+- `scripts/step21d-camera-ntp.sh`
 - `scripts/step22-cloudflare-gateway-validation.sh`
 - `scripts/step22a-cloudflare-access.sh`
 - `scripts/step22a-cloudflare-access-validation.sh`
@@ -192,6 +194,8 @@ The Zigbee coordinator procedure is documented in
 `docs/step19-homeassistant-zigbee.md`.
 The controlled update policy and audit procedure are documented in
 `docs/step20-update-operations.md`.
+The local NTP setup and validation for both cameras are
+documented in `docs/step21-camera-local-ntp.md`.
 
 Normal update-operations status:
 
