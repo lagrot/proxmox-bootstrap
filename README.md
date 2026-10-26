@@ -142,6 +142,8 @@ scripts/
 - `scripts/step20-update-ct-tests.sh`
 - `scripts/step20i-ct200-restore-test.sh`
 - `scripts/step20-status.sh`
+- `scripts/step21c-camera-local-ntp.sh`
+- `scripts/step21d-camera-ntp.sh`
 - `scripts/step22-cloudflare-gateway-validation.sh`
 - `scripts/step22a-cloudflare-access.sh`
 - `scripts/step22a-cloudflare-access-validation.sh`
@@ -152,18 +154,39 @@ scripts/
 
 ## Remote access
 
-Remote access is documented in `docs/step11-remote-access-tailscale.md`.
+Open [Home Assistant through Cloudflare](https://ha.ostmarken.se), enter the
+owner email allowed by Cloudflare Access, and enter the emailed One-time PIN.
+Then sign in with your Home Assistant account. Tailscale is not required for
+this URL; continue using Tailscale for Proxmox and server administration.
 
-The Cloudflare remote gateway and owner-only OTP Access setup are documented
-there as a protected, outbound-only alternative for selected Home Assistant
-and Frigate hostnames. It does not replace Tailscale for administration.
-Step 22A creates the Access barrier without publishing. Step 22B publishes
-Home Assistant only after that barrier passes and includes repeatable local,
-API, and unauthenticated external validation.
-The connector upgrade script provides a read-only preview and an explicit apply
-mode that discovers the stable Cloudflare APT candidate, with a CT230 rollback
-snapshot and gateway, Access, and Home Assistant
-validation. See the remote-access guide for the upgrade procedure.
+CT230 (`remote-gateway`) runs the outbound tunnel. The separate
+`landet.ostmarken.se` camera/review route is planned and remains unpublished.
+New users need both an explicit Access-policy entry and their own Home
+Assistant account; see the [remote-access guide](docs/step11-remote-access-tailscale.md)
+before changing the managed owner-only policy.
+
+Check the tunnel, Access policy, and Home Assistant route as root on `nad9-1`
+from this repository, with API credentials in ignored `config/local.conf`:
+
+```bash
+bash scripts/step22-cloudflare-gateway-validation.sh
+bash scripts/step22a-cloudflare-access-validation.sh --access-only
+bash scripts/step22b-cloudflare-homeassistant-validation.sh
+```
+
+Upgrade the native `cloudflared` package in CT230:
+
+```bash
+bash scripts/step22c-cloudflared-upgrade.sh --dry-run
+bash scripts/step22c-cloudflared-upgrade.sh --apply
+```
+
+Preview uses cached metadata. Apply refreshes metadata and discovers the stable
+Cloudflare APT candidate; if already current, it makes no package or service
+changes. An upgrade creates a rollback snapshot, briefly restarts the sole
+connector, and validates the protected route, with automatic rollback on
+failure. Keep Tailscale available and retain the snapshot through observation
+and a mobile-data OTP login test. The guide covers setup and explicit cleanup.
 
 The complete Frigate/Home Assistant integration procedure is documented in
 `docs/step10-frigate-homeassistant-integration.md`.
@@ -171,6 +194,8 @@ The Zigbee coordinator procedure is documented in
 `docs/step19-homeassistant-zigbee.md`.
 The controlled update policy and audit procedure are documented in
 `docs/step20-update-operations.md`.
+The local NTP setup and validation for both cameras are
+documented in `docs/step21-camera-local-ntp.md`.
 
 Normal update-operations status:
 
