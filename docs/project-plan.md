@@ -886,6 +886,29 @@ API status, remote configuration, and active connections without printing
 credentials. Camera access remains a separate explicit route and must not be
 exposed before its own Access policy is tested.
 
+The controlled native connector upgrade workflow is provided by
+`scripts/step22c-cloudflared-upgrade.sh`. Its
+read-only preview reports the installed version and proposed work using cached
+APT metadata. Apply refreshes metadata and selects the stable numeric APT
+candidate available from Cloudflare's official repository. If already current,
+it exits without snapshots or service restarts. Otherwise it validates the
+existing protected Home Assistant route, simulates the exact selected package
+installation without permitting removals, and requires a disk-only Proxmox
+snapshot of CT230 before installation. Failure after that point triggers
+snapshot rollback and revalidation; snapshots are retained for explicit
+operator cleanup. CT230 remains outside the Step 20 Debian Security updater.
+
+CT230 was upgraded from `2026.8.3` to `2026.10.4`, the available official APT
+patch release. The earlier `2026.10.3` selection failed safely during package
+simulation because the repository no longer offered it. The real upgrade
+changed only cloudflared, and its version, active service, healthy tunnel,
+exact-email OTP Access policy, Home Assistant origin, trusted proxy, DNS, and
+unauthenticated Access redirect all passed post-upgrade validation. Isolated
+workflow tests also cover preflight failure, snapshot failure, installation
+failure, post-upgrade validation failure, rollback orchestration, and avoiding
+downgrades. Real rollback was not exercised. Keep the rollback snapshot through
+observation and a fresh owner mobile-data OTP acceptance test before cleanup.
+
 Step 22C is planned but not deployed. It will publish
 `landet.ostmarken.se` as a separately protected route to the simplified Home
 Assistant camera/review dashboard. It must use the existing outbound-only

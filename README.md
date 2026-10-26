@@ -147,6 +147,7 @@ scripts/
 - `scripts/step22a-cloudflare-access-validation.sh`
 - `scripts/step22b-cloudflare-homeassistant-publish.sh`
 - `scripts/step22b-cloudflare-homeassistant-validation.sh`
+- `scripts/step22c-cloudflared-upgrade.sh`
 - `UPDATE-QUICK-GUIDE.txt` (condensed SSH operator runbook)
 
 ## Remote access
@@ -159,6 +160,10 @@ and Frigate hostnames. It does not replace Tailscale for administration.
 Step 22A creates the Access barrier without publishing. Step 22B publishes
 Home Assistant only after that barrier passes and includes repeatable local,
 API, and unauthenticated external validation.
+The connector upgrade script provides a read-only preview and an explicit apply
+mode that discovers the stable Cloudflare APT candidate, with a CT230 rollback
+snapshot and gateway, Access, and Home Assistant
+validation. See the remote-access guide for the upgrade procedure.
 
 The complete Frigate/Home Assistant integration procedure is documented in
 `docs/step10-frigate-homeassistant-integration.md`.
