@@ -8,6 +8,7 @@ source "${PROJECT_ROOT}/config/defaults.conf"
 [[ -f "${PROJECT_ROOT}/config/local.conf" ]] && source "${PROJECT_ROOT}/config/local.conf"
 
 MODE=""
+CLOUDFLARED_VERSION="2026.10.4"
 CT_ID="${CLOUDFLARE_GATEWAY_CT_ID:-230}"
 CT_HOSTNAME="${CLOUDFLARE_GATEWAY_CT_HOSTNAME:-remote-gateway}"
 TUNNEL_NAME="${CLOUDFLARE_TUNNEL_NAME:-nad9-remote-gateway}"
@@ -42,7 +43,7 @@ log_info "CT ${CT_ID}, tunnel ${TUNNEL_NAME}"
 
 if [[ "${MODE}" == "--dry-run" ]]; then
   pct status "${CT_ID}" >/dev/null 2>&1 && log_info "Would reuse existing CT ${CT_ID}" || log_info "Would create CT ${CT_ID} from ${TEMPLATE}"
-  log_info "Would install cloudflared from Cloudflare's APT repository"
+  log_info "Would install cloudflared ${CLOUDFLARED_VERSION} from Cloudflare's APT repository"
   log_info "Would reuse or create the named remote tunnel"
   log_info "Would install the connector token as a system service"
   exit 0
@@ -70,8 +71,8 @@ pct exec "${CT_ID}" -- bash -euxo pipefail -c '
   curl -fsSL https://pkg.cloudflare.com/cloudflare-main.gpg -o /usr/share/keyrings/cloudflare-main.gpg
   printf "%s\n" "deb [signed-by=/usr/share/keyrings/cloudflare-main.gpg] https://pkg.cloudflare.com/cloudflared any main" > /etc/apt/sources.list.d/cloudflared.list
   apt-get update
-  apt-get install -y cloudflared
-'
+  apt-get install -y "cloudflared=$1"
+' -- "${CLOUDFLARED_VERSION}"
 
 if [[ -z "${TUNNEL_ID}" ]]; then
   tunnels="$(curl -fsS -G -H "Authorization: Bearer ${TOKEN}" \

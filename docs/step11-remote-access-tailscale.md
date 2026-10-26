@@ -65,6 +65,88 @@ The tunnel is intended for selected protected hostnames such as
 `ha.ostmarken.se` and `landet.ostmarken.se`; Tailscale remains the preferred
 administrative access path.
 
+## Connector package maintenance
+
+The gateway bootstrap installs the exact official APT package version
+`2026.10.4`. If that version is unavailable, installation fails rather than
+silently selecting an older release. This is a deployment version selection,
+not an APT hold. CT230 is outside the Step 20 managed security-update targets.
+The connector runs natively in CT230; no cloudflared Docker image in CT200 is
+involved. The Home Assistant ingress uses HTTP on the LAN with an empty
+`originRequest`; the repository does not enable `noTLSVerify`.
+
+For an existing APT installation, run these commands as root on `nad9-1`.
+The automated route is:
+
+```bash
+bash scripts/step22c-cloudflared-upgrade.sh --dry-run
+bash scripts/step22c-cloudflared-upgrade.sh --apply
+```
+
+The upgrade script discovers the stable numeric APT candidate and requires it
+to be available from Cloudflare's official repository. It needs no version
+edit for future releases. The bootstrap version above remains a separate
+reproducible installation baseline.
+
+The preview uses cached APT metadata and does not refresh it or mutate the
+guest. Its output explicitly warns that apply may select a newer release.
+Apply refreshes metadata first and aborts if any repository refresh fails;
+an up-to-date connector then exits without a snapshot or service restart.
+When an upgrade is available, it checks the existing gateway, Access policy,
+and Home Assistant route and simulates installation of the exact discovered
+version, refusing package removals. It then creates a disk-only
+Proxmox snapshot of the stateless CT230 connector before installing anything.
+Snapshot failure aborts the upgrade. Only CT230 is changed; the script never
+downgrades a connector already at the candidate or newer. The service restart
+briefly interrupts public access, so use Tailscale administration.
+
+After installation, it checks the package version and service and reruns all
+three validation routes. An installation or post-upgrade validation failure
+automatically stops CT230, restores its snapshot, starts it, and validates the
+previous state. A failed operation still exits nonzero after rollback.
+Rollback recovery errors are reported for manual attention over Tailscale.
+The snapshot is retained on success and failure. After an observation period
+and owner mobile-data OTP acceptance, use the exact `pct delsnapshot` command
+printed by the successful run. Full CT rollback also reverts any concurrent
+changes within CT230; avoid other CT230 maintenance during the operation.
+
+The isolated workflow tests are:
+
+```bash
+python3 scripts/step22c-cloudflared-upgrade-tests.py
+```
+
+For a manual upgrade instead, follow the commands below.
+First inspect the installed version and refresh the available versions:
+
+```bash
+pct exec 230 -- cloudflared --version
+pct exec 230 -- apt-get update
+pct exec 230 -- apt-cache policy cloudflared
+pct exec 230 -- apt-get --simulate install --only-upgrade cloudflared=2026.10.4
+```
+
+After reviewing the simulation and arranging a maintenance window with
+Tailscale administration available, install and restart. Restarting the sole
+connector briefly interrupts public Home Assistant access. Preserve a current
+CT230 recovery backup before installation.
+
+```bash
+pct exec 230 -- apt-get install --only-upgrade cloudflared=2026.10.4
+pct exec 230 -- systemctl restart cloudflared.service
+pct exec 230 -- cloudflared --version
+pct exec 230 -- systemctl is-active cloudflared.service
+bash scripts/step22-cloudflare-gateway-validation.sh
+bash scripts/step22a-cloudflare-access-validation.sh --access-only
+bash scripts/step22b-cloudflare-homeassistant-validation.sh
+```
+
+Finish with an owner OTP login to Home Assistant over mobile data. These are
+operator instructions; package installation, restart, and the resulting
+end-to-end acceptance must be verified during the actual maintenance window.
+Do not use `cloudflared update` for this APT-managed installation. See
+[Cloudflare's package update procedure](https://developers.cloudflare.com/tunnel/guides/update-cloudflared/).
+
 ## Cloudflare API access setup
 
 API secrets are stored only in the ignored `config/local.conf` file. Never
