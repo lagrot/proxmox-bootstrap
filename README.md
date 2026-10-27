@@ -35,6 +35,11 @@ CT 220: hermes-agent
 CT 230: remote-gateway
   Purpose: Outbound-only Cloudflare Tunnel connector
   IP: DHCP reservation / current address is discovered from Proxmox
+
+CT 240: landet-viewer
+  Purpose: Protected camera and climate viewer
+  URL: https://landet.ostmarken.se
+  IP: 192.168.8.124 (origin restricted to gateway)
 ```
 
 ## DHCP reservations
@@ -45,6 +50,7 @@ CT 230: remote-gateway
 | CT 200 docker-core / Frigate | `BC:24:11:B5:32:70` | `192.168.8.104` |
 | CT 210 mqtt-core | `BC:24:11:C1:CB:79` | `192.168.8.103` |
 | CT 220 hermes-agent | `BC:24:11:CB:82:7D` | `192.168.8.102` |
+| CT 240 landet-viewer | `BC:24:11:DA:AC:AB` | `192.168.8.124` |
 
 ## Project principles
 
@@ -150,6 +156,10 @@ scripts/
 - `scripts/step22b-cloudflare-homeassistant-publish.sh`
 - `scripts/step22b-cloudflare-homeassistant-validation.sh`
 - `scripts/step22c-cloudflared-upgrade.sh`
+- `scripts/step22c-landet-viewer.sh` (local SSH development)
+- `scripts/step22d-landet-access.sh`
+- `scripts/step22d-landet-deploy.sh`
+- `scripts/step22d-landet-publish.sh`
 - `UPDATE-QUICK-GUIDE.txt` (condensed SSH operator runbook)
 
 ## Remote access
@@ -160,10 +170,24 @@ Then sign in with your Home Assistant account. Tailscale is not required for
 this URL; continue using Tailscale for Proxmox and server administration.
 
 CT230 (`remote-gateway`) runs the outbound tunnel. The separate
-`landet.ostmarken.se` camera/review route is planned and remains unpublished.
-New users need both an explicit Access-policy entry and their own Home
-Assistant account; see the [remote-access guide](docs/step11-remote-access-tailscale.md)
+`landet.ostmarken.se` viewer uses its own owner-only Access application and
+protected CT240 origin.
+For this Home Assistant address, new users need both an explicit Access-policy
+entry and their own Home Assistant account; see the [remote-access guide](docs/step11-remote-access-tailscale.md)
 before changing the managed owner-only policy.
+
+The standalone **[Landet TV-fönstret](https://landet.ostmarken.se)** shows both
+cameras, up to nine recent clips, and temperature/humidity for Kök, Sovrum,
+Örnnästet and Utomhus (temperature only outdoors). Use the owner's Cloudflare
+email and emailed One-time PIN when prompted; no Home Assistant login is needed.
+The owner has accepted desktop access and the design. Mobile-data, Safari/iOS,
+screen-lock recovery and session-expiry checks remain follow-up.
+
+CT240 (`landet-viewer`) has the confirmed reservation `192.168.8.124`; its origin
+accepts only the gateway. See the [deployment guide](docs/step22d-landet-deployment.md)
+for validation and rollback. The [local viewer guide](viewer/LOCAL-VIEWER.md)
+covers SSH-only development. The [earlier HA dashboard](docs/step22c-landet-dashboard.md)
+is retained as reference/fallback.
 
 Check the tunnel, Access policy, and Home Assistant route as root on `nad9-1`
 from this repository, with API credentials in ignored `config/local.conf`:

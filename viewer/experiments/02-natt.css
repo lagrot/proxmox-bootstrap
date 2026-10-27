@@ -1,0 +1,34 @@
+/* Night observatory: fixed rail, panoramic images and luminous readouts. */
+:root { --canvas:#0c1420; --surface:#152231; --ink:#edf5f5; --muted:#a8bcc8; --green:#8de5d4; --green-soft:#253e45; --border:#2c4050; --sand:#1c303d; color-scheme:dark; --serif:"Segoe UI",system-ui,sans-serif; }
+body { background:radial-gradient(ellipse at top right,#1b3444 0,transparent 60%),#0c1420; }
+.demo-notice { background:#213644; color:#d0e0e3; }
+.site-header { position:fixed; left:0; top:36px; bottom:0; width:220px; padding:40px 24px; display:flex; flex-direction:column; justify-content:flex-start; align-items:stretch; border-right:1px solid #30414e; border-bottom:0; background:#101d29; }
+.brand { font-size:36px; color:#8de5d4; }
+.main-nav { margin:50px 0 0; display:flex; flex-direction:column; background:transparent; gap:12px; }
+.nav-button { justify-content:flex-start; color:#aec3d1; min-width:0; border-radius:12px; }
+.nav-button.active { background:#8de5d4; color:#10282d; box-shadow:0 0 25px #8de5d418; }
+.header-note { margin-top:auto; color:#b7c8d0; }
+main { margin-left:260px; margin-right:40px; padding-top:45px; max-width:1600px; }
+h1 { font-weight:650; letter-spacing:-.04em; font-size:clamp(38px,4vw,62px); }
+.eyebrow { color:#8de5d4; }
+.camera-grid { gap:22px; }
+.camera-card,.climate-card { background:#152231; border-color:#344c5c; border-radius:20px; box-shadow:0 18px 40px #0002; }
+.camera-picture img { aspect-ratio:16/10; }
+.camera-caption h2 { font-size:24px; font-weight:600; }
+.camera-caption p,.quiet-label,.intro,.clip-description time { color:#b5c7d1; }
+.camera-caption { background:#152231; }
+.expand-pill { background:#112b35eb; color:#b9fff2; border:1px solid #65988f; }
+.clip-image { border:1px solid #314e61; }
+.clip-description strong { color:#edf5f5; }
+.clip-play { background:#8de5d4; color:#10282d; }
+.count-label { background:#1f3543; border-color:#3d5865; color:#baf3e9; }
+.climate-card h2 { font-size:24px; font-weight:600; }
+.temperature-value { color:#b9fff2; font-size:64px; font-weight:500; letter-spacing:-.04em; }
+.humidity-value { color:#b9d9f8; }
+.chart-caption,.chart-link,.reading-label,.outdoor-note,.climate-help { color:#b4c9cf; }
+.room-icon { background:#284247; color:#9ce4d5; }
+.site-footer { margin-left:260px; color:#a8bcc8; }
+.footer-brand { color:#8de5d4; }
+.history-dialog { color:#26332f; }
+@media(max-width:1000px) { .site-header { position:static; width:auto; padding:22px; flex-direction:row; flex-wrap:wrap; align-items:center; } .main-nav{margin:0 0 0 auto; flex-direction:row;} .header-note{display:none;} main{margin-inline:24px;} .site-footer{margin-left:0;} }
+@media(max-width:540px) { .main-nav{margin:0;flex-basis:100%;} h1{font-size:38px;} .temperature-value{font-size:58px;} }

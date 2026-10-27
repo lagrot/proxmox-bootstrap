@@ -950,18 +950,73 @@ failure, post-upgrade validation failure, rollback orchestration, and avoiding
 downgrades. Real rollback was not exercised. Keep the rollback snapshot through
 observation and a fresh owner mobile-data OTP acceptance test before cleanup.
 
-Step 22C is planned but not deployed. It will publish
-`landet.ostmarken.se` as a separately protected route to the simplified Home
-Assistant camera/review dashboard. It must use the existing outbound-only
-tunnel without exposing Frigate directly. Before publication, add a dedicated
-Cloudflare Access application and exact-user policy, implement the change as a
-repeatable API-driven script with dry-run and rollback behavior, and pass both
-machine validation and an unauthenticated external Access-redirect smoke test.
-Each invited person must also receive a separate non-administrator Home
-Assistant account; Cloudflare access is an additional barrier, not a substitute
-for Home Assistant authorization.
+Step 22C starts with a dashboard-only usability trial for an older viewer with
+no Home Assistant knowledge. The `landet-view` prototype uses two large live
+pictures plus a temperature view with the four existing thermometers. Two
+large Kameror/Temperatur buttons are the only navigation; camera and temperature
+pictures have no actions or controls. Indoor humidity and clickable 24-hour
+graphs with a site-timezone date picker extend the readings view. The camera
+view includes ten latest completed retained clips with HA-proxied thumbnails
+and signed same-origin playback. A pinned compatible Kiosk Mode
+module hides navigation on that dashboard. It is previewed through the
+existing owner-protected HA hostname. Browser/device usability remains the
+owner's acceptance gate: stop if the screen is unsuitable. No new user or
+Cloudflare route is created for the trial. See
+`docs/step22c-landet-dashboard.md`.
 
-The cameras are not yet in their final physical positions. Defer the Step 14B
-face-recognition pilot, zones, masks, detection tuning, and final notification
-tuning until placement is corrected. Preserve both verified camera baselines
-while moving them and rerun their existing validations afterward.
+### Steps 22C–22D: protected Landet viewer
+
+The owner selected and accepted the standalone **TV-fönstret**, now published
+at `https://landet.ostmarken.se`. The authenticated desktop opening/live view
+and design are owner-verified. It shows two selectable main-stream cameras,
+up to **nine** completed retained clips in a 3 × 3 desktop grid, and temperature
+for **Kök**, Sovrum, Örnnästet and Utomhus. Three indoor humidity readings,
+rolling 24-hour graphs and calendar-day history are available; the outdoor
+sensor has no humidity. Kök retains the original thermometer/entity/history.
+
+Use a standalone viewer rather than extending HA menu-hiding: an older viewer
+should see only cameras and climate. Keep HA and Frigate as the existing data
+sources. The earlier HA dashboard remains a reference/fallback. Zola was used
+for offline visual studies; production uses a thin static HTML/CSS/JavaScript
+shell plus a bounded read-only Python backend, nginx and a private go2rtc relay.
+No frontend framework, browser-side upstream credentials or second media archive
+is introduced. Final camera location names await physical placement.
+
+CT240 `landet-viewer` is an isolated unprivileged Debian LXC. Its confirmed
+DHCP reservation is 192.168.8.124, MAC BC:24:11:DA:AC:AB. Services run as `landet`;
+nginx accepts only CT230/localhost. CT230 remains the outbound-only gateway.
+A separate exact-owner OTP Access app uses a 24-hour session, with audience
+validation in cloudflared and signature/issuer/audience/expiry/identity checks
+in the backend. No separate Home Assistant login is needed for this viewer.
+The HA application, HA route, both camera baselines and recording policies are
+preserved. Other viewers have not been invited.
+
+Verified milestones:
+
+- Local real-video playback/seek, both main streams (C200 1920×1080 and C320WS
+  2560×1440), histories, resource boundaries and responsive Chromium layouts.
+- Repeatable deployment, unchanged-release no-restart behavior, real application/
+  configuration rollback, CT240 reboot/startup and upstream-data validation.
+- Direct-LAN denial, missing/forged/wrong-audience/expired-token rejection,
+  exact-owner OTP policy and external Access redirects on page/data/media paths.
+- Managed route add/remove pilot and real automatic route/DNS rollback; other
+  ingress remains intact. Publication reapply makes no DNS/route mutation.
+- Initial CT240 Debian stable patch baseline, after a native Proxmox snapshot,
+  with reboot/revalidation. The OS snapshot is retained for observation; OS/rootfs
+  rollback was not exercised. Unused template SSH/mail services are disabled.
+
+Current operator commands, publication rollback and limits are in
+`docs/step22d-landet-deployment.md`. The design/acceptance plan is
+`docs/step22c-landet-viewer-plan.md`; `viewer/LOCAL-VIEWER.md` describes the
+separate SSH-only development workflow. Do not confuse a local prototype with
+the published Access-protected service.
+
+Remaining follow-up: confirm full public playback on mobile data and intended
+touch devices; test Safari/iOS, screen-lock recovery, session expiry and measured
+live latency; integrate CT240 with ongoing audit/update/recovery workflows.
+The HQ pilot still reconnects every 55 seconds, and long-term viewer sign-in
+usability needs review before inviting the intended older user. Additional
+viewer identities/policy changes and recording-date browsing are separate work.
+
+Correct camera placement before face recognition, zones, masks, detection or
+notification tuning. Preserve both existing camera baselines during that work.

@@ -1,0 +1,53 @@
+base_url = "http://127.0.0.1:1111"
+title = "Landet"
+default_language = "sv"
+compile_sass = false
+build_search_index = false
+generate_feeds = false
+generate_sitemap = false
+minify_html = true
+
+[extra]
+demo_date = "2026-10-26"
+site_timezone = "Europe/Stockholm"
+
+[[extra.cameras]]
+id = "garden"
+name = "Trädgården"
+description = "Utsikten över tomten"
+
+[[extra.cameras]]
+id = "entry"
+name = "Entrén"
+description = "Vid huset"
+
+[[extra.locations]]
+id = "living"
+name = "Vardagsrum"
+description = "Inomhus"
+temperature = 10.9
+humidity = 60
+icon = "sofa"
+
+[[extra.locations]]
+id = "bedroom"
+name = "Sovrum"
+description = "Inomhus"
+temperature = 11.2
+humidity = 61
+icon = "bed"
+
+[[extra.locations]]
+id = "nest"
+name = "Örnnästet"
+description = "Inomhus"
+temperature = 10.9
+humidity = 59
+icon = "home"
+
+[[extra.locations]]
+id = "outside"
+name = "Utomhus"
+description = "Ute i det fria"
+temperature = 10.3
+icon = "sun"

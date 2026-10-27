@@ -1,0 +1,24 @@
+[Unit]
+Description=Landet read-only viewer backend
+After=network-online.target landet-relay.service
+Requires=landet-relay.service
+[Service]
+User=landet
+Group=landet
+WorkingDirectory=/opt/landet/current/proof
+EnvironmentFile=/etc/landet/viewer.env
+ExecStart=/usr/bin/python3 /opt/landet/current/proof/server.py --port 8765 --require-access
+Restart=on-failure
+RestartSec=3
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+CapabilityBoundingSet=
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+UMask=0077
+TasksMax=48
+MemoryMax=384M
+LimitNOFILE=256
+[Install]
+WantedBy=multi-user.target

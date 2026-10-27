@@ -1,0 +1,4 @@
+/public/
+/artifacts/
+/.zola-*
+/static/processed_images/
