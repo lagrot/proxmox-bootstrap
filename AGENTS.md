@@ -16,6 +16,7 @@ the authoritative project context and durable decisions.
 | CT 210 | Native Mosquitto MQTT broker | `192.168.8.103:1883` |
 | CT 220 | Hermes Agent gateway and Slack bot | `192.168.8.102` |
 | CT 230 | Outbound-only Cloudflare Tunnel gateway | DHCP-reserved LAN address |
+| CT 240 | Protected Landet viewer | `192.168.8.124:8080` (gateway-only origin) |
 
 Frigate uses the dedicated `/mnt/frigate` SATA SSD, Intel iGPU decoding, and a
 USB Coral TPU. Hermes runs as the unprivileged `hermes` user with a system-wide
@@ -105,12 +106,22 @@ files are machine-readable state and should not be presented as the primary
 status interface.
 Continue with:
 
-0. Plan Step 22C as a separate, protected `landet.ostmarken.se` route to the
-   simplified Home Assistant camera/review dashboard. Keep it unpublished
-   until its own Cloudflare Access policy, repeatable API workflow, validation,
-   rollback, and unauthenticated external smoke test are ready. Do not expose
-   Frigate directly, and require invited people to use non-administrator Home
-   Assistant accounts.
+0. Maintain the protected Landet TV-fönstret at `landet.ostmarken.se` according
+   to `docs/step22d-landet-deployment.md`. CT240 runs a static HTML/CSS/JavaScript
+   shell, bounded read-only Python API, nginx and private go2rtc relay. Zola is
+   retained for offline design studies, not required in production. CT230 remains
+   the outbound-only gateway; preserve both camera baselines and the HA route.
+   The viewer provides both main streams, up to nine retained HLS clips in a
+   desktop 3 × 3 grid, Kök/Sovrum/Örnnästet/Utomhus temperatures, three indoor
+   humidities, and rolling/calendar history. Kök retains the existing entity.
+   The owner accepts desktop access and design. Exact-owner OTP (24h), backend
+   and connector JWT checks, real release/route rollback, reboot/startup and
+   external unauthenticated denial pass. DHCP is reserved and the initial OS
+   baseline is patched. Public mobile-data, Safari/iOS, screen-lock/session
+   recovery, measured latency and CT240 maintenance integration remain follow-up.
+   Do not invite other viewers before intended-device/sign-in acceptance.
+   Keep the earlier HA dashboard as a reference; further HA dashboard work is
+   paused. `viewer/LOCAL-VIEWER.md` covers separate SSH-only development.
 
 1. Correct the physical placement of both cameras. Face recognition, zones,
    masks, detection tuning, and final notification tuning are deferred until

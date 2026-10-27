@@ -1,0 +1,22 @@
+[Unit]
+Description=Landet private camera relay
+After=network-online.target
+[Service]
+User=landet
+Group=landet
+ExecStart=/opt/landet/current/go2rtc -config /etc/landet/relay.json
+StandardOutput=null
+StandardError=null
+Restart=on-failure
+RestartSec=3
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+CapabilityBoundingSet=
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+UMask=0077
+TasksMax=32
+MemoryMax=128M
+[Install]
+WantedBy=multi-user.target
