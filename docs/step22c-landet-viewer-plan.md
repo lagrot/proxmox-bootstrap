@@ -3,7 +3,8 @@
 ## Accepted scope and current state
 
 **TV-fönstret** is published at **https://landet.ostmarken.se**. The owner has
-accepted the design and authenticated desktop opening/live view. See the
+accepted the design, authenticated desktop opening/live view, and mobile
+functions over Wi-Fi. Mobile-data acceptance is not yet confirmed. See the
 [deployment guide](step22d-landet-deployment.md) for operations and rollback.
 
 - Computer-first, responsive for tablet and phone, with Swedish labels and
@@ -89,8 +90,9 @@ current commands and the distinction between application and DNS/route rollback.
    Machine external denial, actual route-only rollback and automatic managed
    DNS/route rollback pass. Existing HA Cloudflare regression validation passes.
 6. The owner opened the authenticated public site on desktop and accepted its
-   appearance/live view. Full public mobile-data playback/session acceptance is
-   not independently confirmed and must not be reported as verified.
+   appearance/live view, then reported mobile functions working over Wi-Fi.
+   The phone camera-title overlay was reduced to 24 px after this review.
+   Mobile-data playback/session acceptance is not independently confirmed.
 
 ## Follow-up acceptance
 
@@ -103,6 +105,10 @@ current commands and the distinction between application and DNS/route rollback.
 - CT240 audit/update/recovery integration and observation before removing the
   retained OS-baseline rollback snapshot. OS/rootfs rollback is not tested.
 - Additional viewer identities/policy changes and “Visa fler” are separate scope.
+
+The owner accepts current camera quality and defers bitrate/image-setting
+tuning until final physical placement. Fullscreen enlarges the same main stream;
+no quality/encoding change is part of the mobile typography adjustment.
 
 Correct physical camera placement before face recognition, zones, masks or final
 notification tuning. Preserve both existing camera baselines.
