@@ -68,6 +68,8 @@ HERMES_PAUSED=0
 pct exec "${HERMES_CT_ID}" -- systemctl is-active --quiet hermes-gateway.service \
   || die "Hermes gateway did not restart"
 
+BACKUP_LOCK_HELD=1 bash "${PROJECT_ROOT}/scripts/step24-landet-recovery.sh" --backup "${RUN_DIR}"
+
 (cd "${RUN_DIR}" && sha256sum -- * > SHA256SUMS)
 chmod 600 "${RUN_DIR}/SHA256SUMS"
 if [[ -n "${BACKUP_RESULT_FILE}" ]]; then

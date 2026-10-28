@@ -76,11 +76,11 @@ non-mutating maintenance review, and post-update regression routing. The audit
 refreshes APT metadata but never installs or reboots anything.
 Steps 20F-20I restrict Debian Security package installation to a manual,
 rollback-protected, one-CT-at-a-time workflow. Independent automatic package
-installation and automatic rebooting are disabled in CTs 200, 210, and 220.
+installation and automatic rebooting are disabled in CTs 200, 210, 220, 230, and 240.
 Both preview and confirm refresh package metadata and discover security
 updates before expensive service validation. A no-update result exits early.
-The updater pauses and restores `apt-daily.timer` around the operation.
-The `ct200`, `ct210`, and `ct220` target names select an LXC and its validation
+Confirm pauses and restores `apt-daily.timer`; preview only refreshes metadata.
+The `ct200`, `ct210`, `ct220`, `ct230`, and `ct240` targets select an LXC and its validation
 route. CT 200 does not update Docker or Frigate, and CT 220 does not update the
 Hermes application. CT 210 may update Mosquitto when Debian Security publishes
 an eligible fix because Mosquitto is installed as a native Debian package.
@@ -118,7 +118,9 @@ Continue with:
    and connector JWT checks, real release/route rollback, reboot/startup and
    external unauthenticated denial pass. DHCP is reserved and the initial OS
    baseline is patched. Public mobile-data, Safari/iOS, screen-lock/session
-   recovery, measured latency and CT240 maintenance integration remain follow-up.
+   recovery and measured latency remain follow-up. CT240 audit/backup/stopped
+   restore integration is documented in `docs/step24-landet-operations.md`;
+   package installation remains separate deliberate maintenance.
    Do not invite other viewers before intended-device/sign-in acceptance.
    Keep the earlier HA dashboard as a reference; further HA dashboard work is
    paused. `viewer/LOCAL-VIEWER.md` covers separate SSH-only development.
@@ -171,3 +173,18 @@ addresses, but scripts should avoid hardcoding them where practical.
 Keep `README.md` concise and keep durable architecture, decisions, verified
 milestones, and next work in `docs/project-plan.md`. Do not put transient chat
 context, Git status, credentials, or runtime logs in project documentation.
+
+## CT240 operations
+
+CT240 `landet-viewer` participates in weekly audit/status and recovery backups.
+CT230 and CT240 are manual Debian Security targets in `step20-update-ct.sh`,
+with snapshot protection and dedicated service/Access validation.
+See `docs/step24-landet-operations.md` for protected full-rootfs backups and the
+stopped CT924 restore drill. Never start the restored test guest or duplicate
+the production network identity. The stopped restore pilot is verified; booted
+failover, encrypted off-host backup and host disaster recovery remain separate.
+
+Follow-up maintenance: plan Proxmox host patching without deferring security
+fixes for months; fix confirmed locale warnings in CT200/210/220; design
+automatic managed rollback cleanup with observation/validation safeguards.
+Leave current rollback protection in place until deliberate cleanup.

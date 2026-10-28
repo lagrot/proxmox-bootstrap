@@ -11,7 +11,7 @@ STEP20_SCRIPT_DIR="${PROJECT_ROOT}/scripts"
 TARGET="${1:-}"
 TARGET="${TARGET,,}"
 [[ "${EUID}" -eq 0 ]] || die "Run as root"
-[[ -n "${TARGET}" ]] || die "Usage: $0 {proxmox|ct200|docker|ct210|mqtt|ct220|hermes|homeassistant|frigate|zigbee}"
+[[ -n "${TARGET}" ]] || die "Usage: $0 {proxmox|ct200|docker|ct210|mqtt|ct220|hermes|ct230|ct240|homeassistant|frigate|zigbee}"
 
 run() {
   log_info "Running post-update validation: $*"
@@ -41,6 +41,16 @@ case "${TARGET}" in
     run bash "${STEP20_SCRIPT_DIR}/step08b-hermes-validation.sh"
     run bash "${STEP20_SCRIPT_DIR}/step08d-hermes-validation.sh"
     run bash "${STEP20_SCRIPT_DIR}/step08f-hermes-gateway-validation.sh"
+    ;;
+  ct230)
+    run bash "${STEP20_SCRIPT_DIR}/step22-cloudflare-gateway-validation.sh"
+    run bash "${STEP20_SCRIPT_DIR}/step22a-cloudflare-access-validation.sh" --access-only
+    run bash "${STEP20_SCRIPT_DIR}/step22b-cloudflare-homeassistant-validation.sh"
+    run bash "${STEP20_SCRIPT_DIR}/step22d-landet-publish.sh" --validate
+    ;;
+  ct240)
+    run bash "${STEP20_SCRIPT_DIR}/step22d-landet-deploy.sh" --validate
+    run bash "${STEP20_SCRIPT_DIR}/step22d-landet-publish.sh" --validate
     ;;
   homeassistant)
     run bash "${STEP20_SCRIPT_DIR}/step06b-homeassistant-validation.sh"

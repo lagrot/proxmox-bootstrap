@@ -6,6 +6,8 @@ CONTAINER TARGETS
   ct200 = Debian Security packages in the Docker/Frigate LXC
   ct210 = Debian Security packages in the MQTT LXC
   ct220 = Debian Security packages in the Hermes LXC
+  ct230 = Debian Security packages in the Cloudflare gateway LXC
+  ct240 = Debian Security packages in the Landet viewer LXC
 
 The target selects the LXC and its validation tests. It is not an application
 upgrade command.
@@ -19,6 +21,8 @@ Only installed packages offered by Debian Security are updated.
   ct210 may include Mosquitto when Debian Security publishes a fix because
         Mosquitto is installed as a native Debian package.
   ct220 excludes the Hermes application, which is not a Debian package.
+  ct230 excludes cloudflared from the third-party Cloudflare repository.
+  ct240 updates eligible Debian dependencies, not the viewer release or go2rtc.
 
 ROLLBACK PROTECTION
 -------------------
@@ -26,7 +30,10 @@ CT 200 cannot use an LXC snapshot because of its /mnt/frigate bind mount.
 The updater therefore creates a stopped full-rootfs backup before patching.
 Camera media is not copied or changed.
 
-CT 210 and CT 220 use temporary Proxmox LXC snapshots.
+CT 210, CT 220, CT 230 and CT 240 use temporary Proxmox LXC snapshots.
+A patch with pending updates stops/restarts the selected snapshot-protected CT.
+For CT230 this briefly interrupts BOTH public Cloudflare routes.
+SSH/Tailscale to the host remains the maintenance access path.
 
 BACKUPS
 -------
@@ -51,7 +58,7 @@ Security updates and verifies the selected service:
 After at least 24 hours, verify the service again and delete rollback protection:
   bash scripts/step20-update-ct.sh ct210 --cleanup
 
-For CT 200 or CT 220, replace ct210 with ct200 or ct220. The script chooses
+For other targets, replace ct210 with ct200, ct220, ct230, or ct240. The script chooses
 the correct rollback type automatically.
 
 The script remembers the exact snapshot or backup path.
@@ -61,7 +68,7 @@ protection. It never rolls back automatically.
 
 CHECK SNAPSHOTS
 ---------------
-Only CT 210 and CT 220 use snapshots:
+CT 210, CT 220, CT 230 and CT 240 use snapshots:
   pct listsnapshot 210
 
 ROLL BACK A FAILED CT210 UPDATE
@@ -112,3 +119,42 @@ NOT INCLUDED
 This workflow does not update Proxmox, Home Assistant, Docker Engine/Compose
 packages from download.docker.com, Frigate images, Hermes application
 releases, or Zigbee firmware.
+
+CT230 / CT240 INITIAL POLICY SETUP
+--------------------------------
+Run once per guest, one at a time. This installs unattended-upgrades tooling
+and dependencies, but disables automatic installation/reboots. It is NOT a
+security patch command. A running-guest snapshot protects setup, and service
+validation runs before and after it. Reapply is a no-op when policy is valid.
+
+  bash scripts/step20f-unattended-upgrades.sh --dry-run --target ct240
+  bash scripts/step20f-unattended-upgrades.sh --confirm-install --target ct240
+
+Replace ct240 with ct230 for the gateway. Default setup without --target still
+selects only the original CT200/210/220 group. Policy validation 'all' includes
+all five guests.
+
+The shared maintenance/backup locks and target-specific Cloudflare/Landet locks
+prevent overlapping patching, backups, application deployment and publication.
+Existing CT230/CT240 application/baseline/policy snapshots are preserved. An
+orphaned pbsec- snapshot blocks patching until inspected. Policy-setup snapshots
+(pbpolicy-) remain separate from updater-managed snapshots; inspect and remove
+only the exact setup snapshot after at least 24 hours and successful validation.
+
+Real target routing, policy setup, repeat-apply, and patch preview are verified.
+CT230 production security patching and post-update route/service validation
+have passed after a guarded pre-install readiness retry. CT240 remains current
+with no pending security packages. Install/post-validation failure and cleanup
+paths are tested in isolation; no production security-patch rollback drill is
+claimed for CT230/CT240.
+
+STARTUP READINESS AND PRE-INSTALL RETRY
+--------------------------------------
+CT230/CT240 wait up to 120 seconds for their own services before full validation.
+Full route/source validation has up to three attempts to allow reconnects. A
+persistent failure still stops the updater and retains rollback protection.
+
+If these targets failed specifically at post-protection-baseline (before any
+package installation), repeat --dry-run or --confirm. The updater verifies the
+exact retained snapshot/state and reuses it without another shutdown. Failed
+installation or final validation is never resumed automatically; inspect first.

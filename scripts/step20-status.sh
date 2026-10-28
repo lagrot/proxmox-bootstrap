@@ -32,9 +32,10 @@ updates = data.get("package_updates", {})
 print(data.get("completed_at", "unknown"))
 print(data.get("status", "unknown").upper())
 print("Yes" if data.get("host_reboot_required") else "No")
-for key in ("proxmox_host", "ct200", "ct210", "ct220"):
+for key in ("proxmox_host", "ct200", "ct210", "ct220", "ct240", "ct230"):
     item = updates.get(key, {})
-    print(f'{item.get("total", 0)}\t{item.get("debian_security", 0)}')
+    default = "unknown" if key in ("ct230", "ct240") else 0
+    print(f'{item.get("total", default)}\t{item.get("debian_security", default)}')
 PY
 )
 
@@ -49,6 +50,8 @@ read -r host_updates host_security <<<"${audit[3]}"
 read -r ct200_updates ct200_security <<<"${audit[4]}"
 read -r ct210_updates ct210_security <<<"${audit[5]}"
 read -r ct220_updates ct220_security <<<"${audit[6]}"
+read -r ct240_updates ct240_security <<<"${audit[7]}"
+read -r ct230_updates ct230_security <<<"${audit[8]}"
 
 backup_path="unavailable"
 backup_time="unknown"
@@ -235,11 +238,15 @@ controlled_security_details() {
 ct200_reboot="$(reboot_state "${DOCKER_CT_ID:-200}")"
 ct210_reboot="$(reboot_state "${MQTT_CT_ID:-210}")"
 ct220_reboot="$(reboot_state "${HERMES_CT_ID:-220}")"
+ct240_reboot="$(reboot_state 240)"
+ct230_reboot="$(reboot_state 230)"
 
 controlled_lines="$(
   controlled_security_details ct200 "${DOCKER_CT_ID:-200}"
   controlled_security_details ct210 "${MQTT_CT_ID:-210}"
   controlled_security_details ct220 "${HERMES_CT_ID:-220}"
+  controlled_security_details ct230 230
+  controlled_security_details ct240 240
 )"
 
 printf '\nUPDATE OPERATIONS STATUS\n'
@@ -256,6 +263,30 @@ printf '%-12s %10s %10s %10s\n' "Proxmox" "${host_updates}" "${host_security}" "
 printf '%-12s %10s %10s %10s\n' "CT 200" "${ct200_updates}" "${ct200_security}" "${ct200_reboot}"
 printf '%-12s %10s %10s %10s\n' "CT 210" "${ct210_updates}" "${ct210_security}" "${ct210_reboot}"
 printf '%-12s %10s %10s %10s\n' "CT 220" "${ct220_updates}" "${ct220_security}" "${ct220_reboot}"
+printf '%-12s %10s %10s %10s\n' "CT 230" "${ct230_updates}" "${ct230_security}" "${ct230_reboot}"
+printf '%-12s %10s %10s %10s\n' "CT 240" "${ct240_updates}" "${ct240_security}" "${ct240_reboot}"
+printf 'CT230/CT240: controlled Debian Security updates; applications remain separate.\n'
+if pct exec 240 -- systemctl is-active --quiet landet landet-relay nginx 2>/dev/null; then
+  printf 'CT240 viewer services: active\n'
+else
+  printf 'CT240 viewer services: UNAVAILABLE; run step22d-landet-deploy.sh --validate\n'
+fi
+python3 - <<'RESTORE_STATUS'
+import json
+from pathlib import Path
+path = Path('/var/lib/proxmox-bootstrap/landet-recovery-status.json')
+try:
+    data = json.loads(path.read_text())
+    print('CT240 last successful stopped restore:', data['completed_at'])
+except (OSError, ValueError, KeyError):
+    print('CT240 last successful stopped restore: not recorded')
+RESTORE_STATUS
+
+if [[ -f "${backup_path}/landet-recovery.json" ]]; then
+  printf 'CT240 recovery backup: included in latest validated backup\n'
+else
+  printf 'CT240 recovery backup: MISSING from latest validated backup\n'
+fi
 
 printf '\nCONTROLLED DEBIAN SECURITY UPDATES\n%s\n' "${controlled_lines}"
 
@@ -287,11 +318,18 @@ else
     printf 'Patch one CT: bash scripts/step20-update-ct.sh ct210 --confirm\n'
   elif (( ct220_security > 0 )); then
     printf 'Patch one CT: bash scripts/step20-update-ct.sh ct220 --confirm\n'
+  elif [[ "$ct230_security" =~ ^[0-9]+$ ]] && (( ct230_security > 0 )); then
+    printf 'Patch one CT: bash scripts/step20-update-ct.sh ct230 --confirm\n'
+  elif [[ "$ct240_security" =~ ^[0-9]+$ ]] && (( ct240_security > 0 )); then
+    printf 'Patch one CT: bash scripts/step20-update-ct.sh ct240 --confirm\n'
   else
     printf 'The last audit reports no pending Debian Security updates in managed CTs.\n'
   fi
-  if (( ct200_security > 0 || ct210_security > 0 || ct220_security > 0 )); then
-    printf 'Targets are ct200, ct210, or ct220 (one token, with no space).\n'
+  if [[ "$ct230_security" == unknown || "$ct240_security" == unknown ]]; then
+    printf 'New CT audit counts unavailable; rerun step20a-update-audit.sh.\n'
+  fi
+  if (( ct200_security > 0 || ct210_security > 0 || ct220_security > 0 )) || [[ "$ct230_security" =~ ^[1-9][0-9]*$ || "$ct240_security" =~ ^[1-9][0-9]*$ ]]; then
+    printf 'Targets are ct200, ct210, ct220, ct230, or ct240 (one token, with no space).\n'
     printf 'Optional preview: replace --confirm with --dry-run.\n'
   fi
   printf 'Proxmox and application upgrades require separate reviewed procedures.\n'

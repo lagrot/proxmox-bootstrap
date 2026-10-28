@@ -55,7 +55,7 @@ networkd_does_not_manage_eth0() {
 
 usage() {
   cat <<EOF
-Usage: $0 [all|ct200|ct210|ct220]
+Usage: $0 [all|ct200|ct210|ct220|ct230|ct240]
 EOF
 }
 
@@ -63,10 +63,12 @@ EOF
 TARGET="${1:-all}"
 TARGET="${TARGET,,}"
 case "${TARGET}" in
-  all) CT_IDS=("${MQTT_CT_ID:-210}" "${HERMES_CT_ID:-220}" "${DOCKER_CT_ID:-200}") ;;
+  all) CT_IDS=("${MQTT_CT_ID:-210}" "${HERMES_CT_ID:-220}" "${DOCKER_CT_ID:-200}" 230 240) ;;
   ct200) CT_IDS=("${DOCKER_CT_ID:-200}") ;;
   ct210) CT_IDS=("${MQTT_CT_ID:-210}") ;;
   ct220) CT_IDS=("${HERMES_CT_ID:-220}") ;;
+  ct230) CT_IDS=(230) ;;
+  ct240) CT_IDS=(240) ;;
   *) usage; die "Unknown validation target: ${TARGET}" ;;
 esac
 

@@ -796,6 +796,19 @@ simple operating guidance.
 
 ## Later Tasks
 
+Deferred maintenance follow-up:
+
+- Fix locale warnings confirmed during Debian Security patching in CT200,
+  CT210 and CT220 (`LANG=en_US.UTF-8`, reported as unavailable by Perl and
+  apt-listchanges). Inspect generated locales and effective environment, align
+  them with a supported UTF-8 locale, and verify package tooling without locale
+  warnings. Check other CTs for the same mismatch. Patching and final service
+  validation succeeded; locale remediation is deferred.
+- Design automatic cleanup of updater-managed rollback snapshots/backups, with
+  at least the existing observation period and successful service validation.
+  Failed updates and unrelated snapshots must remain protected. Current cleanup
+  remains manual; no rollback protection is removed as part of PR preparation.
+
 The agreed near-term roadmap is:
 
 1. **Step 14 - Face recognition:** Step 14A readiness research is complete.
@@ -1013,10 +1026,76 @@ the published Access-protected service.
 
 Remaining follow-up: confirm full public playback on mobile data and intended
 touch devices; test Safari/iOS, screen-lock recovery, session expiry and measured
-live latency; integrate CT240 with ongoing audit/update/recovery workflows.
+live latency; retain regular manual CT security patching and separate application maintenance.
 The HQ pilot still reconnects every 55 seconds, and long-term viewer sign-in
 usability needs review before inviting the intended older user. Additional
 viewer identities/policy changes and recording-date browsing are separate work.
 
 Correct camera placement before face recognition, zones, masks, detection or
 notification tuning. Preserve both existing camera baselines during that work.
+
+
+### CT240 operations and recovery
+
+The existing weekly audit now includes CT240 APT candidates and reboot markers;
+the human status view reports its counts and whether the latest validated backup
+includes Landet. CT230 and CT240 now use the same manual Debian Security updater, with snapshots
+and dedicated service/Access validation; automatic installation remains disabled.
+
+Weekly recovery backups include a snapshot-mode CT240 full rootfs/LXC backup,
+its private configuration/secrets, installed releases and relay binary, plus
+host Landet Access/publication metadata. Root-only archives have checksums and
+configuration/release/permission verification. The ordinary weekly backup
+completed end to end with CT240 included. A real stopped restore to CT924
+passed the pilot; file contents, symlinks and permissions matched, the temporary
+guest was removed, and production remained running. This is not a booted failover
+or replacement-host recovery proof. See `docs/step24-landet-operations.md`.
+
+Keep encrypted off-host recovery copies and independent host recovery as future
+work. Prefer onsite access or a tested independent console for Proxmox patching,
+but do not defer security fixes for months awaiting a visit. Assess advisories
+and plan controlled remote maintenance when needed: present remote paths depend
+on nad9-1. No host
+package installation or reboot is part of this CT240 integration.
+
+
+CT230/CT240 patching now shares the existing updater. Policy tooling is installed
+one guest at a time behind a retained native snapshot, with read-only preview
+and before/after service checks. CT230 validation covers tunnel health, owner
+Access policy and both published routes. CT240 validation covers both camera
+sources, climate/history and protected publication. Pending patch installation
+stops a snapshot-protected guest briefly; CT230 interrupts both public routes.
+Existing unrelated baseline/application snapshots remain untouched; orphaned
+security-update snapshots and unresolved managed state block a new patch.
+Production policy setup and patch previews are verified. CT230 production
+patching and final validation pass; CT240 has no pending security packages.
+Installation failure, retention and cleanup are exercised in isolated tests. No
+production security-patch rollback drill is claimed for these two new targets.
+
+
+The first CT230 production patch attempt safely stopped before installation:
+container-running readiness preceded cloudflared activation by two seconds.
+The updater now waits for target services (up to 120 seconds), retries complete
+read-only validation up to three times, and allows exact retained snapshot reuse
+only for a recorded post-protection-baseline failure before package installation.
+Installation/final-validation failures still require manual inspection. Startup
+delay and guarded retry behavior are covered by isolated workflow tests.
+
+The CT230 retry reused the original pre-install snapshot, installed its pending
+Debian Security packages, and passed gateway, owner Access, HA route and Landet
+source/publication checks. The original snapshot remains for the normal 24-hour
+observation period. No package-triggered reboot was needed. Before invoking the
+package engine, installing state is now persisted so an abruptly killed process
+cannot leave a stale pre-install state eligible for automatic retry. A real
+production security-patch rollback drill is still not claimed.
+
+The completed Debian Security maintenance round covered CT200, CT210, CT220
+and CT230; CT240 had no eligible updates and exercised the no-change path.
+All production post-update routes passed. Next-morning checks also passed for
+Home Assistant/Zigbee, MQTT authentication and Frigate integration, Hermes
+provider/gateway, both camera sources with Coral/VAAPI and HA recording states,
+and protected Cloudflare publication. Event-dependent smoke-test warnings do
+not prove a new person event or newly retained clip. Existing log-only Coral
+initialization warnings coexist with successful live detector statistics.
+Rollback protection is retained; locale remediation, automatic cleanup and
+Proxmox host patching remain separate follow-up work.
