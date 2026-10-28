@@ -13,6 +13,7 @@ MODE=""
 CT_ID=""
 SNAPSHOT=""
 SNAPSHOT_CREATED=0
+REUSE_SNAPSHOT=0
 BACKUP_DIR=""
 BACKUP_ARCHIVE=""
 BACKUP_CREATED=0
@@ -31,14 +32,15 @@ usage() {
   cat <<EOF
 Usage: $0 TARGET (--dry-run | --confirm | --cleanup)
 
-Targets: ct200, ct210, ct220
+Targets: ct200, ct210, ct220, ct230, ct240
 
   --dry-run  Refresh metadata and verify the security plan without installing.
   --confirm  Discover updates, create rollback protection, install and validate.
   --cleanup  After 24 hours, validate again and remove rollback protection.
 
 CT 200 uses a stopped full-rootfs backup because its media bind mount prevents
-LXC snapshots. CT 210 and CT 220 use Proxmox snapshots.
+LXC snapshots. CT 210, CT 220, CT 230 and CT 240 use Proxmox snapshots.
+CT230 briefly interrupts both public routes while stopped; SSH/Tailscale remain separate.
 EOF
 }
 
@@ -139,8 +141,50 @@ on_exit() {
 trap on_exit EXIT
 
 run_baseline() {
+  local attempt limit=1 ready=0 services service all_active
   log_info "Validating current ${TARGET} functionality"
-  bash "${STEP20_UPDATE_SCRIPT_DIR}/step20c-post-update-validation.sh" "${TARGET}"
+  if [[ "$TARGET" == ct230 || "$TARGET" == ct240 ]]; then
+    services=(cloudflared.service)
+    [[ "$TARGET" != ct240 ]] || services=(landet.service landet-relay.service nginx.service)
+    for ((attempt=0; attempt<60; attempt++)); do
+      all_active=1
+      for service in "${services[@]}"; do
+        if ! pct exec "$CT_ID" -- systemctl is-active --quiet "$service"; then
+          all_active=0; break
+        fi
+      done
+      if (( all_active )); then ready=1; break; fi
+      sleep 2
+    done
+    (( ready )) || { log_error "CT $CT_ID services did not become active within 120 seconds"; return 1; }
+    # A running connector may still be establishing its external connections.
+    limit=3
+  fi
+  for ((attempt=1; attempt<=limit; attempt++)); do
+    if bash "${STEP20_UPDATE_SCRIPT_DIR}/step20c-post-update-validation.sh" "${TARGET}"; then
+      return 0
+    fi
+    (( attempt == limit )) && break
+    log_warn "Service/route readiness validation failed; retrying in five seconds (${attempt}/${limit})"
+    sleep 5
+  done
+  return 1
+}
+
+load_preinstall_snapshot() {
+  [[ "$TARGET" == ct230 || "$TARGET" == ct240 ]] || return 0
+  [[ -f "$STATE_FILE" ]] || return 0
+  [[ "$(state_value result)" == failed && "$(state_value stage)" == post-protection-baseline ]] || return 0
+  [[ "$(state_value target)" == "$TARGET" && "$(state_value ct_id)" == "$CT_ID" && "$(state_value protection_type)" == snapshot ]] \
+    || die "Pre-install snapshot state does not match target"
+  SNAPSHOT="$(state_value snapshot)"
+  PROTECTION_CREATED_EPOCH="$(state_value created_epoch)"
+  PROTECTION_CREATED_AT="$(state_value created_at)"
+  [[ "$SNAPSHOT" == pbsec-*"-$TARGET" && "$PROTECTION_CREATED_EPOCH" =~ ^[0-9]+$ && -n "$PROTECTION_CREATED_AT" ]] \
+    || die "Invalid pre-install snapshot state"
+  snapshot_exists "$SNAPSHOT" || die "Retained pre-install snapshot is missing"
+  REUSE_SNAPSHOT=1
+  log_warn "Retrying failure before package installation; preserving snapshot $SNAPSHOT"
 }
 
 security_plan() {
@@ -199,11 +243,21 @@ snapshot_preflight() {
     || die "${storage} is ${used}% used; limit is ${MAX_STORAGE_USED_PERCENT}%"
 
   snapshot_count="$(pct listsnapshot "${CT_ID}" | awk '$2 != "current" {count++} END {print count+0}')"
-  (( snapshot_count == 0 )) \
-    || die "CT ${CT_ID} already has a snapshot; resolve it before patching"
-  [[ ! -f "${STATE_FILE}" ]] \
+  if (( REUSE_SNAPSHOT )); then
+    : # Exact failed-before-install state and snapshot already verified.
+  elif [[ "$TARGET" == ct230 || "$TARGET" == ct240 ]]; then
+    # Preserve independent application/OS-baseline snapshots. Never overwrite
+    # an orphaned security-update snapshot whose state may have been lost.
+    if pct listsnapshot "$CT_ID" | awk '{print $2}' | grep -q '^pbsec-'; then
+      die "CT ${CT_ID} has a retained security snapshot; inspect it before patching"
+    fi
+  else
+    (( snapshot_count == 0 )) \
+      || die "CT ${CT_ID} already has a snapshot; resolve it before patching"
+  fi
+  [[ "$REUSE_SNAPSHOT" == 1 || ! -f "${STATE_FILE}" ]] \
     || die "CT ${CT_ID} already has managed update state; run --cleanup or inspect ${STATE_FILE}"
-  log_info "Snapshot preflight passed: ${storage}=${used}% used, existing snapshots=0"
+  log_info "Snapshot preflight passed: ${storage}=${used}% used, existing snapshots=${snapshot_count}"
 }
 
 backup_preflight() {
@@ -403,7 +457,9 @@ case "${TARGET}" in
   ct200) CT_ID="${DOCKER_CT_ID:-200}" ;;
   ct210) CT_ID="${MQTT_CT_ID:-210}" ;;
   ct220) CT_ID="${HERMES_CT_ID:-220}" ;;
-  ctid) die "CTID is a placeholder; use ct200, ct210, or ct220" ;;
+  ct230) CT_ID=230 ;;
+  ct240) CT_ID=240 ;;
+  ctid) die "CTID is a placeholder; use ct200, ct210, ct220, ct230, or ct240" ;;
   vm100|ct100|homeassistant|haos)
     die "VM 100 is Home Assistant OS and is not supported by this CT updater"
     ;;
@@ -432,6 +488,21 @@ flock -n 9 || die "Another security-update operation is running"
 exec 8>/run/lock/proxmox-bootstrap-backup.lock
 flock -n 8 || die "A backup or restore operation is running"
 
+if [[ "${TARGET}" == ct230 || "${TARGET}" == ct240 ]]; then
+  expected=remote-gateway
+  [[ "${TARGET}" != ct240 ]] || expected=landet-viewer
+  pct config "${CT_ID}" | grep -qx "hostname: ${expected}" || die "Unexpected CT identity"
+  pct config "${CT_ID}" | grep -qx 'unprivileged: 1' || die "Expected unprivileged CT"
+fi
+if [[ "${TARGET}" == ct230 || "${TARGET}" == ct240 ]]; then
+  exec 6>/run/lock/proxmox-bootstrap-cloudflared.lock
+  flock -n 6 || die "Another Cloudflare operation is running"
+fi
+if [[ "${TARGET}" == ct240 ]]; then
+  exec 7>/run/lock/proxmox-bootstrap-landet-deploy.lock
+  flock -n 7 || die "Another Landet deployment is running"
+fi
+
 if [[ "${MODE}" == "--cleanup" ]]; then
   if [[ "${PROTECTION_TYPE}" == "backup" ]]; then
     cleanup_backup
@@ -446,7 +517,8 @@ if [[ "${PROTECTION_TYPE}" == "snapshot" ]]; then
   snapshot_capability_preflight
 fi
 bash "${STEP20_UPDATE_SCRIPT_DIR}/step20g-unattended-upgrades-validation.sh" "${TARGET}"
-pause_apt_daily
+load_preinstall_snapshot
+[[ "${MODE}" != --confirm ]] || pause_apt_daily
 
 log_info "Refreshing package metadata in CT ${CT_ID}"
 pct exec "${CT_ID}" -- apt-get update >/dev/null
@@ -457,6 +529,12 @@ if (( SECURITY_COUNT > 0 )); then
 fi
 
 if (( SECURITY_COUNT == 0 )); then
+  if (( REUSE_SNAPSHOT )); then
+    run_baseline
+    if [[ "$MODE" == --confirm ]]; then write_state success complete; fi
+    log_info "No updates pending; recovered baseline is healthy; existing snapshot retained"
+    exit 0
+  fi
   log_info "No security updates are pending; no rollback protection or service change is needed"
   exit 0
 fi
@@ -473,9 +551,14 @@ if [[ "${MODE}" == "--dry-run" ]]; then
   exit 0
 fi
 
-PROTECTION_CREATED_EPOCH="$(date +%s)"
-PROTECTION_CREATED_AT="$(date --iso-8601=seconds)"
-if [[ "${PROTECTION_TYPE}" == "backup" ]]; then
+if (( ! REUSE_SNAPSHOT )); then
+ PROTECTION_CREATED_EPOCH="$(date +%s)"
+ PROTECTION_CREATED_AT="$(date --iso-8601=seconds)"
+fi
+if (( REUSE_SNAPSHOT )); then
+  SNAPSHOT_CREATED=1
+  log_info "Reusing retained pre-install snapshot without another shutdown: $SNAPSHOT"
+elif [[ "${PROTECTION_TYPE}" == "backup" ]]; then
   create_ct_backup
 else
   SNAPSHOT="${SNAPSHOT_PREFIX}-$(date +%Y%m%d-%H%M%S)-${TARGET}"
@@ -499,6 +582,9 @@ STAGE="post-protection-baseline"
 run_baseline
 
 STAGE="security-update"
+# Persist before launching APT: even SIGKILL must not leave an older
+# pre-install failure eligible for automatic retry after partial installation.
+write_state installing "${STAGE}"
 log_warn "Installing Debian Security updates in CT ${CT_ID}"
 pct exec "${CT_ID}" -- unattended-upgrade --verbose
 wait_running || die "CT ${CT_ID} did not remain available after the update"

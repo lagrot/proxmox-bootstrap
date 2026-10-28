@@ -24,6 +24,10 @@ CT210_UPDATES=0
 CT210_SECURITY=0
 CT220_UPDATES=0
 CT220_SECURITY=0
+CT230_UPDATES=0
+CT230_SECURITY=0
+CT240_UPDATES=0
+CT240_SECURITY=0
 BACKUP_READY=false
 HOST_REBOOT=false
 STATUS_WRITTEN=0
@@ -103,11 +107,11 @@ guest_ha_info() {
 write_status() {
   local status="$1" message="$2" temp
   temp="${UPDATE_STATUS_FILE}.tmp"
-  printf '{\n  "schema_version": 1,\n  "started_at": "%s",\n  "completed_at": "%s",\n  "status": "%s",\n  "message": "%s",\n  "package_updates": {\n    "proxmox_host": {"total": %d, "debian_security": %d},\n    "ct200": {"total": %d, "debian_security": %d},\n    "ct210": {"total": %d, "debian_security": %d},\n    "ct220": {"total": %d, "debian_security": %d}\n  },\n  "backup_ready": %s,\n  "host_reboot_required": %s,\n  "warnings": %d,\n  "errors": %d\n}\n' \
+  printf '{\n  "schema_version": 1,\n  "started_at": "%s",\n  "completed_at": "%s",\n  "status": "%s",\n  "message": "%s",\n  "package_updates": {\n    "proxmox_host": {"total": %d, "debian_security": %d},\n    "ct200": {"total": %d, "debian_security": %d},\n    "ct210": {"total": %d, "debian_security": %d},\n    "ct220": {"total": %d, "debian_security": %d},\n    "ct230": {"total": %d, "debian_security": %d},\n    "ct240": {"total": %d, "debian_security": %d}\n  },\n  "backup_ready": %s,\n  "host_reboot_required": %s,\n  "warnings": %d,\n  "errors": %d\n}\n' \
     "${START_AT}" "$(date --iso-8601=seconds)" \
     "$(json_escape "${status}")" "$(json_escape "${message}")" \
     "${HOST_UPDATES}" "${HOST_SECURITY}" "${CT200_UPDATES}" "${CT200_SECURITY}" \
-    "${CT210_UPDATES}" "${CT210_SECURITY}" "${CT220_UPDATES}" "${CT220_SECURITY}" \
+    "${CT210_UPDATES}" "${CT210_SECURITY}" "${CT220_UPDATES}" "${CT220_SECURITY}" "${CT230_UPDATES}" "${CT230_SECURITY}" "${CT240_UPDATES}" "${CT240_SECURITY}" \
     "${BACKUP_READY}" "${HOST_REBOOT}" "${AUDIT_WARNINGS}" "${AUDIT_ERRORS}" >"${temp}"
   chmod 0600 "${temp}"
   mv -f "${temp}" "${UPDATE_STATUS_FILE}"
@@ -160,6 +164,10 @@ if [[ -f "${BACKUP_STATUS_FILE}" && -f "${BACKUP_LAST_SUCCESS_FILE}" ]] \
     backup_age_seconds="$(( $(date +%s) - $(stat -c %Y "${latest_backup}/.validated") ))"
     if (( backup_age_seconds <= UPDATE_MAX_BACKUP_AGE_DAYS * 86400 )); then
       BACKUP_READY=true
+      if [[ ! -f "${latest_backup}/landet-recovery.json" ]]; then
+        BACKUP_READY=false
+        record_warn "Latest backup does not yet cover CT240"
+      fi
       log_info "Latest validated backup is within ${UPDATE_MAX_BACKUP_AGE_DAYS} days: ${latest_backup}"
     else
       record_warn "Latest validated backup is older than ${UPDATE_MAX_BACKUP_AGE_DAYS} days"
@@ -205,7 +213,7 @@ fi
 
 [[ -e /var/run/reboot-required ]] && HOST_REBOOT=true
 log_info "Host reboot marker: ${HOST_REBOOT}"
-for ct_id in "${DOCKER_CT_ID}" "${MQTT_CT_ID}" "${HERMES_CT_ID}"; do
+for ct_id in "${DOCKER_CT_ID}" "${MQTT_CT_ID}" "${HERMES_CT_ID}" 230 240; do
   if ! pct status "${ct_id}" 2>/dev/null | grep -q 'status: running'; then
     record_warn "CT ${ct_id} is not running; reboot marker is unavailable"
   elif pct exec "${ct_id}" -- test -e /var/run/reboot-required; then
@@ -219,6 +227,8 @@ package_audit "Proxmox host" host HOST_UPDATES HOST_SECURITY
 package_audit "CT ${DOCKER_CT_ID}" "${DOCKER_CT_ID}" CT200_UPDATES CT200_SECURITY
 package_audit "CT ${MQTT_CT_ID}" "${MQTT_CT_ID}" CT210_UPDATES CT210_SECURITY
 package_audit "CT ${HERMES_CT_ID}" "${HERMES_CT_ID}" CT220_UPDATES CT220_SECURITY
+package_audit "CT 230" 230 CT230_UPDATES CT230_SECURITY
+package_audit "CT 240" 240 CT240_UPDATES CT240_SECURITY
 
 if (( AUDIT_ERRORS > 0 )); then
   write_status failed "Update audit failed"

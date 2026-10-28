@@ -62,7 +62,9 @@ reused from the pinned Frigate image. Camera credentials remain in a root-owned
 0640 relay file readable by the service group; the HA token stays in a root-only
 systemd environment file. Neither enters source archives, logs or Git.
 Existing dependencies are not upgraded by deployment; OS maintenance remains a
-separate deliberate action. CT240 is not yet included in Step 20's CT targets. Its initial Debian stable
+separate deliberate action. CT240 is included in the weekly audit and recovery
+backup; see `docs/step24-landet-operations.md`. It is also a controlled
+Debian Security installation target; see `UPDATE-QUICK-GUIDE.txt`. Its initial Debian stable
 base was fully patched after a native Proxmox snapshot; post-update reboot,
 service validation and a zero-pending-upgrades simulation pass. Keep snapshot
 `landet-before-os-baseline` for observation; OS/rootfs rollback was not exercised.
@@ -115,7 +117,8 @@ Before public use:
 
 1. Keep the confirmed viewer DHCP reservation and existing upstream/gateway
    reservations. Reapply if upstream/gateway addressing changes.
-2. Add CT240 to ongoing audit/update/recovery work. Its initial OS baseline
+2. CT240 audit/recovery integration is documented in `docs/step24-landet-operations.md`;
+   manual Debian Security patching follows `UPDATE-QUICK-GUIDE.txt`. Its initial OS baseline
    is now current; future maintenance remains deliberate and separate from
    application deployment.
 3. Publication is complete; use the validated transaction below for checks and

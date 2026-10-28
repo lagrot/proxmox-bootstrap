@@ -2,7 +2,7 @@
 
 Step 20 has one narrow automation boundary:
 
-- CT 200, CT 210, and CT 220 can install Debian Security updates through one
+- CT 200, CT 210, CT 220, CT 230 and CT 240 can install Debian Security updates through one
   controlled script.
 - Package installation is manual, one CT at a time, and rollback protected.
 - Independent automatic installation and automatic rebooting are disabled.
@@ -21,6 +21,8 @@ request a generic application or full-system upgrade.
 | `ct200` | Installed packages offered by Debian Security; stopped full-rootfs backup protection | Docker Engine/Compose from `download.docker.com`; pinned Frigate image |
 | `ct210` | Installed packages offered by Debian Security, including Mosquitto when Debian Security publishes a fix | Ordinary Debian feature updates and generic full upgrades |
 | `ct220` | Installed packages offered by Debian Security | Hermes application release |
+| `ct230` | Installed Debian Security packages; snapshot protection | Third-party cloudflared package |
+| `ct240` | Installed Debian Security packages; snapshot protection | Landet release and copied go2rtc binary |
 
 Mosquitto is eligible in CT 210 because it is installed as a native Debian
 package. Docker and Hermes use non-Debian installation sources, while Frigate
@@ -34,7 +36,10 @@ contains `/opt/frigate`, including the Compose file, Frigate configuration,
 and database. Proxmox does not include bind-mount contents, so camera media
 under `/mnt/frigate` is neither copied nor changed.
 
-CT 210 and CT 220 continue to use stopped, consistent Proxmox snapshots.
+CT 210, CT 220, CT 230 and CT 240 use stopped, consistent Proxmox snapshots.
+Stopping CT230 briefly interrupts both public Cloudflare routes; use host
+SSH/Tailscale for maintenance. CT240 includes separate weekly recovery backup
+and stopped restore testing; see `step24-landet-operations.md`.
 
 ## Normal operation
 
@@ -117,8 +122,8 @@ package selection and installation engine. Its automatic installation timer
 is disabled, so the operator-controlled script remains the only apply path.
 Both dry-run and confirm refresh package metadata before determining whether
 security updates exist. If none exist, the command exits before the full
-service baseline. While either command runs, it temporarily pauses the
-metadata timer to prevent an APT race and restores the timer on exit.
+service baseline. Confirm temporarily pauses the metadata timer and restores
+it on exit. Preview refreshes metadata without stopping timers or services.
 
 The Proxmox host, ordinary Debian updates, third-party Docker packages,
 Frigate images, Hermes releases, Home Assistant, and firmware are excluded.
@@ -138,7 +143,7 @@ discovery, policy checks, storage checks, and the pre-update baseline before
 creating rollback protection or installing anything.
 
 The script checks the live baseline before creating rollback protection.
-CT 200 gets a stopped full-rootfs backup; CT 210 and CT 220 get stopped,
+CT 200 gets a stopped full-rootfs backup; CT 210/220/230/240 get stopped,
 consistent snapshots. Confirm validates the service again, installs only the
 simulated Debian Security package set, reboots only when Debian marks one
 required, and performs final regression validation. A failure keeps the
@@ -255,3 +260,25 @@ bash scripts/step20-update-ct-tests.sh
 - [Debian unattended-upgrade manual](https://manpages.debian.org/unstable/unattended-upgrades/unattended-upgrade.8.en.html)
 - [Proxmox VE administration guide](https://pve.proxmox.com/pve-docs/pve-admin-guide.pdf)
 - [Home Assistant OS update tasks](https://www.home-assistant.io/common-tasks/os/)
+
+
+## Gateway and viewer target validation
+
+CT230 validates cloudflared/tunnel health, the owner Access policy, the HA
+route and the protected Landet publication. CT240 validates its services,
+upstream camera/climate/history sources and protected publication. Both wait
+for every required service to become active, with bounded read-only retries
+for external route readiness. A failed `post-protection-baseline` before package
+installation can reuse the exact recorded pre-install snapshot on retry.
+Installation/final-validation failures require inspection and are not resumed
+automatically. Installing state is persisted before the package engine starts.
+
+Initial policy setup accepts one explicit target; without `--target` it retains
+the original CT200/210/220 selection. Policy validation `all` covers all five.
+See `UPDATE-QUICK-GUIDE.txt` for the setup commands and retained policy snapshots.
+
+Production security patching passed for CT200/210/220/230, and CT240 exercised
+the current/no-install path. The CT230 startup race was corrected and its retry
+reused the original snapshot. Next-morning service and integration checks pass.
+Rollback points remain for observation; automatic cleanup and locale warnings
+in CT200/210/220 are deferred work, not changes in this workflow.

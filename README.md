@@ -42,6 +42,10 @@ CT 240: landet-viewer
   IP: 192.168.8.124 (origin restricted to gateway)
 ```
 
+CT240 update checks, protected backups and the stopped restore drill are described
+in [Landet operations and recovery](docs/step24-landet-operations.md).
+Use `bash scripts/step20-status.sh` for operator status.
+
 ## DHCP reservations
 
 | Guest | MAC | Reserved IP |
@@ -227,9 +231,12 @@ Normal update-operations status:
 bash scripts/step20-status.sh
 ```
 
-The `ct200`, `ct210`, and `ct220` update targets select an LXC and its
-validation route. They install only eligible Debian Security packages; they
-are not generic Docker, Frigate, or Hermes application upgrade commands.
+The `ct200`, `ct210`, `ct220`, `ct230`, and `ct240` update targets select an
+LXC and its validation route. They install only eligible Debian Security
+packages; Docker, Frigate, Hermes, cloudflared and Landet application releases
+remain separate. See [UPDATE-QUICK-GUIDE.txt](UPDATE-QUICK-GUIDE.txt) for setup,
+preview, patching and cleanup. CT230 patching briefly interrupts both public
+Cloudflare routes while the container is stopped for its snapshot.
 
 Current verified remote access:
 
