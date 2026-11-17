@@ -2,6 +2,12 @@
 set -euo pipefail
 umask 0077
 
+if [[ "${1:-}" == "--dry-run" && $# -eq 1 ]]; then
+  echo 'Would back up HAOS, a consistent live Frigate SQLite snapshot, MQTT, Hermes and CT240; then validate using Step 12B.'
+  exit 0
+fi
+[[ $# -eq 0 ]] || { echo 'Usage: bash scripts/step12-backup.sh [--dry-run]' >&2; exit 2; }
+
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd -- "${SCRIPT_DIR}/.." && pwd)"
 source "${PROJECT_ROOT}/lib/common.sh"
@@ -19,8 +25,10 @@ BACKUP_RESULT_FILE="${BACKUP_RESULT_FILE:-}"
 BACKUP_LOCK_HELD="${BACKUP_LOCK_HELD:-0}"
 RUN_COMPLETE=0
 HERMES_PAUSED=0
+FRIGATE_STAGE=""
 
 cleanup() {
+  [[ -z "${FRIGATE_STAGE}" ]] || rm -rf -- "${FRIGATE_STAGE}"
   if [[ "${HERMES_PAUSED}" -eq 1 ]]; then
     pct exec "${HERMES_CT_ID}" -- systemctl start hermes-gateway.service >/dev/null 2>&1 || true
   fi
@@ -54,8 +62,21 @@ archive_ct() {
   chmod 600 "${RUN_DIR}/${name}.tar.gz"
 }
 
-archive_ct "${FRIGATE_CT_ID}" frigate \
-  /opt/frigate/docker-compose.yml /opt/frigate/config
+log_info "Backing up Frigate configuration and a consistent SQLite snapshot"
+pct status "${FRIGATE_CT_ID}" | grep -q 'status: running' || die "Frigate CT is not running"
+FRIGATE_STAGE="$(mktemp -d "${BACKUP_ROOT}/.frigate-stage.XXXXXXXX")"
+pct exec "${FRIGATE_CT_ID}" -- tar -C / -cf - \
+  --exclude=opt/frigate/config/frigate.db \
+  --exclude=opt/frigate/config/frigate.db-wal \
+  --exclude=opt/frigate/config/frigate.db-shm \
+  opt/frigate/docker-compose.yml opt/frigate/config | tar -C "${FRIGATE_STAGE}" -xf -
+pct exec "${FRIGATE_CT_ID}" -- python3 -c "$(cat "${PROJECT_ROOT}/lib/frigate-sqlite-snapshot.py")" \
+  /opt/frigate/config/frigate.db > "${FRIGATE_STAGE}/opt/frigate/config/frigate.db"
+printf '%s\n' 'sqlite-online-backup-v1' > "${FRIGATE_STAGE}/opt/frigate/config/.backup-sqlite-format"
+tar -C "${FRIGATE_STAGE}" -czf "${RUN_DIR}/frigate.tar.gz" opt/frigate/docker-compose.yml opt/frigate/config
+chmod 600 "${RUN_DIR}/frigate.tar.gz"
+rm -rf -- "${FRIGATE_STAGE}"
+FRIGATE_STAGE=""
 archive_ct "${MQTT_CT_ID}" mosquitto /etc/mosquitto
 
 log_info "Pausing Hermes gateway for a consistent state backup"

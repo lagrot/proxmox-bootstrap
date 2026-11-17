@@ -7,9 +7,20 @@ The initial implementation stores backups under
 ## Scope
 
 - Home Assistant VM 100: full Proxmox `vzdump` snapshot archive.
-- Frigate CT 200: Docker Compose and Frigate configuration; media is excluded.
+- Frigate CT 200: Docker Compose and Frigate configuration, including a
+  consistent live SQLite database snapshot; media is excluded.
 - Mosquitto CT 210: `/etc/mosquitto`, including its password database.
 - Hermes CT 220: application, user state, and gateway systemd unit.
+
+Frigate stays running while SQLite's online backup API captures its database.
+The archive excludes the live database's WAL and shared-memory sidecars, and
+validation checks the extracted snapshot's SQLite integrity. Legacy archives
+without the snapshot marker remain readable but do not get that guarantee.
+The new Frigate snapshot and temporary extraction were piloted successfully
+against the live database. Full backup validation is not yet verified: two
+attempts stopped during the separate Hermes archive because files changed while
+being read. The previous validated backup remains available. Resolve that
+failure before treating the new weekly backup workflow as fully verified.
 
 Hermes is briefly stopped while its archive is created so its SQLite state is
 consistent. The script restarts it on success or failure.
@@ -19,6 +30,7 @@ consistent. The script restarts it on success or failure.
 Run as root on the Proxmox host:
 
 ```bash
+bash scripts/step12-backup.sh --dry-run
 bash scripts/step12-backup.sh
 ```
 
