@@ -179,6 +179,8 @@ Step 04 checks that `/mnt/frigate` is an actual mounted filesystem before
 writing there, and changes ownership/mode only on those directories. It does
 not recursively alter retained media files or their subdirectories. If the SSD
 is not mounted, stop and resolve the mount before deployment.
+Step 04B confirms the host mount and CT bind mount match, then uses a unique
+temporary file for its write-access check and removes that exact file.
 
 ## Verified Steps
 

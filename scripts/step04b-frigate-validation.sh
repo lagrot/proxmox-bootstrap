@@ -61,7 +61,7 @@ if [[ "${EUID}" -ne 0 ]]; then
 fi
 
 log_info "Checking required host commands..."
-for cmd in pct grep awk; do
+for cmd in pct grep awk findmnt; do
   check_host_command "${cmd}"
 done
 
@@ -86,6 +86,28 @@ fi
 
 if [[ "${VALIDATION_ERRORS}" -gt 0 ]]; then
   log_error "Cannot continue because CT ${CT_ID} is not ready"
+  exit 1
+fi
+
+log_info "Checking the dedicated Frigate SSD mount on the Proxmox host..."
+if [[ "${FRIGATE_MEDIA_DIR}" != "${FRIGATE_MOUNTPOINT}" ]]; then
+  record_error "Frigate media path (${FRIGATE_MEDIA_DIR}) does not match the configured mountpoint (${FRIGATE_MOUNTPOINT})"
+elif ! findmnt --mountpoint "${FRIGATE_MOUNTPOINT}" >/dev/null 2>&1; then
+  record_error "${FRIGATE_MOUNTPOINT} is not mounted on the Proxmox host"
+else
+  log_info "Dedicated Frigate filesystem is mounted at ${FRIGATE_MOUNTPOINT}"
+fi
+
+log_info "Checking CT ${CT_ID} bind mount configuration..."
+CT_CONFIG="$(pct config "${CT_ID}")"
+if grep -Fq "mp0: ${FRIGATE_MOUNTPOINT},mp=${FRIGATE_MEDIA_DIR}" <<<"${CT_CONFIG}"; then
+  log_info "CT ${CT_ID} binds ${FRIGATE_MOUNTPOINT} at ${FRIGATE_MEDIA_DIR}"
+else
+  record_error "CT ${CT_ID} does not have the expected Frigate SSD bind mount"
+fi
+
+if [[ "${VALIDATION_ERRORS}" -gt 0 ]]; then
+  log_error "Cannot continue because Frigate storage is not mounted as expected"
   exit 1
 fi
 
@@ -137,9 +159,13 @@ for dir in clips clips/thumbs recordings snapshots exports; do
 done
 
 log_info "Checking write access to Frigate media directory..."
-if pct exec "${CT_ID}" -- touch "${FRIGATE_MEDIA_DIR}/.validation-write-test"; then
-  pct exec "${CT_ID}" -- rm -f "${FRIGATE_MEDIA_DIR}/.validation-write-test"
-  log_info "CT ${CT_ID} can write to ${FRIGATE_MEDIA_DIR}"
+WRITE_TEST_FILE="$(pct exec "${CT_ID}" -- mktemp "${FRIGATE_MEDIA_DIR}/.step04b-write-test.XXXXXX" 2>/dev/null || true)"
+if [[ -n "${WRITE_TEST_FILE}" ]]; then
+  if pct exec "${CT_ID}" -- rm -f "${WRITE_TEST_FILE}"; then
+    log_info "CT ${CT_ID} can write to ${FRIGATE_MEDIA_DIR}; unique test file removed"
+  else
+    record_error "CT ${CT_ID} created ${WRITE_TEST_FILE} but could not remove it"
+  fi
 else
   record_error "CT ${CT_ID} cannot write to ${FRIGATE_MEDIA_DIR}"
 fi
