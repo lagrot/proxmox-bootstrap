@@ -16,14 +16,14 @@ Frigate stays running while SQLite's online backup API captures its database.
 The archive excludes the live database's WAL and shared-memory sidecars, and
 validation checks the extracted snapshot's SQLite integrity. Legacy archives
 without the snapshot marker remain readable but do not get that guarantee.
-The new Frigate snapshot and temporary extraction were piloted successfully
-against the live database. Full backup validation is not yet verified: two
-attempts stopped during the separate Hermes archive because files changed while
-being read. The previous validated backup remains available. Resolve that
-failure before treating the new weekly backup workflow as fully verified.
+The Frigate snapshot and temporary extraction were piloted against the live
+database. The complete backup and its integrity validation subsequently passed.
 
-Hermes is briefly stopped while its archive is created so its SQLite state is
-consistent. The script restarts it on success or failure.
+The Hermes gateway and any active Hermes dashboard are briefly stopped while
+the archive is created. The dashboard has the Hermes state database open; both
+services are restarted afterward, including after an archive failure. An
+inactive dashboard is left inactive. Other independent writers may still make
+the backup fail, in which case the previous validated backup is retained.
 
 ## Manual Backup And Validation
 

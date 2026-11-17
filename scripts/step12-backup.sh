@@ -25,12 +25,18 @@ BACKUP_RESULT_FILE="${BACKUP_RESULT_FILE:-}"
 BACKUP_LOCK_HELD="${BACKUP_LOCK_HELD:-0}"
 RUN_COMPLETE=0
 HERMES_PAUSED=0
+HERMES_DASHBOARD_PAUSED=0
 FRIGATE_STAGE=""
 
 cleanup() {
   [[ -z "${FRIGATE_STAGE}" ]] || rm -rf -- "${FRIGATE_STAGE}"
   if [[ "${HERMES_PAUSED}" -eq 1 ]]; then
-    pct exec "${HERMES_CT_ID}" -- systemctl start hermes-gateway.service >/dev/null 2>&1 || true
+    pct exec "${HERMES_CT_ID}" -- systemctl start hermes-gateway.service >/dev/null 2>&1 \
+      || log_error "Could not restart Hermes gateway during backup cleanup"
+  fi
+  if [[ "${HERMES_DASHBOARD_PAUSED}" -eq 1 ]]; then
+    pct exec "${HERMES_CT_ID}" -- systemctl start hermes-dashboard.service >/dev/null 2>&1 \
+      || log_error "Could not restart Hermes dashboard during backup cleanup"
   fi
   if [[ "${RUN_COMPLETE}" -ne 1 && -d "${RUN_DIR}" ]]; then
     log_warn "Removing incomplete backup: ${RUN_DIR}"
@@ -79,15 +85,25 @@ rm -rf -- "${FRIGATE_STAGE}"
 FRIGATE_STAGE=""
 archive_ct "${MQTT_CT_ID}" mosquitto /etc/mosquitto
 
-log_info "Pausing Hermes gateway for a consistent state backup"
-pct exec "${HERMES_CT_ID}" -- systemctl stop hermes-gateway.service
+log_info "Pausing active Hermes services for a consistent state backup"
+if pct exec "${HERMES_CT_ID}" -- systemctl is-active --quiet hermes-dashboard.service; then
+  HERMES_DASHBOARD_PAUSED=1
+  pct exec "${HERMES_CT_ID}" -- systemctl stop hermes-dashboard.service
+fi
 HERMES_PAUSED=1
+pct exec "${HERMES_CT_ID}" -- systemctl stop hermes-gateway.service
 archive_ct "${HERMES_CT_ID}" hermes \
   /opt/hermes /home/hermes/.hermes /etc/systemd/system/hermes-gateway.service
 pct exec "${HERMES_CT_ID}" -- systemctl start hermes-gateway.service
-HERMES_PAUSED=0
 pct exec "${HERMES_CT_ID}" -- systemctl is-active --quiet hermes-gateway.service \
   || die "Hermes gateway did not restart"
+HERMES_PAUSED=0
+if [[ "${HERMES_DASHBOARD_PAUSED}" -eq 1 ]]; then
+  pct exec "${HERMES_CT_ID}" -- systemctl start hermes-dashboard.service
+  pct exec "${HERMES_CT_ID}" -- systemctl is-active --quiet hermes-dashboard.service \
+    || die "Hermes dashboard did not restart"
+  HERMES_DASHBOARD_PAUSED=0
+fi
 
 BACKUP_LOCK_HELD=1 bash "${PROJECT_ROOT}/scripts/step24-landet-recovery.sh" --backup "${RUN_DIR}"
 
