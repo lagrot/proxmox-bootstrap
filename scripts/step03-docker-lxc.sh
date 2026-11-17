@@ -8,6 +8,11 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
 
+# The shared logger normally writes to disk; preview must remain read-only.
+for arg in "$@"; do
+    [[ "$arg" != --dry-run ]] || export LOG_FILE=/dev/null
+done
+
 # shellcheck source=../config/defaults.conf
 source "${ROOT_DIR}/config/defaults.conf"
 
@@ -47,6 +52,7 @@ CT_UNPRIVILEGED="${DOCKER_CT_UNPRIVILEGED}"
 CT_ONBOOT="${DOCKER_CT_ONBOOT}"
 CT_FEATURES="${DOCKER_CT_FEATURES}"
 CT_MOUNTPOINT_MP0="${DOCKER_CT_MOUNTPOINT_MP0}"
+[[ "${CT_ROOTFS_SIZE}" =~ ^[1-9][0-9]*$ ]] || die "CT rootfs size must be a positive integer in GiB"
 
 
 TEMPLATE_PATH="/var/lib/vz/template/cache/${CT_TEMPLATE_FILE}"
@@ -74,6 +80,7 @@ pct_container_exists() {
 
 log_info "======================================"
 log_info "STEP 03 - DOCKER LXC FOUNDATION"
+log_info "Requested root filesystem size: ${CT_ROOTFS_SIZE} GiB"
 log_info "======================================"
 
 # ------------------------------------------------------------
