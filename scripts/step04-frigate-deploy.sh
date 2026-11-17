@@ -4,6 +4,14 @@ set -euo pipefail
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd -- "${SCRIPT_DIR}/.." && pwd)"
 
+# The framework logger otherwise creates/appends the normal operation log.
+for arg in "$@"; do
+  if [[ "${arg}" == "--dry-run" ]]; then
+    LOG_FILE=/dev/null
+    break
+  fi
+done
+
 # shellcheck source=/dev/null
 source "${PROJECT_ROOT}/lib/common.sh"
 
@@ -78,7 +86,7 @@ if [[ "${EUID}" -ne 0 ]]; then
 fi
 
 log_info "Checking required commands on host..."
-for cmd in pct grep mktemp; do
+for cmd in pct grep findmnt mktemp; do
   if ! command -v "${cmd}" >/dev/null 2>&1; then
     log_error "Required command not found on host: ${cmd}"
     exit 1
@@ -94,6 +102,17 @@ fi
 log_info "Checking that CT ${CT_ID} is running..."
 if ! pct status "${CT_ID}" | grep -q "status: running"; then
   log_error "CT ${CT_ID} must be running so existing Frigate files can be checked safely"
+  exit 1
+fi
+
+if [[ "${FRIGATE_MEDIA_DIR}" != "${FRIGATE_MOUNTPOINT}" ]]; then
+  log_error "Frigate media path must match the configured dedicated mountpoint (${FRIGATE_MOUNTPOINT}): ${FRIGATE_MEDIA_DIR}"
+  exit 1
+fi
+
+log_info "Checking dedicated Frigate media mount on the Proxmox host..."
+if ! findmnt --mountpoint "${FRIGATE_MEDIA_DIR}" >/dev/null 2>&1; then
+  log_error "${FRIGATE_MEDIA_DIR} is not a mounted filesystem; refusing to install onto the host root filesystem"
   exit 1
 fi
 
@@ -115,13 +134,6 @@ if ! pct exec "${CT_ID}" -- systemctl is-active --quiet docker; then
   exit 1
 fi
 
-log_info "Installing camera diagnostic dependency FFmpeg inside CT ${CT_ID}..."
-if pct exec "${CT_ID}" -- bash -c 'command -v ffmpeg >/dev/null 2>&1'; then
-  log_info "FFmpeg is already installed inside CT ${CT_ID}"
-else
-  run_ct bash -c 'export DEBIAN_FRONTEND=noninteractive; apt-get update && apt-get install -y --no-install-recommends ffmpeg'
-fi
-
 log_info "Checking Frigate media mount inside CT ${CT_ID}..."
 if ! pct exec "${CT_ID}" -- test -d "${FRIGATE_MEDIA_DIR}"; then
   log_error "${FRIGATE_MEDIA_DIR} does not exist inside CT ${CT_ID}"
@@ -129,15 +141,8 @@ if ! pct exec "${CT_ID}" -- test -d "${FRIGATE_MEDIA_DIR}"; then
 fi
 log_info "Preparing Frigate media directories and permissions on host..."
 
-if [[ "${FRIGATE_MEDIA_DIR}" != /mnt/frigate* ]]; then
-  log_error "Refusing to modify unexpected Frigate media path: ${FRIGATE_MEDIA_DIR}"
-  exit 1
-fi
-
 if [[ "${DRY_RUN}" -eq 1 ]]; then
-  log_info "[DRY-RUN] mkdir -p ${FRIGATE_MEDIA_DIR}/{clips,clips/thumbs,recordings,snapshots,exports}"
-  log_info "[DRY-RUN] chown -R 100000:100000 ${FRIGATE_MEDIA_DIR}"
-  log_info "[DRY-RUN] chmod -R 775 ${FRIGATE_MEDIA_DIR}"
+  log_info "[DRY-RUN] create and set ownership/mode on Frigate media directories only"
 else
   mkdir -p \
     "${FRIGATE_MEDIA_DIR}/clips" \
@@ -146,11 +151,23 @@ else
     "${FRIGATE_MEDIA_DIR}/snapshots" \
     "${FRIGATE_MEDIA_DIR}/exports"
 
-  chown -R 100000:100000 "${FRIGATE_MEDIA_DIR}"
-  chmod -R 775 "${FRIGATE_MEDIA_DIR}"
+  for dir in clips clips/thumbs recordings snapshots exports; do
+    chown 100000:100000 "${FRIGATE_MEDIA_DIR}/${dir}"
+    chmod 0775 "${FRIGATE_MEDIA_DIR}/${dir}"
+  done
 fi
+
+log_info "Installing camera diagnostic dependency FFmpeg inside CT ${CT_ID}..."
+if pct exec "${CT_ID}" -- bash -c 'command -v ffmpeg >/dev/null 2>&1'; then
+  log_info "FFmpeg is already installed inside CT ${CT_ID}"
+else
+  run_ct bash -c 'export DEBIAN_FRONTEND=noninteractive; apt-get update && apt-get install -y --no-install-recommends ffmpeg'
+fi
+
 for dir in clips clips/thumbs recordings snapshots exports; do
-  if ! pct exec "${CT_ID}" -- test -d "${FRIGATE_MEDIA_DIR}/${dir}"; then
+  if [[ "${DRY_RUN}" -eq 1 ]]; then
+    log_info "[DRY-RUN] verify ${FRIGATE_MEDIA_DIR}/${dir} after planned directory creation"
+  elif ! pct exec "${CT_ID}" -- test -d "${FRIGATE_MEDIA_DIR}/${dir}"; then
     log_error "${FRIGATE_MEDIA_DIR}/${dir} does not exist inside CT ${CT_ID}"
     exit 1
   fi
