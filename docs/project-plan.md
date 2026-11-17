@@ -656,7 +656,9 @@ a stopped, checksum-verified Compose/config/database backup. Step 18C passed
 all seven tracks; the C320WS direct stream validation and protected Landet
 publication also passed. Both cameras reported live frames and Coral detector
 statistics were healthy. Keep the 0.17.2 image and upgrade backup during
-observation. A new person event and authenticated retained-clip playback remain
+observation. After 2026-11-24 14:57 CET, review health and remove the old image
+if rollback is no longer needed; retain the small config/database backup. A new
+person event and authenticated retained-clip playback remain
 separate acceptance checks. Production rollback has not been performed.
 
 The complete operator procedure and acceptance/rollback boundaries are in

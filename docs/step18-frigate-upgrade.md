@@ -142,6 +142,12 @@ diagnosis.
 
 ## Cleanup
 
+The 0.18.2 upgrade started on 2026-11-17. After at least one week of healthy
+operation (not before 2026-11-24 14:57 CET), review service health and remove
+the old 0.17.2 image if no rollback is needed. Its `0.17.2` and `stable` tags
+refer to the same image; check both tags before removal. Keep the small upgrade
+config/database backup. This is a manual follow-up, not a scheduled task.
+
 Do not clean up immediately. Keep the old image, upgrade backup, and any failed
 state until the new version has operated normally for an agreed observation
 period. Cleanup remains a deliberate manual action; none of these scripts
