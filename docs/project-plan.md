@@ -281,6 +281,11 @@ Frigate runs in CT 200 through Docker Compose.
 
 Frigate serves authenticated HTTPS on port `8971` with a self-signed/default certificate, so validation uses `curl -k`. Port `5000` is exposed for the Home Assistant integration as internal unauthenticated HTTP and must remain LAN-only; it must not be forwarded to the internet.
 
+The CT200 creation default is 32 GiB, matching the expanded production root
+filesystem. The creation preview is read-only and the absent/existing CT and
+failure paths are tested with simulated Proxmox commands. A fresh 0.18.2 stack
+installation has not yet been validated end to end.
+
 Current minimal Frigate config has MQTT enabled, Intel VAAPI decode, Intel GPU telemetry, and USB Coral detection:
 
 ```yaml
