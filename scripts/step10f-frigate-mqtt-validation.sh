@@ -45,15 +45,37 @@ detect_ct_eth0_ipv4() {
     | awk '{ split($4, addr, "/"); print addr[1]; exit }' || true
 }
 
-log_info "Checking root access..."
 if [[ "${EUID}" -ne 0 ]]; then
   log_error "This script must be run as root"
   exit 1
 fi
 
+for cmd in pct awk grep; do
+  if ! command -v "${cmd}" >/dev/null 2>&1; then
+    log_error "Required host command not found: ${cmd}"
+    exit 1
+  fi
+done
+
+if [[ ! "${FRIGATE_CT_ID}" =~ ^[0-9]+$ || ! "${MQTT_CT_ID}" =~ ^[0-9]+$ ]]; then
+  log_error "Frigate and MQTT CT IDs must be numeric"
+  exit 1
+fi
+if ! [[ "${MQTT_PORT}" =~ ^[0-9]{1,5}$ ]] || ((10#${MQTT_PORT:-0} < 1 || 10#${MQTT_PORT:-0} > 65535)); then
+  log_error "MQTT_PORT must be an integer from 1 through 65535"
+  exit 1
+fi
+if [[ -n "${MQTT_USERNAME}" && ( "${MQTT_USERNAME}" == *:* || "${MQTT_USERNAME}" == *$'\n'* || "${MQTT_USERNAME}" == *$'\r'* ) ]] \
+  || [[ "${MQTT_PASSWORD}" == *$'\n'* || "${MQTT_PASSWORD}" == *$'\r'* ]]; then
+  log_error "MQTT credentials contain unsupported characters"
+  exit 1
+fi
+
 for ct_id in "${FRIGATE_CT_ID}" "${MQTT_CT_ID}"; do
   log_info "Checking CT ${ct_id}..."
-  if pct status "${ct_id}" 2>/dev/null | grep -q "status: running"; then
+  if ! CT_STATUS="$(pct status "${ct_id}" 2>&1)"; then
+    record_error "Could not query status for CT ${ct_id}: ${CT_STATUS}"
+  elif [[ "${CT_STATUS}" == *"status: running"* ]]; then
     log_info "CT ${ct_id} is running"
   else
     record_error "CT ${ct_id} is not running"
@@ -89,6 +111,7 @@ log_info "Checking Frigate MQTT config..."
 if pct exec "${FRIGATE_CT_ID}" -- grep -qxF 'mqtt:' "${FRIGATE_CONFIG_FILE}" \
   && pct exec "${FRIGATE_CT_ID}" -- grep -qxF '  enabled: true' "${FRIGATE_CONFIG_FILE}" \
   && pct exec "${FRIGATE_CT_ID}" -- grep -qxF "  host: ${MQTT_IP}" "${FRIGATE_CONFIG_FILE}" \
+  && pct exec "${FRIGATE_CT_ID}" -- grep -qxF "  port: ${MQTT_PORT}" "${FRIGATE_CONFIG_FILE}" \
   && pct exec "${FRIGATE_CT_ID}" -- grep -q '^  user:' "${FRIGATE_CONFIG_FILE}" \
   && pct exec "${FRIGATE_CT_ID}" -- grep -q '^  password:' "${FRIGATE_CONFIG_FILE}"; then
   log_info "Frigate config points to detected MQTT broker"
@@ -104,7 +127,7 @@ else
 fi
 
 log_info "Checking Mosquitto client tools in CT ${MQTT_CT_ID}..."
-for cmd in mosquitto_sub timeout; do
+for cmd in mosquitto_sub timeout mktemp; do
   if pct exec "${MQTT_CT_ID}" -- bash -c "command -v '${cmd}' >/dev/null 2>&1"; then
     log_info "MQTT CT command found: ${cmd}"
   else
@@ -117,14 +140,32 @@ if [[ "${VALIDATION_ERRORS}" -gt 0 ]]; then
   exit 1
 fi
 
-CLIENT_HOME="/tmp/frigate-mqtt-validation-home"
-trap 'pct exec "${MQTT_CT_ID}" -- rm -rf "${CLIENT_HOME}" >/dev/null 2>&1 || true' EXIT
+log_info "Creating an isolated temporary directory in CT ${MQTT_CT_ID}..."
+if ! CLIENT_HOME="$(pct exec "${MQTT_CT_ID}" -- mktemp -d /tmp/step10f-frigate-mqtt.XXXXXX)"; then
+  log_error "Could not create a unique MQTT validation directory"
+  exit 1
+fi
+cleanup_mqtt_client() {
+  [[ "${CLIENT_HOME:-}" == /tmp/step10f-frigate-mqtt.* ]] || return 0
+  if ! pct exec "${MQTT_CT_ID}" -- rm -rf -- "${CLIENT_HOME}" >/dev/null 2>&1; then
+    log_warn "Could not remove temporary MQTT validation directory: ${CLIENT_HOME}"
+  fi
+}
+trap cleanup_mqtt_client EXIT
+if [[ "${CLIENT_HOME}" != /tmp/step10f-frigate-mqtt.* ]]; then
+  log_error "CT ${MQTT_CT_ID} returned an unexpected temporary directory path"
+  exit 1
+fi
 printf '%s\n' "-h 127.0.0.1" "-p ${MQTT_PORT}" "-u ${MQTT_USERNAME}" "-P ${MQTT_PASSWORD}" \
-  | pct exec "${MQTT_CT_ID}" -- bash -c "umask 077; mkdir -p '${CLIENT_HOME}/.config'; cat > '${CLIENT_HOME}/.config/mosquitto_sub'"
+  | pct exec "${MQTT_CT_ID}" -- bash -c \
+    'umask 077; mkdir -p "$1"; cat > "$2"' bash \
+    "${CLIENT_HOME}/.config" "${CLIENT_HOME}/.config/mosquitto_sub"
 
 log_info "Checking retained Frigate availability message on MQTT..."
 MQTT_MESSAGE="$(
-  pct exec "${MQTT_CT_ID}" -- bash -c "HOME='${CLIENT_HOME}' XDG_CONFIG_HOME='${CLIENT_HOME}/.config' timeout 20 mosquitto_sub -t 'frigate/available' -C 1 -W 15 2>/tmp/frigate-mqtt-sub.err" || true
+  pct exec "${MQTT_CT_ID}" -- bash -c \
+    'HOME="$1" XDG_CONFIG_HOME="$2" timeout 20 mosquitto_sub -t frigate/available -C 1 -W 15 2>"$3"' \
+    bash "${CLIENT_HOME}" "${CLIENT_HOME}/.config" "${CLIENT_HOME}/mosquitto-sub.err" || true
 )"
 
 case "${MQTT_MESSAGE}" in
@@ -135,7 +176,7 @@ case "${MQTT_MESSAGE}" in
     record_error "No retained MQTT availability message received on frigate/available"
     ;;
   *)
-    record_warn "Unexpected Frigate MQTT availability payload: ${MQTT_MESSAGE}"
+    record_warn "Unexpected Frigate MQTT availability payload (value suppressed)"
     ;;
 esac
 
@@ -145,7 +186,7 @@ FRIGATE_STARTED_AT="$(
 )"
 
 if [[ -n "${FRIGATE_STARTED_AT}" ]]; then
-  RECENT_LOGS="$(pct exec "${FRIGATE_CT_ID}" -- docker logs --since "${FRIGATE_STARTED_AT}" frigate 2>&1 || true)"
+  RECENT_LOGS="$(pct exec "${FRIGATE_CT_ID}" -- docker logs --since "${FRIGATE_STARTED_AT}" --tail 1000 frigate 2>&1 || true)"
 else
   record_warn "Could not determine Frigate container start time; falling back to last 200 log lines"
   RECENT_LOGS="$(pct exec "${FRIGATE_CT_ID}" -- docker logs --tail 200 frigate 2>&1 || true)"
