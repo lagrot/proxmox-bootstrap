@@ -29,6 +29,23 @@ for archive in "${RUN_DIR}"/frigate.tar.gz "${RUN_DIR}"/mosquitto.tar.gz "${RUN_
   tar -tzf "${archive}" >/dev/null
   tar -xzf "${archive}" -C "${TEST_DIR}"
 done
+FRIGATE_RESTORED="${TEST_DIR}/opt/frigate/config"
+if [[ -f "${FRIGATE_RESTORED}/.backup-sqlite-format" ]]; then
+  [[ "$(cat "${FRIGATE_RESTORED}/.backup-sqlite-format")" == 'sqlite-online-backup-v1' ]] || die "Unknown Frigate database backup format"
+  [[ ! -e "${FRIGATE_RESTORED}/frigate.db-wal" && ! -e "${FRIGATE_RESTORED}/frigate.db-shm" ]] || die "Unexpected Frigate database sidecars"
+  python3 - "${FRIGATE_RESTORED}/frigate.db" <<'PY'
+import pathlib, sqlite3, sys
+path = pathlib.Path(sys.argv[1])
+if not path.is_file():
+    raise SystemExit('Frigate database missing from backup')
+with sqlite3.connect(path.resolve().as_uri() + '?mode=ro', uri=True) as db:
+    if db.execute('PRAGMA integrity_check').fetchone() != ('ok',):
+        raise SystemExit('Frigate database integrity check failed')
+PY
+  log_info "Frigate SQLite snapshot integrity verified"
+else
+  log_warn "Legacy Frigate backup: database consistency was not verified"
+fi
 find "${RUN_DIR}" -maxdepth 1 -type f -name 'vzdump-qemu-*.vma.zst' -size +0c | grep -q . || die "Home Assistant vzdump archive missing"
 if [[ -f "${RUN_DIR}/landet-recovery.json" ]]; then
   bash "${PROJECT_ROOT}/scripts/step24-landet-recovery.sh" --verify "${RUN_DIR}"
