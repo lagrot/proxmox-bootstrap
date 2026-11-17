@@ -165,7 +165,7 @@ check_hermes_cli() {
     record_error "Hermes is not available in controlled PATH"
   fi
 
-  if run_in_ct "PATH=/usr/local/bin:/usr/bin:/bin hermes --help >/dev/null 2>&1"; then
+  if pct exec "${HERMES_CT_ID}" -- su - "${HERMES_USER}" -c 'PATH=/usr/local/bin:/usr/bin:/bin hermes --help' >/dev/null 2>&1; then
     log_info "Hermes CLI responds to --help"
   else
     record_error "Hermes CLI did not respond to --help"
@@ -281,7 +281,7 @@ check_gateway_status_command() {
 check_recent_gateway_logs() {
   log_info "Checking recent Hermes gateway logs..."
 
-  local logs service_started_at
+  local logs service_started_at log_errors rate_limits
   service_started_at="$(
     run_in_ct "systemctl show '${HERMES_SERVICE_NAME}' --property=ExecMainStartTimestamp --value" \
       2>/dev/null || true
@@ -301,13 +301,23 @@ check_recent_gateway_logs() {
     return
   fi
 
-  if echo "${logs}" \
-    | grep -Eiq 'Traceback \(most recent call last\)|Main process exited|Failed with result|(^|[[:space:]])(CRITICAL|FATAL)(:|[[:space:]])|unhandled exception'; then
+  if ! read -r log_errors rate_limits < <(printf '%s\n' "${logs}" | python3 "${PROJECT_ROOT}/lib/hermes-log-check.py"); then
+    record_error "Could not classify Hermes gateway logs"
+    return
+  fi
+  if [[ ! "${log_errors}" =~ ^[0-9]+$ || ! "${rate_limits}" =~ ^[0-9]+$ ]]; then
+    record_error "Invalid Hermes gateway log classification"
+    return
+  fi
+  if (( log_errors > 0 )); then
     record_error "Current Hermes gateway run contains a fatal/startup error"
     log_error "Review with:"
     log_error "  pct exec ${HERMES_CT_ID} -- journalctl -u ${HERMES_SERVICE_NAME} --since '${service_started_at:-1 hour ago}' --no-pager"
   else
     log_info "No fatal/startup errors found since the current gateway run started"
+  fi
+  if (( rate_limits > 0 )); then
+    record_warn "Gateway logs contain ${rate_limits} provider rate-limit traceback(s); current provider connectivity is checked separately"
   fi
 
   if echo "${logs}" | grep -q 'No messaging platforms enabled'; then

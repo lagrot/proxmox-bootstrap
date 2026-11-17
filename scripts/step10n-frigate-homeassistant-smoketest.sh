@@ -1,6 +1,15 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+CHECK_ACTIVITY=0
+case "${1:-}" in
+  "") ;;
+  --check-activity) CHECK_ACTIVITY=1 ;;
+  --help) echo "Usage: bash scripts/step10n-frigate-homeassistant-smoketest.sh [--check-activity]"; exit 0 ;;
+  *) echo "ERROR: unknown argument: $1" >&2; exit 2 ;;
+esac
+[[ $# -le 1 ]] || { echo "ERROR: too many arguments" >&2; exit 2; }
+
 SCRIPT_DIR="$(cd -- "$(dirname -- "$BASH_SOURCE")" && pwd)"
 PROJECT_ROOT="$(cd -- "$SCRIPT_DIR/.." && pwd)"
 source "$PROJECT_ROOT/lib/common.sh"
@@ -116,6 +125,10 @@ for camera in cameras:
 }
 
 track_recording() {
+  if (( ! CHECK_ACTIVITY )); then
+    echo "INFO: recent event recording check skipped; use --check-activity"
+    return 0
+  fi
   echo "INFO: checking recent event recording output"
   for camera_name in "${CAMERA_NAMES[@]}"; do
     recordings="$(pct exec "$FRIGATE_CT_ID" -- find /mnt/frigate/recordings -type f \
@@ -148,6 +161,10 @@ track_mqtt() {
     "HOME='$client_home' XDG_CONFIG_HOME='$client_home/.config' timeout 15 mosquitto_sub -t frigate/available -C 1 -W 10 2>/dev/null" || true)"
   [[ "$availability" == online ]] || { echo "ERROR: Frigate MQTT availability is $availability"; return 1; }
   echo "INFO: Frigate MQTT availability is online"
+  if (( ! CHECK_ACTIVITY )); then
+    echo "INFO: live event check skipped; use --check-activity"
+    return 0
+  fi
   echo "INFO: move in front of the camera during the next $MQTT_EVENT_WAIT_SECONDS seconds"
   event_payload="$(pct exec "$MQTT_CT_ID" -- bash -c \
     "HOME='$client_home' XDG_CONFIG_HOME='$client_home/.config' timeout '$MQTT_EVENT_WAIT_SECONDS' mosquitto_sub -t frigate/events -C 1 -W '$MQTT_EVENT_WAIT_SECONDS' 2>/dev/null" || true)"

@@ -48,6 +48,14 @@ SECURITY UPDATE
 ---------------
 Update one container at a time.
 
+The sequential coordinator can run all five one at a time:
+  bash scripts/step20-update-all-cts.sh --dry-run
+  bash scripts/step20-update-all-cts.sh --confirm
+
+Preview only prints the plan; confirm refreshes package metadata and stops on
+the first failure. Rollback cleanup remains separate. A production run passed
+for all five CTs with their service validations.
+
 Optional. Refresh package metadata and preview without installing anything:
   bash scripts/step20-update-ct.sh ct210 --dry-run
 

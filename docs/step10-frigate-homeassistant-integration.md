@@ -346,10 +346,11 @@ The script runs four independent tracks in parallel:
 
 - Frigate container health, port 5000, and Tapo C200 configuration.
 - Home Assistant API access and required Frigate entities.
-- Recent event recording segment output.
-- MQTT availability and a bounded live `frigate/events` capture.
+- MQTT availability.
+- Optional recent event recording and live `frigate/events` checks.
 
-During the MQTT event window, move in front of either camera. Missing recent
+To check activity, run `bash scripts/step10n-frigate-homeassistant-smoketest.sh --check-activity`
+and move in front of either camera during the MQTT event window. Missing recent
 event recordings or a missing event are reported as activity-dependent
 warnings; a broken service, missing entity, or unavailable API is an error.
 
