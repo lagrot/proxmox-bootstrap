@@ -4,12 +4,13 @@ This runbook upgrades the standalone Frigate Docker Compose deployment in CT
 200 to a deliberately selected stable release. It is version-independent and
 is not specific to Frigate 0.18.
 
-Frigate currently remains pinned to `ghcr.io/blakeblackshear/frigate:0.17.2`.
-The procedure has been tested without performing a production upgrade.
+Frigate is pinned to `ghcr.io/blakeblackshear/frigate:0.18.2` after a
+production upgrade from 0.17.2. Retain the matching backup and old image during
+observation; production rollback has not been performed.
 
 ## Non-Negotiable Rules
 
-- Use an exact `X.Y.Z` target such as `0.18.0` or `0.18.1`.
+- Use an exact `X.Y.Z` target such as `0.18.2`; review current advisories.
 - Never use `stable`, `latest`, beta, RC, development, or nightly targets.
 - Confirm the release is officially stable and review its release notes and
   breaking changes before passing `--release-notes-reviewed`.
@@ -29,8 +30,10 @@ The procedure has been tested without performing a production upgrade.
 | 18C validation | seven-track 0.17.2 baseline test | none |
 | 18D rollback | disposable archive restore test | none |
 
-These tests prove the workflow mechanics available without claiming that a
-future Frigate release is compatible.
+The 0.18.2 production upgrade passed the seven Step 18C tracks, a separate
+C320WS direct stream check, and protected Landet publication validation.
+Both cameras reported live frames. A new person event and authenticated retained
+clip playback remain separate acceptance checks.
 
 ## Stage 18A: Preflight
 

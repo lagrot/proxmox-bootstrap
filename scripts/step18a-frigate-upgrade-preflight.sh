@@ -15,7 +15,7 @@ COMPOSE_FILE="${APP_DIR}/docker-compose.yml"
 TARGET_VERSION=""
 RELEASE_NOTES_REVIEWED=0
 SKIP_PULL=0
-VALIDATION_DIR="/tmp/frigate-upgrade-preflight"
+VALIDATION_DIR=""
 
 usage() {
   cat <<EOF
@@ -44,7 +44,9 @@ for cmd in pct grep awk; do command -v "$cmd" >/dev/null || die "Missing command
 (( RELEASE_NOTES_REVIEWED == 1 )) || die "Pass --release-notes-reviewed after reviewing the target release notes"
 pct status "$CT_ID" | grep -q 'status: running' || die "CT $CT_ID is not running"
 
-cleanup() { pct exec "$CT_ID" -- rm -rf "$VALIDATION_DIR" >/dev/null 2>&1 || true; }
+cleanup() {
+  [[ -z "$VALIDATION_DIR" ]] || pct exec "$CT_ID" -- rm -rf -- "$VALIDATION_DIR" >/dev/null 2>&1 || true
+}
 trap cleanup EXIT
 
 log_info "STEP 18A - FRIGATE STABLE UPGRADE PREFLIGHT"
@@ -80,7 +82,8 @@ fi
 TARGET_REPO_TAGS="$(pct exec "$CT_ID" -- docker image inspect "$TARGET_IMAGE" --format '{{join .RepoTags " "}}')"
 grep -qw "$TARGET_IMAGE" <<< "$TARGET_REPO_TAGS" || die "Pulled image does not expose the exact target tag"
 
-pct exec "$CT_ID" -- mkdir -m 700 "$VALIDATION_DIR"
+VALIDATION_DIR="$(pct exec "$CT_ID" -- mktemp -d /tmp/frigate-upgrade-preflight.XXXXXXXXXX)"
+[[ "$VALIDATION_DIR" == /tmp/frigate-upgrade-preflight.* ]] || die "Invalid temporary directory"
 pct exec "$CT_ID" -- cp "$CONFIG_DIR/config.yml" "$VALIDATION_DIR/config.yml"
 pct exec "$CT_ID" -- chmod 600 "$VALIDATION_DIR/config.yml"
 log_info "Validating copied config with exact target image"

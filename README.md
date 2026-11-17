@@ -299,9 +299,9 @@ The `old/` directory contains scripts that are kept for historical reference but
 | Step 13 | Frigate snapshot and export retention policy | verified |
 | Step 13B | Frigate media retention and capacity validation | verified |
 | Step 14A | Face-recognition readiness assessment | verified research |
-| Step 18A | Frigate stable-upgrade preflight | verified on 0.17.2 |
-| Step 18B | Controlled Frigate upgrade executor | dry-run verified |
-| Step 18C | Post-upgrade regression orchestration | baseline verified |
+| Step 18A | Frigate stable-upgrade preflight | 0.18.2 config validation passed |
+| Step 18B | Controlled Frigate upgrade executor | 0.18.2 upgrade verified |
+| Step 18C | Post-upgrade regression orchestration | 0.18.2 checks passed |
 | Step 18D | Explicit Frigate rollback | restore-test verified |
 | Step 19A | Sonoff ZBDongle-P passthrough to HAOS | verified |
 | Step 19B | HAOS Zigbee hardware, ZHA, and first sensor validation | verified |
