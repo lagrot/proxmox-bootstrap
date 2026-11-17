@@ -109,8 +109,15 @@ bash scripts/step10f-frigate-mqtt-validation.sh
 ```
 
 The validation authenticates to MQTT, checks the retained Frigate availability
-message, verifies the Frigate config contains MQTT credentials, and scans
-recent Frigate logs for MQTT failures.
+message, verifies the Frigate config contains MQTT credentials, and scans the
+most recent Frigate logs for MQTT failures. It creates a uniquely named,
+permission-restricted temporary Mosquitto client config in CT 210 and removes it
+when finished. It does not change Frigate or broker configuration or restart
+services. Run its isolated failure-path checks with:
+
+```bash
+python3 scripts/step10f-frigate-mqtt-validation-tests.py -v
+```
 
 ## 4. Configure Tapo cameras
 
