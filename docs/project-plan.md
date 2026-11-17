@@ -271,8 +271,9 @@ Frigate runs in CT 200 through Docker Compose.
 |---|---|
 | CT ID | `200` |
 | Hostname | `docker-core` |
+| Root filesystem | `local-lvm`, 32 GiB |
 | IP | `192.168.8.104` |
-| Image | `ghcr.io/blakeblackshear/frigate:0.17.2` (pinned; upgrade deliberately after validation) |
+| Image | `ghcr.io/blakeblackshear/frigate:0.18.2` (pinned; under observation) |
 | Authenticated URL | `https://192.168.8.104:8971` |
 | Home Assistant integration URL | `http://192.168.8.104:5000` |
 | Media mount | `/mnt/frigate` |
@@ -649,11 +650,14 @@ target-image config validation, a stopped-state backup, exact version/health
 checks, the complete regression suite, and matching config/database rollback.
 Moving tags and prerelease strings are rejected.
 
-The tooling has been safely tested against the current pinned `0.17.2`
-baseline: Step 18A passed without mutation, Step 18B passed in dry-run mode,
-Step 18C passed all seven regression tracks in baseline mode, and Step 18D
-passed a temporary restore test. No real Frigate upgrade or production rollback
-has been performed. Frigate remains pinned to `0.17.2`.
+The 0.17.2 baseline, dry run and temporary rollback restore were verified.
+Frigate was upgraded to exact stable 0.18.2 after copied-config migration and
+a stopped, checksum-verified Compose/config/database backup. Step 18C passed
+all seven tracks; the C320WS direct stream validation and protected Landet
+publication also passed. Both cameras reported live frames and Coral detector
+statistics were healthy. Keep the 0.17.2 image and upgrade backup during
+observation. A new person event and authenticated retained-clip playback remain
+separate acceptance checks. Production rollback has not been performed.
 
 The complete operator procedure and acceptance/rollback boundaries are in
 `docs/step18-frigate-upgrade.md`.
@@ -825,9 +829,8 @@ The agreed near-term roadmap is:
    Hermes gateway.
 4. **Step 17 - Zones, masks, and detection tuning:** configure these after the
    cameras reach their final physical positions.
-5. **Step 18 - Controlled Frigate upgrade procedure:** tooling and safe baseline
-   tests are complete. Use it only after a later stable release is selected and
-   reviewed. No production upgrade has yet been performed.
+5. **Step 18 - Controlled Frigate upgrade procedure:** production is on 0.18.2
+   and initial service checks pass. Retain rollback protection during observation.
 6. **Step 19 - Zigbee coordinator:** ZHA, HAOS USB passthrough, coordinator
    discovery, integration loading, and the first temperature/humidity sensor
    are verified.

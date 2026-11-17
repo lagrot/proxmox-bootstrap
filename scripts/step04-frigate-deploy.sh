@@ -40,7 +40,7 @@ CT_ID="${DOCKER_CT_ID:-200}"
 FRIGATE_APP_DIR="${FRIGATE_APP_DIR:-/opt/frigate}"
 FRIGATE_CONFIG_DIR="${FRIGATE_CONFIG_DIR:-${FRIGATE_APP_DIR}/config}"
 FRIGATE_MEDIA_DIR="${FRIGATE_MEDIA_DIR:-/mnt/frigate}"
-FRIGATE_IMAGE="${FRIGATE_IMAGE:-ghcr.io/blakeblackshear/frigate:0.17.2}"
+FRIGATE_IMAGE="${FRIGATE_IMAGE:-ghcr.io/blakeblackshear/frigate:0.18.2}"
 FRIGATE_WEB_PORT="${FRIGATE_WEB_PORT:-8971}"
 FRIGATE_INTERNAL_PORT="${FRIGATE_INTERNAL_PORT:-5000}"
 
@@ -91,9 +91,18 @@ if ! pct config "${CT_ID}" >/dev/null 2>&1; then
   exit 1
 fi
 
-log_info "Ensuring CT ${CT_ID} is running..."
+log_info "Checking that CT ${CT_ID} is running..."
 if ! pct status "${CT_ID}" | grep -q "status: running"; then
-  run_host pct start "${CT_ID}"
+  log_error "CT ${CT_ID} must be running so existing Frigate files can be checked safely"
+  exit 1
+fi
+
+# Bootstrap writes a minimal config and must never replace an existing setup.
+if ! pct exec "${CT_ID}" -- sh -c 'test ! -e "$1" && test ! -e "$2"' \
+    sh "${FRIGATE_APP_DIR}/docker-compose.yml" "${FRIGATE_CONFIG_DIR}/config.yml"; then
+  log_error "Existing Frigate files found or could not be checked; bootstrap will not overwrite them"
+  log_error "Use the Step 18 upgrade/rollback workflow for an existing installation"
+  exit 1
 fi
 
 log_info "Checking Docker inside CT ${CT_ID}..."

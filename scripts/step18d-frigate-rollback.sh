@@ -84,10 +84,10 @@ if (( DRY_RUN == 1 )); then
   exit 0
 fi
 
-STAGING_DIR="/tmp/frigate-rollback-$RANDOM"
+STAGING_DIR="$(pct exec "$CT_ID" -- mktemp -d /tmp/frigate-rollback.XXXXXXXXXX)"
+[[ "$STAGING_DIR" == /tmp/frigate-rollback.* ]] || die "Invalid staging directory"
 cleanup() { pct exec "$CT_ID" -- rm -rf "$STAGING_DIR" >/dev/null 2>&1 || true; }
 trap cleanup EXIT
-pct exec "$CT_ID" -- mkdir -m 700 "$STAGING_DIR"
 pct exec "$CT_ID" -- tar -xzf "$BACKUP_DIR/frigate-config.tar.gz" -C "$STAGING_DIR"
 pct exec "$CT_ID" -- test -f "$STAGING_DIR/${COMPOSE_FILE#/}" || die "Restored Compose missing from staging"
 pct exec "$CT_ID" -- test -f "$STAGING_DIR/${CONFIG_DIR#/}/config.yml" || die "Restored config missing from staging"
