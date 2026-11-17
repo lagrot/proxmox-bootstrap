@@ -127,6 +127,12 @@ MQTT credentials and other MQTT options, and retains a protected config backup.
 It does not restart Frigate. Restart it separately:
 
 ```bash
+bash scripts/step10e-frigate-restart.sh --dry-run
+```
+
+If the preflight succeeds, perform the restart:
+
+```bash
 bash scripts/step10e-frigate-restart.sh
 ```
 

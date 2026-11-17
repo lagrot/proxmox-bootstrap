@@ -436,7 +436,7 @@ event-only recording policy are complete through Step 10P. The verified
 workflow and operator notes are maintained in
 `docs/step10-frigate-homeassistant-integration.md`.
 
-Step 10 validation scripts should discover runtime IP addresses from Proxmox guest/container state. The current LAN addresses are pinned by router DHCP reservations, but scripts should still avoid hardcoding LAN IPs where practical. Frigate still requires a broker address in its runtime config; rerun `scripts/step10d-frigate-mqtt-config.sh` if the MQTT CT address changes. Step 10D has a non-mutating preview, updates only the MQTT enabled/host/port keys, preserves existing credentials and other MQTT options, and restores its protected backup if Compose validation fails.
+Step 10 validation scripts should discover runtime IP addresses from Proxmox guest/container state. The current LAN addresses are pinned by router DHCP reservations, but scripts should still avoid hardcoding LAN IPs where practical. Frigate still requires a broker address in its runtime config; rerun `scripts/step10d-frigate-mqtt-config.sh` if the MQTT CT address changes. Step 10D has a non-mutating preview, updates only the MQTT enabled/host/port keys, preserves existing credentials and other MQTT options, and restores its protected backup if Compose validation fails. Step 10E has a non-mutating preflight, checks Compose and the existing container before restart, and bounds its HTTPS probe.
 
 Suggested scope:
 
