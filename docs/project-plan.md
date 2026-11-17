@@ -794,16 +794,19 @@ summary of recovery-backup age, explicitly timestamped audit counts, live
 reboot markers, controlled-update policy, retained snapshot/cleanup state, and
 simple operating guidance.
 
+The manually started `scripts/step20-update-all-cts.sh` coordinates the
+existing one-CT-at-a-time workflow. Its first production run updated all five
+containers and passed their validations while retaining rollback protection.
+Its preview is read-only and displays the sequence without refreshing metadata.
+
 ## Later Tasks
 
 Deferred maintenance follow-up:
 
-- Fix locale warnings confirmed during Debian Security patching in CT200,
-  CT210 and CT220 (`LANG=en_US.UTF-8`, reported as unavailable by Perl and
-  apt-listchanges). Inspect generated locales and effective environment, align
-  them with a supported UTF-8 locale, and verify package tooling without locale
-  warnings. Check other CTs for the same mismatch. Patching and final service
-  validation succeeded; locale remediation is deferred.
+- Locale remediation is complete in CT200, CT210, CT220, CT230 and CT240:
+  `en_US.UTF-8` is generated for the environment passed by `pct exec`.
+  Perl and apt-listchanges checks pass; CT230's protected routes and CT240's
+  viewer and camera-source validation passed after the changes.
 - Design automatic cleanup of updater-managed rollback snapshots/backups, with
   at least the existing observation period and successful service validation.
   Failed updates and unrelated snapshots must remain protected. Current cleanup
@@ -1097,5 +1100,5 @@ provider/gateway, both camera sources with Coral/VAAPI and HA recording states,
 and protected Cloudflare publication. Event-dependent smoke-test warnings do
 not prove a new person event or newly retained clip. Existing log-only Coral
 initialization warnings coexist with successful live detector statistics.
-Rollback protection is retained; locale remediation, automatic cleanup and
+Rollback protection is retained; automatic cleanup and
 Proxmox host patching remain separate follow-up work.

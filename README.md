@@ -149,6 +149,7 @@ scripts/
 - `scripts/step20f-unattended-upgrades.sh`
 - `scripts/step20g-unattended-upgrades-validation.sh`
 - `scripts/step20-update-ct.sh`
+- `scripts/step20-update-all-cts.sh`
 - `scripts/step20-update-ct-tests.sh`
 - `scripts/step20i-ct200-restore-test.sh`
 - `scripts/step20-status.sh`

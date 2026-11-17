@@ -90,6 +90,27 @@ The JSON is machine state. Use `step20-status.sh` for the human view.
 
 ## Controlled CT security updates
 
+### Sequential coordinator
+
+`scripts/step20-update-all-cts.sh` coordinates the existing single-CT updater
+in the order CT210, CT220, CT200, CT240, CT230. It stops on the first failure;
+completed targets and their rollback protection remain in place. CT230 briefly
+interrupts both public routes. The per-CT updater retains its existing locks,
+preflight, backup or snapshot, installation and validation checks. Cleanup
+remains a separate deliberate operation after the observation period.
+
+```bash
+bash scripts/step20-update-all-cts.sh --dry-run
+bash scripts/step20-update-all-cts.sh --confirm
+```
+
+The coordinator's preview only displays the plan and does not refresh APT
+metadata or predict updates. Confirm refreshes metadata for each CT through
+the existing updater. Isolated sequencing and failure tests passed. A production
+run updated all five CTs sequentially and passed their service validations;
+rollback protection was retained for the observation period. It does not update
+the Proxmox host or applications.
+
 Run the non-mutating prerequisite and package simulation:
 
 ```bash

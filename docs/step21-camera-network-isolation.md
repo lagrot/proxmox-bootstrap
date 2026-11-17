@@ -8,6 +8,12 @@ Do not expose Frigate or the cameras through router port forwarding, UPnP,
 DMZ, or a public unauthenticated proxy. Remote camera viewing must use a
 separately authenticated gateway to Home Assistant or Frigate.
 
+The C200 is powered through the Home Assistant Shelly plug
+`shellyplugsg3-d885ac1908e4`. The owner used it to restart the C200 remotely
+after both RTSP streams and ONVIF timed out; both camera streams and Home
+Assistant entities subsequently recovered. Power cycling interrupts that
+camera and its recording; confirm the plug identity before operating it.
+
 ## Current configuration
 
 The Tele2-branded Huawei 5G CPE 5 router has active IPv4 IP-filter rules for

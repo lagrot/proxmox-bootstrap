@@ -168,7 +168,7 @@ check_hermes_cli() {
     record_error "Hermes is not available in controlled PATH"
   fi
 
-  if run_in_ct "PATH=/usr/local/bin:/usr/bin:/bin hermes --help >/dev/null 2>&1"; then
+  if pct exec "${HERMES_CT_ID}" -- su - "${HERMES_USER}" -c 'PATH=/usr/local/bin:/usr/bin:/bin hermes --help' >/dev/null 2>&1; then
     log_info "Hermes CLI responds to --help"
   else
     record_error "Hermes CLI did not respond to --help"
