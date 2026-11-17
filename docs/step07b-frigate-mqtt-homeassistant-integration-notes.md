@@ -109,36 +109,25 @@ Current broker address:
 
 ## 4. Prepare Frigate MQTT configuration
 
-Frigate currently has MQTT disabled in the minimal bootstrap config.
-
-Before connecting Frigate to Home Assistant, Frigate should publish events to the MQTT broker.
-
-Edit the Frigate config in CT 200:
+Before connecting Frigate to Home Assistant, Frigate should publish events to
+the MQTT broker. Preview the runtime broker address and planned config change:
 
 ```bash
-pct exec 200 -- vi /opt/frigate/config/config.yml
+bash scripts/step10d-frigate-mqtt-config.sh --dry-run
 ```
 
-Change the MQTT section from:
-
-```yaml
-mqtt:
-  enabled: false
-```
-
-to:
-
-```yaml
-mqtt:
-  enabled: true
-  host: 192.168.8.103
-  port: 1883
-```
-
-Then restart Frigate:
+If the preview is correct, apply the update:
 
 ```bash
-pct exec 200 -- bash -c 'cd /opt/frigate && docker compose restart frigate'
+bash scripts/step10d-frigate-mqtt-config.sh
+```
+
+The script discovers the broker address from CT 210, preserves any existing
+MQTT credentials and other MQTT options, and retains a protected config backup.
+It does not restart Frigate. Restart it separately:
+
+```bash
+bash scripts/step10e-frigate-restart.sh
 ```
 
 Validate Frigate again:
