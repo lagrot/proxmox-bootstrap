@@ -4,6 +4,19 @@ set -euo pipefail
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd -- "${SCRIPT_DIR}/.." && pwd)"
 
+MODE="apply"
+if [[ $# -gt 1 ]]; then
+  printf 'Usage: %s [--dry-run]\n' "$0" >&2
+  exit 2
+fi
+if [[ $# -eq 1 ]]; then
+  case "$1" in
+    --dry-run) MODE="dry-run"; LOG_FILE=/dev/null ;;
+    --help|-h) printf 'Usage: %s [--dry-run]\n' "$0"; exit 0 ;;
+    *) printf 'Unknown argument: %s\nUsage: %s [--dry-run]\n' "$1" "$0" >&2; exit 2 ;;
+  esac
+fi
+
 # shellcheck source=/dev/null
 source "${PROJECT_ROOT}/lib/common.sh"
 
@@ -28,6 +41,7 @@ C200_NAME="${TAPO_C200_NAME:-tplink_c200_1}"
 C320WS_NAME="${TAPO_C320WS_NAME:-tplink_c320ws_1}"
 FRIGATE_CT_ID="${DOCKER_CT_ID:-200}"
 FORCE_UPDATE="${FORCE_UPDATE:-0}"
+FRIGATE_WEB_PORT="${FRIGATE_WEB_PORT:-8971}"
 
 VALIDATION_ERRORS=0
 
@@ -46,25 +60,91 @@ check_host_command() {
   fi
 }
 
-if [[ "${EUID}" -ne 0 ]]; then
+if [[ "${MODE}" == "apply" && "${EUID}" -ne 0 ]]; then
   record_error "This script must be run as root"
 fi
 
-for cmd in qm pct awk grep base64; do
+if [[ ! "${HA_VM_ID}" =~ ^[1-9][0-9]{2,8}$ ]]; then
+  record_error "HA_VM_ID must be a Proxmox VM ID of 100 or greater"
+fi
+if [[ ! "${FRIGATE_CT_ID}" =~ ^[1-9][0-9]{2,8}$ ]]; then
+  record_error "DOCKER_CT_ID must be a Proxmox CT ID of 100 or greater"
+fi
+if [[ ! "${HA_DASHBOARD_URL_PATH}" =~ ^[a-z0-9][a-z0-9_-]{0,39}$ ]]; then
+  record_error "HA_DASHBOARD_URL_PATH must be a lowercase URL slug (letters, digits, _ or -)"
+fi
+HA_DASHBOARD_TITLE_RE='^[A-Za-z0-9][A-Za-z0-9 _-]{0,39}$'
+if [[ ! "${HA_DASHBOARD_TITLE}" =~ ${HA_DASHBOARD_TITLE_RE} ]]; then
+  record_error "HA_DASHBOARD_TITLE must be 1-40 simple letters, digits, spaces, _ or -"
+fi
+if [[ ! "${HA_DASHBOARD_ICON}" =~ ^mdi:[a-z0-9-]+$ ]]; then
+  record_error "HA_DASHBOARD_ICON must use the mdi:name format"
+fi
+if [[ ! "${C200_NAME}" =~ ^[a-z0-9_]+$ || ! "${C320WS_NAME}" =~ ^[a-z0-9_]+$ ]]; then
+  record_error "Camera names must contain only lowercase letters, digits, and underscores"
+fi
+if [[ "${C200_NAME}" == "${C320WS_NAME}" ]]; then
+  record_error "The C200 and C320WS camera names must be different"
+fi
+if [[ ! "${FRIGATE_WEB_PORT}" =~ ^[0-9]{1,5}$ ]] \
+  || ((10#${FRIGATE_WEB_PORT:-0} < 1 || 10#${FRIGATE_WEB_PORT:-0} > 65535)); then
+  record_error "FRIGATE_WEB_PORT must be an integer from 1 through 65535"
+fi
+if [[ "${FORCE_UPDATE}" != "0" && "${FORCE_UPDATE}" != "1" ]]; then
+  record_error "FORCE_UPDATE must be 0 or 1"
+fi
+
+if [[ "${MODE}" == "dry-run" ]]; then
+  if [[ "${VALIDATION_ERRORS}" -gt 0 ]]; then
+    exit 1
+  fi
+  log_info "Dry run: no Proxmox guest or Home Assistant API calls will be made"
+  log_info "Would validate Frigate dashboard entities, then create or preserve /${HA_DASHBOARD_URL_PATH}"
+  if [[ "${FORCE_UPDATE}" == "1" ]]; then
+    log_info "Would replace the existing dashboard configuration because FORCE_UPDATE=1"
+  else
+    log_info "Would preserve an existing dashboard at /${HA_DASHBOARD_URL_PATH}"
+  fi
+  log_info "No changes were made"
+  exit 0
+fi
+
+for cmd in qm pct grep sed head base64 python3; do
   check_host_command "${cmd}"
 done
 
 if [[ -z "${HA_TOKEN}" ]]; then
   record_error "HA_TOKEN is not set; add it to config/local.conf"
 fi
+export -n HA_TOKEN
 
 if [[ "${VALIDATION_ERRORS}" -gt 0 ]]; then
   exit 1
 fi
 
-FRIGATE_CT_IP="$(
-  pct exec "${FRIGATE_CT_ID}" -- ip -4 -o addr show dev eth0 2>/dev/null \
-    | awk '{ split($4, address, "/"); print address[1]; exit }' || true
+FRIGATE_INTERFACE_JSON="$(pct exec "${FRIGATE_CT_ID}" -- ip -j -4 addr show dev eth0 2>/dev/null || true)"
+FRIGATE_CT_IP="$(FRIGATE_INTERFACE_JSON="${FRIGATE_INTERFACE_JSON}" python3 - <<'PY'
+import ipaddress
+import json
+import os
+
+try:
+    interfaces = json.loads(os.environ["FRIGATE_INTERFACE_JSON"])
+except (json.JSONDecodeError, KeyError):
+    raise SystemExit(0)
+for interface in interfaces if isinstance(interfaces, list) else []:
+    for item in interface.get("addr_info", []):
+        if item.get("family") != "inet":
+            continue
+        try:
+            address = ipaddress.IPv4Address(item.get("local", ""))
+        except ipaddress.AddressValueError:
+            continue
+        if address.is_loopback or address.is_link_local or address.is_unspecified or address.is_multicast:
+            continue
+        print(address)
+        raise SystemExit(0)
+PY
 )"
 
 if [[ -z "${FRIGATE_CT_IP}" ]]; then
@@ -72,7 +152,7 @@ if [[ -z "${FRIGATE_CT_IP}" ]]; then
   exit 1
 fi
 
-FRIGATE_REVIEW_URL="https://${FRIGATE_CT_IP}:${FRIGATE_WEB_PORT:-8971}/review"
+FRIGATE_REVIEW_URL="https://${FRIGATE_CT_IP}:${FRIGATE_WEB_PORT}/review"
 
 log_info "Preparing native Frigate dashboard configuration..."
 DASHBOARD_CONFIG_B64="$(base64 -w0 <<EOF
@@ -384,117 +464,25 @@ DASHBOARD_CONFIG_B64="$(base64 -w0 <<EOF
 EOF
 )"
 
-PYTHON_CODE_B64="$(base64 -w0 <<'PYTHON'
-import base64
-import json
-import os
-import sys
-import websocket
-
-
-TOKEN = os.environ["HASS_TOKEN"]
-URL_PATH = os.environ["HA_DASHBOARD_URL_PATH"]
-TITLE = os.environ["HA_DASHBOARD_TITLE"]
-ICON = os.environ["HA_DASHBOARD_ICON"]
-FORCE = os.environ.get("FORCE_UPDATE", "0") == "1"
-CONFIG = json.loads(base64.b64decode(os.environ["DASHBOARD_CONFIG_B64"]))
-
-
-def request(ws, message_id, message_type, **payload):
-    ws.send(json.dumps({"id": message_id, "type": message_type, **payload}))
-    while True:
-        response = json.loads(ws.recv())
-        if response.get("id") == message_id:
-            if not response.get("success"):
-                error = response.get("error", {})
-                raise RuntimeError(error.get("message", "Home Assistant request failed"))
-            return response.get("result")
-
-
-ws = websocket.create_connection("ws://127.0.0.1:8123/api/websocket", timeout=20)
-try:
-    hello = json.loads(ws.recv())
-    if hello.get("type") != "auth_required":
-        raise RuntimeError("Home Assistant WebSocket did not request authentication")
-
-    ws.send(json.dumps({"type": "auth", "access_token": TOKEN}))
-    auth = json.loads(ws.recv())
-    if auth.get("type") != "auth_ok":
-        raise RuntimeError("Home Assistant WebSocket authentication failed")
-
-    dashboards = request(ws, 1, "lovelace/dashboards/list")
-    existing = next((item for item in dashboards if item.get("url_path") == URL_PATH), None)
-
-    if existing and not FORCE:
-        print("dashboard_exists=" + URL_PATH)
-        sys.exit(0)
-
-    if not existing:
-        created = request(
-            ws,
-            2,
-            "lovelace/dashboards/create",
-            url_path=URL_PATH,
-            title=TITLE,
-            icon=ICON,
-            show_in_sidebar=True,
-            require_admin=False,
-        )
-        print("dashboard_created=" + str(created.get("url_path", URL_PATH)))
-    else:
-        print("dashboard_update=enabled")
-
-    states = request(ws, 3, "get_states")
-    available_entities = {item.get("entity_id") for item in states}
-
-    def collect_entities(value):
-        found = set()
-        if isinstance(value, dict):
-            entity = value.get("entity")
-            if isinstance(entity, str):
-                found.add(entity)
-            entities = value.get("entities")
-            if isinstance(entities, list):
-                found.update(item for item in entities if isinstance(item, str))
-            for child in value.values():
-                found.update(collect_entities(child))
-        elif isinstance(value, list):
-            for child in value:
-                found.update(collect_entities(child))
-        return found
-
-    required_entities = collect_entities(CONFIG)
-    missing_entities = sorted(required_entities - available_entities)
-    if missing_entities:
-        raise RuntimeError("Dashboard entities not found: " + ", ".join(missing_entities))
-    print("dashboard_entities_validated=" + str(len(required_entities)))
-
-    request(
-        ws,
-        4,
-        "lovelace/config/save",
-        url_path=URL_PATH,
-        config=CONFIG,
-    )
-    print("dashboard_config_saved=" + URL_PATH)
-finally:
-    ws.close()
-PYTHON
-)"
+PYTHON_CODE_B64="$(base64 -w0 < "${PROJECT_ROOT}/scripts/step10m-homeassistant-frigate-dashboard-client.py")"
 
 log_info "Creating or checking dashboard '${HA_DASHBOARD_URL_PATH}'..."
-GUEST_RESULT="$(
-  qm guest exec "${HA_VM_ID}" -- /usr/bin/docker exec \
-    -e "HASS_TOKEN=${HA_TOKEN}" \
-    -e "HA_DASHBOARD_URL_PATH=${HA_DASHBOARD_URL_PATH}" \
-    -e "HA_DASHBOARD_TITLE=${HA_DASHBOARD_TITLE}" \
-    -e "HA_DASHBOARD_ICON=${HA_DASHBOARD_ICON}" \
-    -e "FORCE_UPDATE=${FORCE_UPDATE}" \
-    -e "DASHBOARD_CONFIG_B64=${DASHBOARD_CONFIG_B64}" \
-    -e "PYTHON_CODE_B64=${PYTHON_CODE_B64}" \
-    homeassistant python3 -c 'import base64,os; exec(compile(base64.b64decode(os.environ["PYTHON_CODE_B64"]), "frigate-dashboard.py", "exec"))' \
-    2>&1
-)"
+if ! GUEST_RESULT="$(
+  printf '%s' "${HA_TOKEN}" \
+    | python3 -c 'import json,sys; print(json.dumps({"token":sys.stdin.read()}), end="")' \
+    | qm guest exec "${HA_VM_ID}" --pass-stdin -- /usr/bin/docker exec -i \
+      -e "HA_DASHBOARD_URL_PATH=${HA_DASHBOARD_URL_PATH}" \
+      -e "HA_DASHBOARD_TITLE=${HA_DASHBOARD_TITLE}" \
+      -e "HA_DASHBOARD_ICON=${HA_DASHBOARD_ICON}" \
+      -e "FORCE_UPDATE=${FORCE_UPDATE}" \
+      -e "DASHBOARD_CONFIG_B64=${DASHBOARD_CONFIG_B64}" \
+      -e "PYTHON_CODE_B64=${PYTHON_CODE_B64}" \
+      homeassistant python3 -c 'import base64,os; exec(compile(base64.b64decode(os.environ["PYTHON_CODE_B64"]), "frigate-dashboard.py", "exec"))' \
+      2>&1
+)"; then
+  log_error "Home Assistant guest-agent dashboard command failed"
+  exit 1
+fi
 
 if grep -q 'dashboard_created=' <<< "${GUEST_RESULT}"; then
   log_info "Frigate dashboard created"
