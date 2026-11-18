@@ -146,14 +146,29 @@ Shared settings
 
 Select the camera profile when applying or validating its configuration. The
 configuration script updates only that camera block and preserves other
-cameras:
+cameras. Review each camera change with `--dry-run` first. Applying a change
+backs up the current config, writes the new file atomically, checks the
+generated camera block and Docker Compose config, and restores the backup
+automatically if those checks fail. Camera credentials are sent to the
+container over standard input and are not printed by the script.
+The script does not restart Frigate; restart only after reviewing and applying
+the intended profile. Its isolated tests cover both camera-block rendering and
+the no-write, backup, idempotence, and rollback paths.
 
 ```bash
+TAPO_CAMERA_PROFILE=c200 bash scripts/step10g-frigate-tapo-camera-config.sh --dry-run
 TAPO_CAMERA_PROFILE=c200 bash scripts/step10g-frigate-tapo-camera-config.sh
+TAPO_CAMERA_PROFILE=c320ws bash scripts/step10g-frigate-tapo-camera-config.sh --dry-run
 TAPO_CAMERA_PROFILE=c320ws bash scripts/step10g-frigate-tapo-camera-config.sh
 bash scripts/step10e-frigate-restart.sh
 TAPO_CAMERA_PROFILE=c200 bash scripts/step10h-frigate-camera-validation.sh
 TAPO_CAMERA_PROFILE=c320ws bash scripts/step10h-frigate-camera-validation.sh
+```
+
+Run isolated script tests with:
+
+```bash
+python3 scripts/step10g-frigate-tapo-camera-config-tests.py -v
 ```
 
 Step 10H validates the Frigate configuration, Docker Compose file, camera
