@@ -449,7 +449,18 @@ event recordings or a missing event are reported as activity-dependent
 warnings; a broken service, missing entity, or unavailable API is an error.
 
 The smoke test is read-only and does not change Frigate, MQTT, or Home
-Assistant configuration.
+Assistant configuration. Its normal run does not require camera activity;
+`--check-activity` is an optional live check. The Home Assistant bearer token
+is sent to `curl` through its standard input configuration and is not included
+in the process arguments or environment. Temporary MQTT client credentials are
+written in a private, randomly named directory in CT 210 and removed at exit.
+
+Run the isolated operator and failure-path checks:
+
+```bash
+bash -n scripts/step10n-frigate-homeassistant-smoketest.sh
+python3 scripts/step10n-frigate-homeassistant-smoketest-tests.py -v
+```
 
 ## 12. Retain only event video
 
