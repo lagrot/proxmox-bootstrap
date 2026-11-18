@@ -682,6 +682,10 @@ separate acceptance checks. Production rollback has not been performed.
 
 The complete operator procedure and acceptance/rollback boundaries are in
 `docs/step18-frigate-upgrade.md`.
+Step 18A also rechecks free CT space after image preparation, distinguishes
+Proxmox status errors from stopped guests, and only removes its own generated
+temporary config-validation directory. Its isolated failure-path checks are
+in `scripts/step18a-frigate-upgrade-preflight-tests.py`.
 
 ## Home Assistant Zigbee Coordinator
 

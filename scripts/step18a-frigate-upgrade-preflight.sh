@@ -16,6 +16,7 @@ TARGET_VERSION=""
 RELEASE_NOTES_REVIEWED=0
 SKIP_PULL=0
 VALIDATION_DIR=""
+TARGET_SET=0
 
 usage() {
   cat <<EOF
@@ -29,7 +30,10 @@ EOF
 
 while (($#)); do
   case "$1" in
-    --target) [[ $# -ge 2 ]] || die "--target requires a version"; TARGET_VERSION="$2"; shift 2 ;;
+    --target)
+      [[ $# -ge 2 ]] || die "--target requires a version"
+      (( TARGET_SET == 0 )) || die "--target may only be provided once"
+      TARGET_VERSION="$2"; TARGET_SET=1; shift 2 ;;
     --release-notes-reviewed) RELEASE_NOTES_REVIEWED=1; shift ;;
     --skip-pull) SKIP_PULL=1; shift ;;
     -h|--help) usage; exit 0 ;;
@@ -39,13 +43,20 @@ done
 
 [[ "${EUID}" -eq 0 ]] || die "Run as root"
 for cmd in pct grep awk; do command -v "$cmd" >/dev/null || die "Missing command: $cmd"; done
+[[ "$CT_ID" =~ ^[0-9]+$ ]] || die "Frigate CT ID must be numeric"
 [[ "$TARGET_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] \
   || die "Target must be an exact stable version such as 0.18.0; moving tags and prereleases are rejected"
 (( RELEASE_NOTES_REVIEWED == 1 )) || die "Pass --release-notes-reviewed after reviewing the target release notes"
-pct status "$CT_ID" | grep -q 'status: running' || die "CT $CT_ID is not running"
+CT_STATUS="$(pct status "$CT_ID" 2>&1)" || die "Could not query CT $CT_ID status: $CT_STATUS"
+[[ "$CT_STATUS" == *'status: running'* ]] || die "CT $CT_ID is not running"
 
 cleanup() {
-  [[ -z "$VALIDATION_DIR" ]] || pct exec "$CT_ID" -- rm -rf -- "$VALIDATION_DIR" >/dev/null 2>&1 || true
+  [[ -z "$VALIDATION_DIR" ]] && return 0
+  if [[ "$VALIDATION_DIR" =~ ^/tmp/frigate-upgrade-preflight\.[[:alnum:]]{10}$ ]]; then
+    pct exec "$CT_ID" -- rm -rf -- "$VALIDATION_DIR" >/dev/null 2>&1 || true
+  else
+    log_warn "Skipping cleanup of unexpected validation path: $VALIDATION_DIR"
+  fi
 }
 trap cleanup EXIT
 
@@ -61,11 +72,14 @@ log_info "Target image: ${TARGET_IMAGE}"
 
 pct exec "$CT_ID" -- test -f "$COMPOSE_FILE" || die "Compose file missing"
 pct exec "$CT_ID" -- test -f "$CONFIG_DIR/config.yml" || die "Config file missing"
-pct exec "$CT_ID" -- sh -c "cd '$APP_DIR' && docker compose config --quiet" \
+[[ "$APP_DIR" == /* && "$CONFIG_DIR" == /* ]] || die "Frigate paths must be absolute"
+pct exec "$CT_ID" -- docker compose --project-directory "$APP_DIR" -f "$COMPOSE_FILE" config --quiet \
   || die "Current Compose file is invalid"
 
 CONFIG_BYTES="$(pct exec "$CT_ID" -- du -sb "$CONFIG_DIR" | awk '{print $1}')"
 FREE_BYTES="$(pct exec "$CT_ID" -- df -P -B1 "$APP_DIR" | awk 'NR==2 {print $4}')"
+[[ "$CONFIG_BYTES" =~ ^[0-9]+$ ]] || die "Could not determine Frigate config size"
+[[ "$FREE_BYTES" =~ ^[0-9]+$ ]] || die "Could not determine free CT space"
 REQUIRED_BYTES=$((CONFIG_BYTES * 3 + 268435456))
 log_info "Config size: ${CONFIG_BYTES} bytes; CT free: ${FREE_BYTES} bytes"
 (( FREE_BYTES >= REQUIRED_BYTES )) || die "Insufficient CT space for backup and validation"
@@ -79,11 +93,22 @@ else
   pct exec "$CT_ID" -- docker pull "$TARGET_IMAGE" >/dev/null
 fi
 
+# Pulling the target image consumes CT rootfs space. Re-check the space left
+# for the stopped backup and temporary config validation before proceeding.
+FREE_BYTES="$(pct exec "$CT_ID" -- df -P -B1 "$APP_DIR" | awk 'NR==2 {print $4}')"
+log_info "Free space after target image preparation: ${FREE_BYTES} bytes"
+[[ "$FREE_BYTES" =~ ^[0-9]+$ ]] || die "Could not determine free CT space after image preparation"
+(( FREE_BYTES >= REQUIRED_BYTES )) || die "Insufficient CT space after target image preparation"
+
 TARGET_REPO_TAGS="$(pct exec "$CT_ID" -- docker image inspect "$TARGET_IMAGE" --format '{{join .RepoTags " "}}')"
 grep -qw "$TARGET_IMAGE" <<< "$TARGET_REPO_TAGS" || die "Pulled image does not expose the exact target tag"
 
 VALIDATION_DIR="$(pct exec "$CT_ID" -- mktemp -d /tmp/frigate-upgrade-preflight.XXXXXXXXXX)"
-[[ "$VALIDATION_DIR" == /tmp/frigate-upgrade-preflight.* ]] || die "Invalid temporary directory"
+if [[ ! "$VALIDATION_DIR" =~ ^/tmp/frigate-upgrade-preflight\.[[:alnum:]]{10}$ ]]; then
+  log_error "Invalid temporary directory returned by CT ${CT_ID}"
+  VALIDATION_DIR=""
+  exit 1
+fi
 pct exec "$CT_ID" -- cp "$CONFIG_DIR/config.yml" "$VALIDATION_DIR/config.yml"
 pct exec "$CT_ID" -- chmod 600 "$VALIDATION_DIR/config.yml"
 log_info "Validating copied config with exact target image"

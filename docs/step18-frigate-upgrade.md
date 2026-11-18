@@ -46,11 +46,20 @@ bash scripts/step18a-frigate-upgrade-preflight.sh \
 ```
 
 Preflight checks health, current image/API version, Compose validity, backup
-capacity, exact target-image availability, and target-image config validation.
-Pulling the target image does not alter the running container.
+capacity before and after target-image preparation, exact target-image
+availability, and target-image config validation. Pulling the target image
+does not alter the running container. The copied config is removed on exit;
+unexpected temporary paths are never recursively removed.
 
 Use `--skip-pull` only when the exact target image is already local. This is
 primarily useful for repeat tests.
+
+Run the isolated preflight and failure-path checks without Proxmox/Docker:
+
+```bash
+bash -n scripts/step18a-frigate-upgrade-preflight.sh
+python3 scripts/step18a-frigate-upgrade-preflight-tests.py -v
+```
 
 ## Stage 18B: Dry Run
 
