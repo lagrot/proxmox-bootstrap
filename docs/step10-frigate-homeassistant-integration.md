@@ -474,12 +474,26 @@ not require zones and applies to both cameras:
 - event capture: five seconds before and after the event;
 - camera snapshots: ten days through the global Step 13 policy.
 
-Apply, restart, and validate from the Proxmox host:
+Preview, apply, restart, and validate from the Proxmox host:
 
 ```bash
+bash scripts/step10o-frigate-event-recording-config.sh --dry-run
 bash scripts/step10o-frigate-event-recording-config.sh
 bash scripts/step10e-frigate-restart.sh
 bash scripts/step10p-frigate-event-recording-validation.sh
+```
+
+Step 10O's preview makes no backup or config changes. Applying creates a
+uniquely named backup and atomically replaces the managed global `record:`
+section. It refuses duplicate sections or unfamiliar settings inside that
+section, validates Docker Compose before and after the write, and restores the
+backup if post-write validation fails. It never restarts Frigate; restart and
+Step 10P validation remain explicit operator commands. Run isolated render,
+dry-run, idempotence, backup, and refusal-path checks with:
+
+```bash
+bash -n scripts/step10o-frigate-event-recording-config.sh
+python3 scripts/step10o-frigate-event-recording-config-tests.py -v
 ```
 
 The validation checks the effective Frigate API configuration for both

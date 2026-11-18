@@ -596,6 +596,12 @@ and verified for both cameras through the effective Frigate API config by
 health and startup logs also passed. No zones or masks are configured while
 the cameras remain in temporary locations.
 
+Step 10O now has a no-write `--dry-run`, unique mode-600 backups, atomic config
+replacement, Docker Compose checks before and after apply, and automatic
+restore if the post-write check fails. It refuses duplicate `record:` sections
+and unrecognized settings rather than dropping them. Its operator and failure
+paths are covered by `scripts/step10o-frigate-event-recording-config-tests.py`.
+
 Both cameras use `preset-rtsp-generic` for their direct RTSP record and detect
 inputs. The earlier restream preset omitted timestamp normalization intended
 for direct cameras and caused visible C200 freeze-and-catch-up playback. In a
