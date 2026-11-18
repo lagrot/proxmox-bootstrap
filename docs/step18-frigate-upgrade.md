@@ -128,6 +128,24 @@ the upgrade is not accepted.
 `--baseline-test` skips backup validation and is only for testing orchestration
 without claiming an upgrade.
 
+Run the isolated orchestration and refusal-path checks without Proxmox/Docker:
+
+```bash
+bash -n scripts/step18c-frigate-post-upgrade-validation.sh
+python3 -m py_compile scripts/step18c-frigate-post-upgrade-validation-tests.py
+python3 scripts/step18c-frigate-post-upgrade-validation-tests.py -v
+```
+
+On the live host, the documented baseline mode verifies the current Frigate
+version and runs the seven read-only regression validators without accepting
+an upgrade or requiring a Step 18B backup:
+
+```bash
+bash scripts/step18c-frigate-post-upgrade-validation.sh \
+  --expected-version 0.18.2 \
+  --baseline-test
+```
+
 ## Stage 18D: Rollback
 
 First inspect the rollback without mutation:
