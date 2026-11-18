@@ -173,7 +173,17 @@ python3 scripts/step10g-frigate-tapo-camera-config-tests.py -v
 
 Step 10H validates the Frigate configuration, Docker Compose file, camera
 entry, direct record and detect RTSP streams, Frigate health, API camera list,
-and recent camera-specific logs.
+and recent camera-specific logs. The stream checks are bounded to 15 seconds,
+decode one second to FFmpeg's null output, and create no media files. API
+cookies and responses use one private temporary directory that is removed on
+exit. Credentials are sent to CT 200 over standard input; FFmpeg briefly needs
+the RTSP URL as a process argument, which privileged process inspection inside
+CT 200 can see while the probe runs. The validator does not change Frigate
+configuration or restart services. Its isolated failure-path tests are:
+
+```bash
+python3 scripts/step10h-frigate-camera-validation-tests.py -v
+```
 
 Both Tapo cameras connect directly to their RTSP URLs and therefore use
 `preset-rtsp-generic`. Do not use `preset-rtsp-restream` unless the input path
