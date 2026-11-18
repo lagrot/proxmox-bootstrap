@@ -125,6 +125,7 @@ scripts/
 - `scripts/step10m-homeassistant-frigate-dashboard.sh`
 - `scripts/step10n-frigate-homeassistant-smoketest.sh`
 - `scripts/step10o-frigate-event-recording-config.sh`
+- `lib/frigate-event-recording-config.py` (Step 10O render/apply helper)
 - `scripts/step10p-frigate-event-recording-validation.sh`
 - `scripts/step12-backup.sh`
 - `scripts/step12-backup-validation.sh`
