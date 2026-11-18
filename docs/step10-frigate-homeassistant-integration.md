@@ -199,6 +199,22 @@ and wait for its camera entity without restarting Home Assistant:
 TAPO_CAMERA_PROFILE=c320ws bash scripts/step10l-homeassistant-frigate-reload.sh
 ```
 
+Preview the selected camera and reload target without querying the VM or
+calling Home Assistant:
+
+```bash
+TAPO_CAMERA_PROFILE=c320ws bash scripts/step10l-homeassistant-frigate-reload.sh --dry-run
+```
+
+The command resolves the camera entity's Home Assistant config-entry ID using
+the authenticated template API, then reloads that entry. This does not restart
+Home Assistant Core. Its mocked tests verify token handling and failure paths
+without making VM or API calls:
+
+```bash
+python3 scripts/step10l-homeassistant-frigate-reload-tests.py -v
+```
+
 ## 5. Configure the Home Assistant Frigate endpoint
 
 Frigate exposes two relevant endpoints:
