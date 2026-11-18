@@ -338,6 +338,7 @@ The project can create a separate native Home Assistant dashboard without
 overwriting the existing dashboard:
 
 ```bash
+bash scripts/step10m-homeassistant-frigate-dashboard.sh --dry-run
 bash scripts/step10m-homeassistant-frigate-dashboard.sh
 ```
 
@@ -356,11 +357,28 @@ Advanced controls are intentionally kept off the limited daily-use Live view.
 
 The dashboard is created through the Home Assistant WebSocket API and is
 idempotent. Before saving, the script verifies that every referenced entity
-exists in Home Assistant. If the `frigate-dashboard` dashboard already exists,
-it is preserved. To intentionally replace its generated configuration:
+exists in Home Assistant. It completes that check before creating a dashboard.
+If the `frigate-dashboard` dashboard already exists, it is preserved. The
+Home Assistant token is passed through Proxmox guest-exec stdin and is not put
+in the command arguments or environment. The dry-run makes no Proxmox guest or
+Home Assistant API calls and does not require the token. To intentionally
+replace the existing dashboard configuration:
 
 ```bash
 FORCE_UPDATE=1 bash scripts/step10m-homeassistant-frigate-dashboard.sh
+```
+
+When `FORCE_UPDATE=1`, the script reads and retains the existing dashboard
+configuration for rollback if the replacement save fails. When creating a new
+dashboard, it removes the newly created empty dashboard if saving its
+configuration fails.
+
+Run isolated tests for dashboard creation order, preservation, forced update,
+entity validation, token handling, invalid configuration, and guest-agent
+failure:
+
+```bash
+python3 scripts/step10m-homeassistant-frigate-dashboard-tests.py -v
 ```
 
 Open it at:
