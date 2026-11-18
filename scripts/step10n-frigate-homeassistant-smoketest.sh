@@ -2,13 +2,17 @@
 set -euo pipefail
 
 CHECK_ACTIVITY=0
+if [[ $# -gt 1 ]]; then
+  echo "ERROR: too many arguments" >&2
+  echo "Usage: bash scripts/step10n-frigate-homeassistant-smoketest.sh [--check-activity]" >&2
+  exit 2
+fi
 case "${1:-}" in
   "") ;;
   --check-activity) CHECK_ACTIVITY=1 ;;
   --help) echo "Usage: bash scripts/step10n-frigate-homeassistant-smoketest.sh [--check-activity]"; exit 0 ;;
   *) echo "ERROR: unknown argument: $1" >&2; exit 2 ;;
 esac
-[[ $# -le 1 ]] || { echo "ERROR: too many arguments" >&2; exit 2; }
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "$BASH_SOURCE")" && pwd)"
 PROJECT_ROOT="$(cd -- "$SCRIPT_DIR/.." && pwd)"
@@ -41,8 +45,40 @@ CAMERA_NAMES=(
 RECORDING_LOOKBACK_MINUTES="30"
 MQTT_EVENT_WAIT_SECONDS="20"
 
-WORK_DIR="$(mktemp -d /tmp/frigate-ha-smoketest.XXXXXX)"
-trap 'rm -rf "$WORK_DIR"' EXIT INT TERM
+if [[ -z "$HA_TOKEN" ]]; then
+  log_error "HA_TOKEN is not configured"
+  exit 1
+fi
+if [[ ! "$HA_TOKEN" =~ ^[A-Za-z0-9._-]+$ ]]; then
+  log_error "HA_TOKEN contains unsupported characters"
+  exit 2
+fi
+for id_name in HA_VM_ID FRIGATE_CT_ID MQTT_CT_ID; do
+  id_value="${!id_name}"
+  if [[ ! "$id_value" =~ ^[1-9][0-9]{0,8}$ ]]; then
+    log_error "$id_name must be a positive numeric Proxmox guest ID"
+    exit 2
+  fi
+done
+for port_name in HA_HTTP_PORT FRIGATE_INTERNAL_PORT MQTT_PORT; do
+  port_value="${!port_name}"
+  if [[ ! "$port_value" =~ ^[0-9]{1,5}$ ]] \
+    || ((10#$port_value < 1 || 10#$port_value > 65535)); then
+    log_error "$port_name must be an integer from 1 through 65535"
+    exit 2
+  fi
+done
+for camera_name in "${CAMERA_NAMES[@]}"; do
+  if [[ ! "$camera_name" =~ ^[a-z0-9_]+$ ]]; then
+    log_error "Camera names must contain only lowercase letters, digits, and underscores"
+    exit 2
+  fi
+done
+if [[ "$MQTT_USERNAME$MQTT_PASSWORD" == *$'\n'* || "$MQTT_USERNAME$MQTT_PASSWORD" == *$'\r'* ]]; then
+  log_error "MQTT credentials must not contain newline characters"
+  exit 2
+fi
+export -n HA_TOKEN
 
 check_command() {
   command -v "$1" >/dev/null 2>&1 || {
@@ -90,9 +126,9 @@ track_homeassistant() {
   [[ -n "$HA_TOKEN" ]] || { echo "ERROR: HA_TOKEN is not set"; return 1; }
   ha_ip="$(detect_ha_ip)"
   [[ -n "$ha_ip" ]] || { echo "ERROR: Home Assistant IP not detected"; return 1; }
-  api_code="$(curl -sS -o "$WORK_DIR/ha-states.json" -w '%{http_code}' \
-    -H "Authorization: Bearer $HA_TOKEN" --max-time 15 \
-    "http://$ha_ip:$HA_HTTP_PORT/api/states" || true)"
+  api_code="$(printf 'header = "Authorization: Bearer %s"\n' "$HA_TOKEN" \
+    | curl --config - -sS -o "$WORK_DIR/ha-states.json" -w '%{http_code}' --max-time 15 \
+      "http://$ha_ip:$HA_HTTP_PORT/api/states" || true)"
   [[ "$api_code" == 200 ]] || { echo "ERROR: Home Assistant API returned HTTP $api_code"; return 1; }
   python3 -c '
 import json, sys
@@ -149,7 +185,14 @@ track_mqtt() {
   [[ -n "$MQTT_USERNAME" && -n "$MQTT_PASSWORD" ]] ||
     { echo "ERROR: MQTT_USERNAME and MQTT_PASSWORD are not configured"; return 1; }
 
-  client_home="/tmp/frigate-ha-smoketest-mqtt-${BASHPID}"
+  client_home="$(pct exec "$MQTT_CT_ID" -- mktemp -d /tmp/frigate-ha-smoketest-mqtt.XXXXXX)" || {
+    echo "ERROR: could not create a private temporary MQTT client directory"
+    return 1
+  }
+  [[ "$client_home" =~ ^/tmp/frigate-ha-smoketest-mqtt\.[A-Za-z0-9]+$ ]] || {
+    echo "ERROR: MQTT client returned an unexpected temporary directory"
+    return 1
+  }
   cleanup_mqtt_client() {
     pct exec "$MQTT_CT_ID" -- rm -rf "$client_home" >/dev/null 2>&1 || true
   }
@@ -175,10 +218,12 @@ track_mqtt() {
   fi
 }
 
-for cmd in pct qm awk grep curl python3; do
+for cmd in pct qm awk grep curl python3 mktemp rm sed head; do
   check_command "$cmd" || exit 1
 done
 [[ "$EUID" -eq 0 ]] || { log_error "This script must be run as root"; exit 1; }
+WORK_DIR="$(mktemp -d /tmp/frigate-ha-smoketest.XXXXXX)"
+trap 'rm -rf "$WORK_DIR"' EXIT INT TERM
 
 log_info "Running smoke-test tracks in parallel..."
 track_frigate >"$WORK_DIR/frigate.log" 2>&1 & frigate_pid=$!
