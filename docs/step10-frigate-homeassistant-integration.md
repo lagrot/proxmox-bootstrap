@@ -268,6 +268,20 @@ guest-agent `ha` CLI:
 bash scripts/step10k-homeassistant-hacs-bootstrap.sh
 ```
 
+Preview the intended operations without querying or changing HAOS:
+
+```bash
+bash scripts/step10k-homeassistant-hacs-bootstrap.sh --dry-run
+```
+
+The normal command is mutating and restarts Home Assistant Core after a
+successful install, causing a brief Home Assistant interruption. The mocked
+failure-path tests do not contact Proxmox:
+
+```bash
+python3 scripts/step10k-homeassistant-hacs-bootstrap-tests.py -v
+```
+
 The script:
 
 1. Adds `https://github.com/hacs/addons` if it is not already configured.
