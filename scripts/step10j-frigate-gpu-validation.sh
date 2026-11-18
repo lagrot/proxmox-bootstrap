@@ -49,7 +49,7 @@ if [[ "${EUID}" -ne 0 ]]; then
   exit 1
 fi
 
-for cmd in pct grep awk; do
+for cmd in pct grep awk python3; do
   if command -v "${cmd}" >/dev/null 2>&1; then
     log_info "Host command found: ${cmd}"
   else
@@ -61,8 +61,14 @@ if [[ "${VALIDATION_ERRORS}" -gt 0 ]]; then
   log_error "Missing required host commands"
   exit 1
 fi
-
-if ! pct status "${FRIGATE_CT_ID}" 2>/dev/null | grep -q 'status: running'; then
+if [[ ! "${FRIGATE_CT_ID}" =~ ^[0-9]+$ ]]; then
+  log_error "Docker CT ID must be numeric"
+  exit 1
+fi
+if ! CT_STATUS="$(pct status "${FRIGATE_CT_ID}" 2>&1)"; then
+  log_error "Could not query status for CT ${FRIGATE_CT_ID}: ${CT_STATUS}"
+  exit 1
+elif [[ "${CT_STATUS}" != *'status: running'* ]]; then
   log_error "CT ${FRIGATE_CT_ID} is not running"
   exit 1
 fi
@@ -96,13 +102,15 @@ else
 fi
 
 log_info "Validating Docker Compose file and GPU device mapping..."
-if pct exec "${FRIGATE_CT_ID}" -- bash -c "cd '${FRIGATE_APP_DIR}' && docker compose config >/dev/null"; then
+if pct exec "${FRIGATE_CT_ID}" -- bash -c \
+  'cd -- "$1" && docker compose config >/dev/null' bash "${FRIGATE_APP_DIR}"; then
   log_info "Docker Compose config is valid"
 else
   record_error "Docker Compose config is not valid"
 fi
 
-if pct exec "${FRIGATE_CT_ID}" -- bash -c "cd '${FRIGATE_APP_DIR}' && docker compose config | grep -qE '/dev/dri|renderD128'"; then
+if pct exec "${FRIGATE_CT_ID}" -- bash -c \
+  'cd -- "$1" && docker compose config | grep -qE "/dev/dri|renderD128"' bash "${FRIGATE_APP_DIR}"; then
   log_info "Docker Compose maps an Intel GPU render device"
 else
   record_error "Docker Compose does not map /dev/dri or renderD128 into Frigate"
@@ -162,6 +170,12 @@ else
   record_error "FFmpeg is not available inside the Frigate container"
 fi
 
+if pct exec "${FRIGATE_CT_ID}" -- docker exec frigate sh -c 'command -v timeout >/dev/null 2>&1'; then
+  log_info "timeout is available inside the Frigate container"
+else
+  record_error "timeout is not available inside the Frigate container"
+fi
+
 if [[ -n "${CONTAINER_FFMPEG}" ]] \
   && pct exec "${FRIGATE_CT_ID}" -- docker exec frigate "${CONTAINER_FFMPEG}" -hide_banner -hwaccels 2>/dev/null | grep -q '^vaapi$'; then
     log_info "FFmpeg reports VAAPI hardware acceleration support"
@@ -170,7 +184,7 @@ else
 fi
 
 if [[ -n "${CONTAINER_FFMPEG}" ]] \
-  && pct exec "${FRIGATE_CT_ID}" -- docker exec frigate "${CONTAINER_FFMPEG}" \
+  && pct exec "${FRIGATE_CT_ID}" -- docker exec frigate timeout 10 "${CONTAINER_FFMPEG}" \
   -hide_banner \
   -loglevel error \
   -init_hw_device vaapi=va:/dev/dri/renderD128 \
@@ -188,17 +202,22 @@ FRIGATE_STARTED_AT="$(
 )"
 
 if [[ -n "${FRIGATE_STARTED_AT}" ]]; then
-  FRIGATE_LOGS="$(pct exec "${FRIGATE_CT_ID}" -- docker logs --since "${FRIGATE_STARTED_AT}" frigate 2>&1 || true)"
+  LOG_READ_CMD=(pct exec "${FRIGATE_CT_ID}" -- docker logs \
+    --since "${FRIGATE_STARTED_AT}" --tail 1000 frigate)
 else
   record_warn "Could not determine Frigate container start time; checking last 300 log lines"
-  FRIGATE_LOGS="$(pct exec "${FRIGATE_CT_ID}" -- docker logs --tail 300 frigate 2>&1 || true)"
+  LOG_READ_CMD=(pct exec "${FRIGATE_CT_ID}" -- docker logs --tail 300 frigate)
 fi
 
 log_info "Checking Frigate logs for VAAPI failures..."
-if grep -qiE 'vaapi.*(error|failed|unable|invalid|permission denied)|hwaccel.*(error|failed|unable|invalid)|renderD128.*(error|failed|unable|permission denied)|No VA display found|Failed to initialise VAAPI|Device creation failed' <<< "${FRIGATE_LOGS}"; then
-  record_error "Frigate logs contain VAAPI/hardware acceleration failures"
+if FRIGATE_LOGS="$("${LOG_READ_CMD[@]}" 2>&1)"; then
+  if grep -qiE 'vaapi.*(error|failed|unable|invalid|permission denied)|hwaccel.*(error|failed|unable|invalid)|renderD128.*(error|failed|unable|permission denied)|No VA display found|Failed to initialise VAAPI|Device creation failed' <<< "${FRIGATE_LOGS}"; then
+    record_error "Frigate logs contain VAAPI/hardware acceleration failures"
+  else
+    log_info "No VAAPI/hardware acceleration failures found in checked Frigate logs"
+  fi
 else
-  log_info "No VAAPI/hardware acceleration failures found in checked Frigate logs"
+  record_warn "Could not read Frigate logs for VAAPI failures"
 fi
 
 log_info "Checking live FFmpeg process arguments..."

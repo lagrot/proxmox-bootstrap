@@ -246,7 +246,14 @@ bash scripts/step10j-frigate-gpu-validation.sh
 
 This validates `/dev/dri/renderD128`, Docker GPU mapping, FFmpeg VAAPI support,
 live FFmpeg arguments, Frigate GPU telemetry, and the absence of recent VAAPI
-errors.
+errors. The generated FFmpeg VAAPI probe is limited to 10 seconds. Frigate logs
+are limited to the current container run and 1,000 lines (or 300 lines if its
+start time cannot be read). Run the mocked failure-path checks without
+contacting Proxmox with:
+
+```bash
+python3 scripts/step10j-frigate-gpu-validation-tests.py -v
+```
 
 In the Frigate Metrics page, Coral appears under **Detectors**. Intel GPU
 activity may appear as GPU telemetry or remain near `0.0%` when the workload is
