@@ -63,7 +63,10 @@ python3 scripts/step18a-frigate-upgrade-preflight-tests.py -v
 
 ## Stage 18B: Dry Run
 
-Always review the generated action summary first:
+Prepare the target image with Step 18A first. Step 18B dry-run passes
+`--skip-pull` to preflight automatically, so it will never pull an image or
+change the Docker image cache. If the target is not already local, the dry run
+stops safely; run Step 18A preflight without `--skip-pull`, then repeat:
 
 ```bash
 bash scripts/step18b-frigate-upgrade.sh \
@@ -73,6 +76,14 @@ bash scripts/step18b-frigate-upgrade.sh \
 ```
 
 Record the planned backup path and confirm Frigate was not restarted.
+
+Run the isolated executor/helper checks without Proxmox or Docker:
+
+```bash
+bash -n scripts/step18b-frigate-upgrade.sh
+python3 -m py_compile lib/frigate-upgrade-compose.py scripts/step18b-frigate-upgrade-tests.py
+python3 scripts/step18b-frigate-upgrade-tests.py -v
+```
 
 ## Stage 18B: Controlled Upgrade
 
