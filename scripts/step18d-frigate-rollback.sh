@@ -13,10 +13,13 @@ APP_DIR="${FRIGATE_APP_DIR:-/opt/frigate}"
 CONFIG_DIR="${FRIGATE_CONFIG_DIR:-${APP_DIR}/config}"
 COMPOSE_FILE="${APP_DIR}/docker-compose.yml"
 BACKUP_DIR=""
+BACKUP_SET=0
 DRY_RUN=0
 RESTORE_TEST=0
 CONFIRM_ROLLBACK=0
 STAGING_DIR=""
+KEEP_STAGING=0
+ARCHIVE_HELPER_TEXT=""
 
 usage() {
   cat <<EOF
@@ -31,7 +34,10 @@ EOF
 
 while (($#)); do
   case "$1" in
-    --backup-dir) [[ $# -ge 2 ]] || die "--backup-dir requires a path"; BACKUP_DIR="$2"; shift 2 ;;
+    --backup-dir)
+      [[ $# -ge 2 ]] || die "--backup-dir requires a path"
+      (( BACKUP_SET == 0 )) || die "--backup-dir may only be provided once"
+      BACKUP_DIR="$2"; BACKUP_SET=1; shift 2 ;;
     --dry-run) DRY_RUN=1; shift ;;
     --restore-test) RESTORE_TEST=1; shift ;;
     --confirm-rollback) CONFIRM_ROLLBACK=1; shift ;;
@@ -42,16 +48,24 @@ done
 
 [[ "${EUID}" -eq 0 ]] || die "Run as root"
 for cmd in pct grep awk date; do command -v "$cmd" >/dev/null || die "Missing command: $cmd"; done
-case "$BACKUP_DIR" in /var/lib/frigate-upgrades/*) ;; *) die "Unexpected backup path: ${BACKUP_DIR:-empty}" ;; esac
+[[ "$CT_ID" =~ ^[0-9]+$ ]] || die "Frigate CT ID must be numeric"
+[[ "$APP_DIR" == /* && "$CONFIG_DIR" == /* ]] || die "Frigate paths must be absolute"
+[[ "$BACKUP_DIR" =~ ^/var/lib/frigate-upgrades/[0-9]{8}-[0-9]{6}([0-9]{9})?-[0-9]+\.[0-9]+\.[0-9]+-to-[0-9]+\.[0-9]+\.[0-9]+$ ]] \
+  || die "Unexpected managed backup path: ${BACKUP_DIR:-empty}"
 MODE_COUNT=$((DRY_RUN + RESTORE_TEST + CONFIRM_ROLLBACK))
 (( MODE_COUNT == 1 )) || die "Choose exactly one mode"
-pct status "$CT_ID" | grep -q 'status: running' || die "CT $CT_ID is not running"
+if ! CT_STATUS="$(pct status "$CT_ID" 2>&1)"; then
+  die "Could not query CT $CT_ID status: $CT_STATUS"
+fi
+[[ "$CT_STATUS" == *'status: running'* ]] || die "CT $CT_ID is not running"
 
 for file in SHA256SUMS upgrade.env frigate-config.tar.gz; do
   pct exec "$CT_ID" -- test -f "$BACKUP_DIR/$file" || die "Backup file missing: $file"
 done
 log_info "Validating backup checksums and archive"
-pct exec "$CT_ID" -- sh -c "cd '$BACKUP_DIR' && sha256sum -c SHA256SUMS && tar -tzf frigate-config.tar.gz >/dev/null" \
+pct exec "$CT_ID" -- test ! -L "$BACKUP_DIR" || die "Backup directory must not be a symlink"
+pct exec "$CT_ID" -- bash -c 'cd -- "$1" && sha256sum -c SHA256SUMS && tar -tzf frigate-config.tar.gz >/dev/null' \
+  bash "$BACKUP_DIR" \
   || die "Backup integrity validation failed"
 
 metadata() {
@@ -71,6 +85,13 @@ BACKUP_CONFIG="$(metadata CONFIG_DIR)"
 [[ "$BACKUP_CONFIG" == "$CONFIG_DIR" ]] || die "Backup config path does not match this deployment"
 pct exec "$CT_ID" -- docker image inspect "$OLD_IMAGE" >/dev/null || die "Old exact image is not local: $OLD_IMAGE"
 
+ARCHIVE_HELPER="${PROJECT_ROOT}/lib/frigate-upgrade-archive.py"
+[[ -f "$ARCHIVE_HELPER" ]] || die "Missing archive safety helper: $ARCHIVE_HELPER"
+ARCHIVE_HELPER_TEXT="$(<"$ARCHIVE_HELPER")"
+pct exec "$CT_ID" -- python3 -c "$ARCHIVE_HELPER_TEXT" \
+  "$BACKUP_DIR/frigate-config.tar.gz" "${COMPOSE_FILE#/}" "${CONFIG_DIR#/}" \
+  || die "Backup archive contains unsafe or unexpected entries"
+
 log_info "Rollback source: target ${TARGET_VERSION} back to ${OLD_VERSION}"
 log_info "Rollback image: ${OLD_IMAGE}"
 
@@ -85,8 +106,14 @@ if (( DRY_RUN == 1 )); then
 fi
 
 STAGING_DIR="$(pct exec "$CT_ID" -- mktemp -d /tmp/frigate-rollback.XXXXXXXXXX)"
-[[ "$STAGING_DIR" == /tmp/frigate-rollback.* ]] || die "Invalid staging directory"
-cleanup() { pct exec "$CT_ID" -- rm -rf "$STAGING_DIR" >/dev/null 2>&1 || true; }
+[[ "$STAGING_DIR" =~ ^/tmp/frigate-rollback\.[A-Za-z0-9]{10}$ ]] || die "Invalid staging directory"
+cleanup() {
+  if (( KEEP_STAGING == 1 )); then
+    log_error "Rollback is incomplete; preserve and inspect staging directory: ${STAGING_DIR}"
+  elif [[ -n "$STAGING_DIR" ]]; then
+    pct exec "$CT_ID" -- rm -rf -- "$STAGING_DIR" >/dev/null 2>&1 || true
+  fi
+}
 trap cleanup EXIT
 pct exec "$CT_ID" -- tar -xzf "$BACKUP_DIR/frigate-config.tar.gz" -C "$STAGING_DIR"
 pct exec "$CT_ID" -- test -f "$STAGING_DIR/${COMPOSE_FILE#/}" || die "Restored Compose missing from staging"
@@ -100,11 +127,17 @@ if (( RESTORE_TEST == 1 )); then
   exit 0
 fi
 
-RUN_ID="$(date +%Y%m%d-%H%M%S)"
+RUN_ID="$(date +%Y%m%d-%H%M%S%N)"
 FAILED_ARCHIVE="$BACKUP_DIR/pre-rollback-current-${RUN_ID}.tar.gz"
 FAILED_CONFIG_DIR="${CONFIG_DIR}.failed-${RUN_ID}"
+if ! pct exec "$CT_ID" -- test ! -e "$FAILED_ARCHIVE" \
+  || ! pct exec "$CT_ID" -- test ! -e "$FAILED_CONFIG_DIR"; then
+  die "Rollback run paths already exist; refusing to overwrite prior recovery state"
+fi
 log_info "Stopping Frigate for explicit rollback"
-pct exec "$CT_ID" -- sh -c "cd '$APP_DIR' && docker compose stop frigate"
+KEEP_STAGING=1
+pct exec "$CT_ID" -- docker compose --project-directory "$APP_DIR" \
+  -f "$COMPOSE_FILE" stop frigate
 log_info "Preserving current failed state"
 pct exec "$CT_ID" -- tar -C / -czf "$FAILED_ARCHIVE" "${COMPOSE_FILE#/}" "${CONFIG_DIR#/}"
 pct exec "$CT_ID" -- chmod 600 "$FAILED_ARCHIVE"
@@ -114,7 +147,10 @@ log_info "Installing matching old Compose and config/database"
 pct exec "$CT_ID" -- mv "$CONFIG_DIR" "$FAILED_CONFIG_DIR"
 pct exec "$CT_ID" -- cp -a "$STAGING_DIR/${CONFIG_DIR#/}" "$CONFIG_DIR"
 pct exec "$CT_ID" -- cp -a "$STAGING_DIR/${COMPOSE_FILE#/}" "$COMPOSE_FILE"
-pct exec "$CT_ID" -- sh -c "cd '$APP_DIR' && docker compose config --quiet && docker compose up -d frigate"
+pct exec "$CT_ID" -- docker compose --project-directory "$APP_DIR" \
+  -f "$COMPOSE_FILE" config --quiet
+pct exec "$CT_ID" -- docker compose --project-directory "$APP_DIR" \
+  -f "$COMPOSE_FILE" up -d frigate
 
 HEALTH=""
 for _ in $(seq 1 60); do
@@ -129,4 +165,5 @@ ACTUAL_VERSION="$(pct exec "$CT_ID" -- curl -fsS http://127.0.0.1:5000/api/versi
 log_info "Running regression validation against restored version"
 bash "${PROJECT_ROOT}/scripts/step18c-frigate-post-upgrade-validation.sh" \
   --expected-version "$OLD_VERSION" --baseline-test
+KEEP_STAGING=0
 log_info "Rollback completed and validated; failed state retained at $FAILED_CONFIG_DIR"
