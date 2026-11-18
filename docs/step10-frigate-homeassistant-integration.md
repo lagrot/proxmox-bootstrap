@@ -226,10 +226,17 @@ The USB Coral TPU is used for object detection:
 bash scripts/step10i-frigate-tpu-validation.sh
 ```
 
-The live Frigate detector statistics should show a `coral` detector and an
-inference speed around the observed 24 ms range. A warning that recent logs do
-not mention Coral initialization is acceptable when live Coral statistics are
-present.
+The live Frigate detector statistics must show a running `coral` detector with
+positive inference speed. A warning that recent logs do not mention Coral
+initialization is acceptable when live Coral statistics confirm the detector
+is active. Recent error logs are also warnings when live statistics confirm
+recovery; otherwise they fail validation. Log inspection is limited to the
+last 30 minutes and 1,000 lines by default. To exercise the script's mocked
+failure paths without contacting Proxmox, run:
+
+```bash
+python3 scripts/step10i-frigate-tpu-validation-tests.py -v
+```
 
 Intel VAAPI is used for video decoding, not object detection:
 
