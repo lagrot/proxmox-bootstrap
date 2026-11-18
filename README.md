@@ -127,6 +127,7 @@ scripts/
 - `scripts/step10o-frigate-event-recording-config.sh`
 - `lib/frigate-event-recording-config.py` (Step 10O render/apply helper)
 - `scripts/step10p-frigate-event-recording-validation.sh`
+- `lib/frigate-event-recording-validation.py` (Step 10P API policy checker)
 - `scripts/step12-backup.sh`
 - `scripts/step12-backup-validation.sh`
 - `scripts/step12b-backup-operation.sh`

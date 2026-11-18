@@ -499,7 +499,17 @@ python3 scripts/step10o-frigate-event-recording-config-tests.py -v
 The validation checks the effective Frigate API configuration for both
 cameras, container health, and startup logs. Existing motion recordings are
 not removed immediately; they expire according to the previous retention
-policy. Zones and masks should be added only after final camera placement.
+policy. It reads the API response in host memory without writing a temporary
+config file to CT 200. The log check is limited to the last hour and ignores
+the Frigate logger name itself; recent camera stream checks remain Step 10H's
+responsibility. It does not require anyone to walk in front of a camera. Zones
+and masks should be added only after final camera placement. Run its isolated
+policy and operator-path checks with:
+
+```bash
+bash -n scripts/step10p-frigate-event-recording-validation.sh
+python3 scripts/step10p-frigate-event-recording-validation-tests.py -v
+```
 
 Snapshot and export retention is completed separately by Step 13. See
 `docs/step13-frigate-media-retention.md`.

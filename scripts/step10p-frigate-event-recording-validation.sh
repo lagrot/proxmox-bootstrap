@@ -1,12 +1,28 @@
 #!/usr/bin/env bash
+# Validate Frigate's effective event-recording policy without changing guests.
 set -euo pipefail
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd -- "${SCRIPT_DIR}/.." && pwd)"
 
+if (( $# > 1 )); then printf 'Too many arguments\n' >&2; exit 2; fi
+case "${1:-}" in
+  "") ;;
+  -h|--help)
+    cat <<EOF
+Usage: $0
+
+Read Frigate's effective config and recent container status/logs. This is a
+read-only validation; the API response is checked in host memory and is not
+written to a temporary file. No camera activity is required.
+EOF
+    exit 0
+    ;;
+  *) printf 'Unknown argument: %s\n' "$1" >&2; exit 2 ;;
+esac
+
 # shellcheck source=/dev/null
 source "${PROJECT_ROOT}/lib/common.sh"
-
 # shellcheck source=/dev/null
 source "${PROJECT_ROOT}/config/defaults.conf"
 if [[ -f "${PROJECT_ROOT}/config/local.conf" ]]; then
@@ -27,7 +43,7 @@ CAMERA_NAMES=(
   "${TAPO_C200_NAME:-${TAPO_CAMERA_NAME:-tplink_c200_1}}"
   "${TAPO_C320WS_NAME:-tplink_c320ws_1}"
 )
-
+CONFIG_VALIDATOR="${PROJECT_ROOT}/lib/frigate-event-recording-validation.py"
 VALIDATION_ERRORS=0
 
 record_error() {
@@ -35,21 +51,44 @@ record_error() {
   ((VALIDATION_ERRORS+=1))
 }
 
-if [[ "${EUID}" -ne 0 ]]; then
-  log_error "This script must be run as root"
-  exit 1
+if [[ "${EUID}" -ne 0 ]]; then log_error "This script must be run as root"; exit 1; fi
+for command_name in pct curl python3 grep awk sed; do
+  if ! command -v "${command_name}" >/dev/null 2>&1; then
+    log_error "Required host command not found: ${command_name}"; exit 1
+  fi
+done
+if [[ ! -f "${CONFIG_VALIDATOR}" ]]; then log_error "Missing API config validator: ${CONFIG_VALIDATOR}"; exit 1; fi
+if [[ ! "${FRIGATE_CT_ID}" =~ ^[0-9]+$ ]]; then log_error "Frigate CT ID must be numeric"; exit 1; fi
+if [[ ! "${FRIGATE_INTERNAL_PORT}" =~ ^[0-9]{1,5}$ ]] \
+  || (( 10#${FRIGATE_INTERNAL_PORT} < 1 || 10#${FRIGATE_INTERNAL_PORT} > 65535 )); then
+  log_error "FRIGATE_INTERNAL_PORT must be an integer from 1 through 65535"; exit 1
+fi
+for value_name in EVENT_RECORDING_DAYS EVENT_PRE_CAPTURE_SECONDS EVENT_POST_CAPTURE_SECONDS; do
+  if [[ ! "${!value_name}" =~ ^[0-9]{1,6}$ ]]; then
+    log_error "${value_name} must be a non-negative integer"; exit 1
+  fi
+done
+if [[ "${EVENT_RECORDING_DAYS}" =~ ^0+$ ]]; then log_error "EVENT_RECORDING_DAYS must be greater than zero"; exit 1; fi
+for camera_name in "${CAMERA_NAMES[@]}"; do
+  if [[ ! "${camera_name}" =~ ^[A-Za-z0-9_]+$ ]]; then
+    log_error "Invalid Frigate camera name: ${camera_name}"; exit 1
+  fi
+done
+if [[ "${CAMERA_NAMES[0]}" == "${CAMERA_NAMES[1]}" ]]; then
+  log_error "The two Frigate camera names must be different"; exit 1
 fi
 
-if ! pct status "${FRIGATE_CT_ID}" 2>/dev/null | grep -q "status: running"; then
-  log_error "CT ${FRIGATE_CT_ID} is not running"
-  exit 1
+if ! CT_STATUS="$(pct status "${FRIGATE_CT_ID}" 2>&1)"; then
+  log_error "Could not query status for CT ${FRIGATE_CT_ID}: ${CT_STATUS}"; exit 1
+fi
+if [[ "${CT_STATUS}" != *"status: running"* ]]; then
+  log_error "CT ${FRIGATE_CT_ID} is not running"; exit 1
 fi
 
 FRIGATE_IP="$(pct exec "${FRIGATE_CT_ID}" -- ip -4 -o addr show dev eth0 2>/dev/null \
   | awk '{ split($4, addr, "/"); print addr[1]; exit }' || true)"
-if [[ -z "${FRIGATE_IP}" ]]; then
-  log_error "Could not detect Frigate CT IPv4 address"
-  exit 1
+if [[ ! "${FRIGATE_IP}" =~ ^([0-9]{1,3}\.){3}[0-9]{1,3}$ ]]; then
+  log_error "Could not detect Frigate CT IPv4 address"; exit 1
 fi
 
 log_info "Checking Frigate container health..."
@@ -59,7 +98,7 @@ fi
 
 HEALTH="$(pct exec "${FRIGATE_CT_ID}" -- docker inspect \
   --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}no-healthcheck{{end}}' frigate 2>/dev/null || true)"
-if [[ "${HEALTH}" == "healthy" ]]; then
+if [[ "${HEALTH}" == healthy ]]; then
   log_info "Frigate container is healthy"
 else
   record_error "Unexpected Frigate container health: ${HEALTH:-unknown}"
@@ -69,89 +108,33 @@ log_info "Checking effective Frigate event retention through the API..."
 CONFIG_JSON="$(curl -fsS --max-time 15 "http://${FRIGATE_IP}:${FRIGATE_INTERNAL_PORT}/api/config" || true)"
 if [[ -z "${CONFIG_JSON}" ]]; then
   record_error "Could not read effective Frigate config"
+elif printf '%s' "${CONFIG_JSON}" | python3 "${CONFIG_VALIDATOR}" \
+  "${EVENT_RECORDING_DAYS}" "${EVENT_PRE_CAPTURE_SECONDS}" \
+  "${EVENT_POST_CAPTURE_SECONDS}" "${CAMERA_NAMES[@]}"; then
+  log_info "Both cameras use event-only video retention"
 else
-  API_CONFIG_FILE="$(pct exec "${FRIGATE_CT_ID}" -- mktemp /tmp/frigate-event-recording-config.XXXXXX)"
-  trap 'pct exec "${FRIGATE_CT_ID}" -- rm -f "${API_CONFIG_FILE}" >/dev/null 2>&1 || true' EXIT
-  printf '%s' "${CONFIG_JSON}" | pct exec "${FRIGATE_CT_ID}" -- bash -c \
-    "umask 077; cat > '${API_CONFIG_FILE}'"
-
-  if pct exec "${FRIGATE_CT_ID}" -- python3 - \
-    "${API_CONFIG_FILE}" \
-    "${EVENT_RECORDING_DAYS}" \
-    "${EVENT_PRE_CAPTURE_SECONDS}" \
-    "${EVENT_POST_CAPTURE_SECONDS}" \
-    "${CAMERA_NAMES[@]}" <<'PY'
-import json
-import sys
-
-with open(sys.argv[1], encoding="utf-8") as config_file:
-    config = json.load(config_file)
-expected_days = float(sys.argv[2])
-expected_pre = int(sys.argv[3])
-expected_post = int(sys.argv[4])
-camera_names = sys.argv[5:]
-
-def validate_record(record, context):
-    errors = []
-    if not record.get("enabled"):
-        errors.append(f"{context}: recording is disabled")
-    if float(record.get("continuous", {}).get("days", -1)) != 0:
-        errors.append(f"{context}: continuous retention is not zero")
-    if float(record.get("motion", {}).get("days", -1)) != 0:
-        errors.append(f"{context}: motion retention is not zero")
-    for event_type in ("alerts", "detections"):
-        event = record.get(event_type, {})
-        retain = event.get("retain", {})
-        if float(retain.get("days", -1)) != expected_days:
-            errors.append(f"{context}: {event_type} retention is not {expected_days:g} days")
-        if retain.get("mode") != "motion":
-            errors.append(f"{context}: {event_type} retention mode is not motion")
-        if event.get("pre_capture") != expected_pre:
-            errors.append(f"{context}: {event_type} pre_capture is not {expected_pre}")
-        if event.get("post_capture") != expected_post:
-            errors.append(f"{context}: {event_type} post_capture is not {expected_post}")
-    return errors
-
-errors = validate_record(config.get("record", {}), "global config")
-for camera_name in camera_names:
-    camera = config.get("cameras", {}).get(camera_name)
-    if camera is None:
-        errors.append(f"camera missing: {camera_name}")
-        continue
-    errors.extend(validate_record(camera.get("record", {}), camera_name))
-
-if errors:
-    print("\n".join(errors), file=sys.stderr)
-    raise SystemExit(1)
-PY
-  then
-    log_info "Both cameras use event-only video retention"
-  else
-    record_error "Effective event recording policy does not match"
-  fi
+  record_error "Effective event recording policy does not match"
 fi
 
-log_info "Checking current Frigate logs for configuration errors..."
-FRIGATE_STARTED_AT="$(pct exec "${FRIGATE_CT_ID}" -- docker inspect --format '{{.State.StartedAt}}' frigate 2>/dev/null || true)"
-if [[ -n "${FRIGATE_STARTED_AT}" ]]; then
-  RECENT_LOGS="$(pct exec "${FRIGATE_CT_ID}" -- docker logs --since "${FRIGATE_STARTED_AT}" frigate 2>&1 || true)"
-else
-  RECENT_LOGS="$(pct exec "${FRIGATE_CT_ID}" -- docker logs --tail 250 frigate 2>&1 || true)"
-fi
-if grep -qiE '(config|record).*(error|invalid|failed)' <<< "${RECENT_LOGS}"; then
+log_info "Checking the last hour of Frigate logs for config/recording failures..."
+RECENT_LOGS="$(pct exec "${FRIGATE_CT_ID}" -- docker logs --since 1h frigate 2>&1 || true)"
+# Frigate log lines identify the logger before `ERROR :`. Strip that metadata
+# first so a `record ERROR` logger prefix alone is not treated as a message.
+ERROR_MESSAGES="$(sed -nE 's/^.* (ERROR|FATAL) : //p' <<< "${RECENT_LOGS}")"
+if grep -qiE '(^|[^[:alnum:]_])config(uration)?\]?[[:space:]]+(ERROR|FATAL)[[:space:]]*:' \
+  <<< "${RECENT_LOGS}" \
+  || grep -qiE '((config(uration)?|record(ing)?).*(error|invalid|failed)|(error|invalid|failed).*(config(uration)?|record(ing)?))' \
+    <<< "${ERROR_MESSAGES}"; then
   record_error "Frigate logs contain configuration or recording errors"
 else
-  log_info "No configuration or recording errors found since current start"
+  log_info "No configuration or recording errors found in the last hour"
 fi
 
 log_info "============================================"
 log_info "FRIGATE EVENT RECORDING VALIDATION SUMMARY"
 log_info "============================================"
 log_info "Validation errors: ${VALIDATION_ERRORS}"
-
-if [[ "${VALIDATION_ERRORS}" -gt 0 ]]; then
-  log_error "Frigate event recording validation failed"
-  exit 1
+if (( VALIDATION_ERRORS > 0 )); then
+  log_error "Frigate event recording validation failed"; exit 1
 fi
-
 log_info "Frigate event-only recording validation completed successfully"

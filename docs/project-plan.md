@@ -601,6 +601,12 @@ replacement, Docker Compose checks before and after apply, and automatic
 restore if the post-write check fails. It refuses duplicate `record:` sections
 and unrecognized settings rather than dropping them. Its operator and failure
 paths are covered by `scripts/step10o-frigate-event-recording-config-tests.py`.
+Step 10P checks the effective API policy in host memory, with no temporary
+config file on CT 200. Its policy and operator paths are covered by
+`scripts/step10p-frigate-event-recording-validation-tests.py`. Its log review
+is limited to the last hour and reads message text after Frigate's logger and
+severity prefix, avoiding stale errors and logger-name false positives; live
+camera stream checks remain in Step 10H.
 
 Both cameras use `preset-rtsp-generic` for their direct RTSP record and detect
 inputs. The earlier restream preset omitted timestamp normalization intended
