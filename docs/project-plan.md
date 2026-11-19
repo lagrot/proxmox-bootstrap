@@ -190,7 +190,7 @@ temporary file for its write-access check and removes that exact file.
 | Step 02 | Frigate storage | verified |
 | Step 03 | Docker LXC foundation | verified |
 | Step 03B | Docker bootstrap in CT 200 | verified; dry-run and Proxmox status-error paths tested |
-| Step 03C | Hardware passthrough | verified |
+| Step 03C | Hardware passthrough | verified; dry-run, apply-without-restart, restart consent and status-error paths tested |
 | Step 04 | Frigate deployment | verified |
 | Step 04B | Frigate validation | verified |
 | Step 05 | MQTT LXC deployment | verified |
@@ -1130,3 +1130,14 @@ not prove a new person event or newly retained clip. Existing log-only Coral
 initialization warnings coexist with successful live detector statistics.
 Rollback protection is retained; automatic cleanup and
 Proxmox host patching remain separate follow-up work.
+
+Step 03C hardware passthrough now requires an explicit mode. `--dry-run` checks
+host hardware and CT state and reports intended changes without writing config,
+changing sysctls, reloading udev or touching CT power state. `--apply` writes the
+host and LXC settings but leaves CT200 running; use
+`--apply --confirm-restart` only when a Frigate outage is acceptable. A CT that
+was already stopped remains stopped. Hardware command tests use temporary files
+and mocked Proxmox/host commands; no live restart is part of the test suite.
+Review the proposed settings with
+`bash scripts/step03c-hardware-passthrough.sh --dry-run`; run the isolated checks with
+`python3 scripts/step03c-hardware-passthrough-tests.py`.
