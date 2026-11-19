@@ -261,7 +261,7 @@ The `old/` directory contains scripts that are kept for historical reference but
 | Step 01 | Host validation | verified |
 | Step 02 | Frigate storage | verified |
 | Step 03 | Docker LXC foundation | verified |
-| Step 03B | Docker bootstrap in CT 200 | verified |
+| Step 03B | Docker bootstrap in CT 200 | verified; dry-run and status-error paths tested |
 | Step 03C | Hardware passthrough | verified |
 | Step 04 | Frigate deployment | verified |
 | Step 04B | Frigate validation | verified |
