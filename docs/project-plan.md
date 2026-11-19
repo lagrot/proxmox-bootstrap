@@ -175,12 +175,17 @@ Expected media directories:
 
 Because CT 200 is unprivileged and uses a bind mount, the five managed media
 directories are owned by host UID/GID `100000:100000` with mode `0775`.
-Step 04 checks that `/mnt/frigate` is an actual mounted filesystem before
-writing there, and changes ownership/mode only on those directories. It does
-not recursively alter retained media files or their subdirectories. If the SSD
-is not mounted, stop and resolve the mount before deployment.
+Step 04 checks that `/mnt/frigate` is mounted from the configured stable SSD
+device with the expected XFS filesystem before writing there, and changes
+ownership/mode only on those directories. It does not recursively alter
+retained media files or their subdirectories. If the SSD is not mounted or the
+source/filesystem do not match, stop and resolve storage before deployment.
 Step 04B confirms the host mount and CT bind mount match, then uses a unique
 temporary file for its write-access check and removes that exact file.
+The Step 04 deployment checks are covered by
+`python3 scripts/step04-frigate-deploy-tests.py`; they use mocked Proxmox
+commands and temporary storage to verify missing/wrong mount, CT status errors,
+existing-install protection, dry-run behavior and managed-directory scope.
 
 ## Verified Steps
 
@@ -191,7 +196,7 @@ temporary file for its write-access check and removes that exact file.
 | Step 03 | Docker LXC foundation | verified |
 | Step 03B | Docker bootstrap in CT 200 | verified; dry-run and Proxmox status-error paths tested |
 | Step 03C | Hardware passthrough | verified; dry-run, apply-without-restart, restart consent and status-error paths tested |
-| Step 04 | Frigate deployment | verified |
+| Step 04 | Frigate deployment | verified; dedicated device/filesystem and CT status failure paths tested |
 | Step 04B | Frigate validation | verified |
 | Step 05 | MQTT LXC deployment | verified |
 | Step 05B | MQTT validation | verified |

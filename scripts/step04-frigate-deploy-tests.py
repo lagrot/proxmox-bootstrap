@@ -24,6 +24,13 @@ class FrigateDeployTests(unittest.TestCase):
                                     f'FRIGATE_MOUNTPOINT="{self.root / "media"}"')
         defaults = defaults.replace('FRIGATE_APP_DIR="/opt/frigate"',
                                     f'FRIGATE_APP_DIR="{self.root / "app"}"')
+        device = self.root / "device"
+        device.touch()
+        stable_device = self.root / "by-id-device"
+        stable_device.symlink_to(device)
+        defaults = defaults.replace(
+            'FRIGATE_DEVICE_BY_ID="/dev/disk/by-id/ata-PNY_500GB_SATA_SSD_PNH05266000310302979-part1"',
+            f'FRIGATE_DEVICE_BY_ID="{stable_device}"')
         (self.root / "config/defaults.conf").write_text(defaults)
         script = (REPO / "scripts/step04-frigate-deploy.sh").read_text()
         script = script.replace('/opt/frigate', str(self.root / "app"))
@@ -34,13 +41,17 @@ class FrigateDeployTests(unittest.TestCase):
 name=$(basename "$0")
 printf '%s %s\n' "$name" "$*" >> "$EVENTS"
 case "$name" in
-  findmnt) [[ -f "$MOUNTED" ]] ;;
+  findmnt)
+    [[ -f "$MOUNTED" ]] || exit 1
+    if [[ "$1" == -n ]]; then printf '%s %s\n' "$TEST_MOUNT_SOURCE" "$TEST_MOUNT_FSTYPE"; fi ;;
   sleep) exit 0 ;;
   curl) echo 200 ;;
   pct)
     case "$1" in
       config) [[ ! -f "$NO_CT" ]] ;;
-      status) echo 'status: running' ;;
+      status)
+        [[ "${STATUS_FAIL:-0}" != 1 ]] || exit 1
+        printf 'status: %s\n' "${CT_STATUS:-running}" ;;
       push) exit 0 ;;
       exec)
         shift 3
@@ -74,6 +85,8 @@ printf 'chown %s\\n' "$*" >> "$EVENTS"
         self.env = dict(os.environ, PATH=str(self.root / "bin") + ":" + os.environ["PATH"],
                         EVENTS=str(self.root / "events"), MOUNTED=str(self.root / "mounted"),
                         NO_CT=str(self.root / "no-ct"), EXISTING=str(self.root / "existing"),
+                        TEST_MOUNT_SOURCE=str(device), TEST_MOUNT_FSTYPE="xfs",
+                        STATUS_FAIL="0", CT_STATUS="running",
                         FRIGATE_APP_DIR=str(self.root / "app"),
                         FRIGATE_MEDIA_DIR=str(self.root / "media"),
                         LOG_FILE=str(self.root / "operation.log"))
@@ -107,6 +120,28 @@ printf 'chown %s\\n' "$*" >> "$EVENTS"
         result = self.run_script(FRIGATE_MEDIA_DIR=str(self.root / "media/child"))
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("must match the configured dedicated mountpoint", result.stdout)
+
+    def test_wrong_mounted_device_or_filesystem_stops_before_changes(self):
+        other_device = self.root / "other-device"
+        other_device.touch()
+        result = self.run_script(TEST_MOUNT_SOURCE=str(other_device))
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("Wrong filesystem mounted", result.stdout)
+        self.assertNotIn("chown", self.events())
+        result = self.run_script(TEST_MOUNT_FSTYPE="ext4")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("Wrong Frigate filesystem type", result.stdout)
+        self.assertNotIn("chown", self.events())
+
+    def test_ct_status_query_failure_is_clear_and_stops_early(self):
+        result = self.run_script(STATUS_FAIL="1")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("Could not determine CT 200 status", result.stdout)
+        self.assertNotIn("chown", self.events())
+        result = self.run_script(CT_STATUS="stopped")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("must be running", result.stdout)
+        self.assertNotIn("chown", self.events())
 
     def test_invalid_option_is_rejected(self):
         result = self.run_script("--not-a-real-option")
