@@ -86,7 +86,7 @@ if [[ "${EUID}" -ne 0 ]]; then
 fi
 
 log_info "Checking required commands on host..."
-for cmd in pct grep findmnt mktemp; do
+for cmd in pct grep findmnt mktemp readlink; do
   if ! command -v "${cmd}" >/dev/null 2>&1; then
     log_error "Required command not found on host: ${cmd}"
     exit 1
@@ -100,8 +100,12 @@ if ! pct config "${CT_ID}" >/dev/null 2>&1; then
 fi
 
 log_info "Checking that CT ${CT_ID} is running..."
-if ! pct status "${CT_ID}" | grep -q "status: running"; then
-  log_error "CT ${CT_ID} must be running so existing Frigate files can be checked safely"
+if ! CT_STATUS="$(pct status "${CT_ID}")"; then
+  log_error "Could not determine CT ${CT_ID} status; refusing deployment"
+  exit 1
+fi
+if [[ "$CT_STATUS" != *"status: running"* ]]; then
+  log_error "CT ${CT_ID} must be running so existing Frigate files can be checked safely (reported: ${CT_STATUS})"
   exit 1
 fi
 
@@ -115,6 +119,32 @@ if ! findmnt --mountpoint "${FRIGATE_MEDIA_DIR}" >/dev/null 2>&1; then
   log_error "${FRIGATE_MEDIA_DIR} is not a mounted filesystem; refusing to install onto the host root filesystem"
   exit 1
 fi
+MOUNT_INFO="$(findmnt -n -o SOURCE,FSTYPE --mountpoint "${FRIGATE_MEDIA_DIR}")" || {
+  log_error "Could not identify the filesystem mounted at ${FRIGATE_MEDIA_DIR}"
+  exit 1
+}
+read -r MOUNT_SOURCE MOUNT_FSTYPE <<<"${MOUNT_INFO}"
+if [[ -z "${MOUNT_SOURCE:-}" || -z "${MOUNT_FSTYPE:-}" ]]; then
+  log_error "Could not parse mounted filesystem details at ${FRIGATE_MEDIA_DIR}"
+  exit 1
+fi
+EXPECTED_DEVICE="$(readlink -f "${FRIGATE_DEVICE_BY_ID}")" || {
+  log_error "Configured Frigate device is unavailable: ${FRIGATE_DEVICE_BY_ID}"
+  exit 1
+}
+ACTUAL_DEVICE="$(readlink -f "${MOUNT_SOURCE}")" || {
+  log_error "Could not resolve mounted Frigate source: ${MOUNT_SOURCE}"
+  exit 1
+}
+if [[ "${ACTUAL_DEVICE}" != "${EXPECTED_DEVICE}" ]]; then
+  log_error "Wrong filesystem mounted at ${FRIGATE_MEDIA_DIR}: expected ${EXPECTED_DEVICE}, got ${ACTUAL_DEVICE}"
+  exit 1
+fi
+if [[ "${MOUNT_FSTYPE}" != "${FRIGATE_FILESYSTEM}" ]]; then
+  log_error "Wrong Frigate filesystem type: expected ${FRIGATE_FILESYSTEM}, got ${MOUNT_FSTYPE}"
+  exit 1
+fi
+log_info "Dedicated Frigate device and ${MOUNT_FSTYPE} filesystem verified"
 
 # Bootstrap writes a minimal config and must never replace an existing setup.
 if ! pct exec "${CT_ID}" -- sh -c 'test ! -e "$1" && test ! -e "$2"' \
