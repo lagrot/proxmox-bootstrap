@@ -173,10 +173,20 @@ bash scripts/step18d-frigate-rollback.sh \
 ```
 
 Rollback verifies the original backup and exact old image, extracts into
-staging, stops Frigate, archives the failed/current state, restores matching
-Compose plus complete config/database, verifies old health/API version, and
-runs Step 18C baseline regression. The failed state remains available for
-diagnosis.
+staging after checking archive member paths and types, stops Frigate, archives
+the failed/current state, restores matching Compose plus complete
+config/database, verifies old health/API version, and runs Step 18C baseline
+regression. If rollback is interrupted after production changes begin, the
+script preserves and reports its staging directory along with the backup and
+failed-state archive for recovery.
+
+Run the isolated rollback and archive-safety checks without Proxmox/Docker:
+
+```bash
+bash -n scripts/step18d-frigate-rollback.sh
+python3 -m py_compile lib/frigate-upgrade-archive.py scripts/step18d-frigate-rollback-tests.py
+python3 scripts/step18d-frigate-rollback-tests.py -v
+```
 
 ## Cleanup
 
