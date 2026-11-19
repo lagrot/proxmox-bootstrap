@@ -8,6 +8,11 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
 
+# A preview must not append to the normal operations log.
+for arg in "$@"; do
+    [[ "$arg" != --dry-run ]] || export LOG_FILE=/dev/null
+done
+
 # shellcheck source=../config/defaults.conf
 source "${ROOT_DIR}/config/defaults.conf"
 
@@ -61,11 +66,36 @@ pct_exec_or_print() {
 }
 
 container_exists() {
-    pct status "${CT_ID}" >/dev/null 2>&1
+    local status_output
+
+    if status_output="$(pct status "${CT_ID}" 2>&1)"; then
+        return 0
+    fi
+
+    if [[ "${status_output}" == *"does not exist"* ]]; then
+        return 1
+    fi
+
+    log_error "Could not query status for CT ${CT_ID}: ${status_output}"
+    return 2
 }
 
 container_is_running() {
-    pct status "${CT_ID}" 2>/dev/null | grep -q '^status: running$'
+    local status_output
+
+    if ! status_output="$(pct status "${CT_ID}" 2>&1)"; then
+        log_error "Could not query status for CT ${CT_ID}: ${status_output}"
+        return 2
+    fi
+
+    case "${status_output}" in
+        'status: running') return 0 ;;
+        'status: stopped') return 1 ;;
+        *)
+            log_error "Unexpected status for CT ${CT_ID}: ${status_output}"
+            return 2
+            ;;
+    esac
 }
 
 wait_for_container() {
@@ -146,6 +176,10 @@ log_info "Checking whether CT ${CT_ID} exists..."
 if container_exists; then
     log_info "Container exists: CT ${CT_ID}"
 else
+    status_rc=$?
+    if [[ "${status_rc}" -ne 1 ]]; then
+        exit 1
+    fi
     log_error "Container does not exist: CT ${CT_ID}"
     log_error "Run step03-docker-lxc.sh first"
     exit 1
@@ -159,6 +193,10 @@ log_info "Checking container runtime state..."
 if container_is_running; then
     log_info "Container is already running"
 else
+    status_rc=$?
+    if [[ "${status_rc}" -ne 1 ]]; then
+        exit 1
+    fi
     log_info "Container is stopped"
     run_or_print pct start "${CT_ID}"
 fi

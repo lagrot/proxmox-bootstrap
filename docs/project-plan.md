@@ -189,7 +189,7 @@ temporary file for its write-access check and removes that exact file.
 | Step 01 | Host validation | verified |
 | Step 02 | Frigate storage | verified |
 | Step 03 | Docker LXC foundation | verified |
-| Step 03B | Docker bootstrap in CT 200 | verified |
+| Step 03B | Docker bootstrap in CT 200 | verified; dry-run and Proxmox status-error paths tested |
 | Step 03C | Hardware passthrough | verified |
 | Step 04 | Frigate deployment | verified |
 | Step 04B | Frigate validation | verified |
