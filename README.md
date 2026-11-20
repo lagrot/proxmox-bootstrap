@@ -279,7 +279,7 @@ The `old/` directory contains scripts that are kept for historical reference but
 | Step 10A | Home Assistant reachability | verified |
 | Step 10B | Home Assistant to MQTT network path | verified |
 | Step 10C | Home Assistant MQTT integration | verified |
-| Step 10D | Frigate MQTT config | verified |
+| Step 10D | Frigate MQTT config | verified; CT status errors and duplicate targets tested |
 | Step 10E | Frigate restart | verified |
 | Step 10F | Frigate MQTT publishing | verified |
 | Step 10G | Frigate Tapo camera configuration | verified |
