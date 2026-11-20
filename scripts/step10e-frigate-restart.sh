@@ -69,8 +69,12 @@ if ! [[ "${FRIGATE_WEB_PORT}" =~ ^[0-9]{1,5}$ ]] || ((10#${FRIGATE_WEB_PORT:-0} 
 fi
 
 log_info "Checking CT ${FRIGATE_CT_ID}..."
-if ! pct status "${FRIGATE_CT_ID}" 2>/dev/null | grep -q "status: running"; then
-  log_error "CT ${FRIGATE_CT_ID} is not running"
+if ! CT_STATUS="$(pct status "${FRIGATE_CT_ID}" 2>/dev/null)"; then
+  log_error "Could not determine CT ${FRIGATE_CT_ID} status; refusing restart"
+  exit 1
+fi
+if [[ "${CT_STATUS}" != *"status: running"* ]]; then
+  log_error "CT ${FRIGATE_CT_ID} is not running (reported: ${CT_STATUS})"
   exit 1
 fi
 
@@ -91,6 +95,10 @@ if ! pct exec "${FRIGATE_CT_ID}" -- docker inspect frigate >/dev/null 2>&1; then
   log_error "Frigate container does not exist in CT ${FRIGATE_CT_ID}"
   exit 1
 fi
+if ! pct exec "${FRIGATE_CT_ID}" -- bash -c 'command -v curl >/dev/null 2>&1'; then
+  log_error "curl is unavailable inside CT ${FRIGATE_CT_ID}; refusing restart because the HTTPS result could not be checked"
+  exit 1
+fi
 
 if [[ "${DRY_RUN}" -eq 1 ]]; then
   log_info "[DRY-RUN] Would restart Frigate through Docker Compose in CT ${FRIGATE_CT_ID}"
@@ -100,8 +108,12 @@ if [[ "${DRY_RUN}" -eq 1 ]]; then
 fi
 
 log_info "Restarting Frigate through Docker Compose..."
-pct exec "${FRIGATE_CT_ID}" -- bash -c \
-  'cd "$1" && docker compose restart frigate' bash "${FRIGATE_APP_DIR}"
+if ! pct exec "${FRIGATE_CT_ID}" -- bash -c \
+  'cd "$1" && docker compose restart frigate' bash "${FRIGATE_APP_DIR}"; then
+  log_error "Frigate restart command failed; inspect the container with: pct exec ${FRIGATE_CT_ID} -- docker ps -a"
+  log_error "Review recent logs with: pct exec ${FRIGATE_CT_ID} -- docker logs --tail 120 frigate"
+  exit 1
+fi
 
 log_info "Waiting for Frigate container to report running..."
 for i in {1..30}; do
