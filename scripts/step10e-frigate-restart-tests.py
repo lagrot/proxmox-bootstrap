@@ -25,7 +25,9 @@ class FrigateRestartTests(unittest.TestCase):
                     self.root / "scripts/step10e-frigate-restart.sh")
         fake = r'''#!/bin/bash
 case "$1" in
-  status) echo 'status: running' ;;
+  status)
+    [[ "${STATUS_FAIL:-0}" != 1 ]] || exit 1
+    printf 'status: %s\n' "${CT_STATUS:-running}" ;;
   exec)
     shift 3
     command="$*"
@@ -37,6 +39,8 @@ case "$1" in
       [[ "$COMPOSE_INVALID" != 1 ]] ; exit $?
     elif [[ "$command" == docker\ inspect\ frigate ]]; then
       [[ "$NO_CONTAINER" != 1 ]] ; exit $?
+    elif [[ "$command" == bash\ -c\ command\ -v\ curl* ]]; then
+      [[ "$CURL_MISSING" != 1 ]] ; exit $?
     elif [[ "$command" == *'docker compose restart frigate'* ]]; then
       echo restart >> "$EVENTS"
       [[ "$RESTART_FAIL" != 1 ]] ; exit $?
@@ -60,6 +64,7 @@ esac
         self.env = dict(os.environ, PATH=str(self.root / "bin") + ":" + os.environ["PATH"],
                         EVENTS=str(self.root / "events"), DOCKER_DOWN="0", COMPOSE_INVALID="0",
                         NO_CONTAINER="0", RESTART_FAIL="0", NO_RUNNING="0", HEALTH="healthy",
+                        STATUS_FAIL="0", CT_STATUS="running", CURL_MISSING="0",
                         HTTP_CODE="200", LOG_FILE=str(self.root / "operation.log"))
 
     def run_script(self, *args, **extra):
@@ -115,6 +120,30 @@ esac
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("port must be an integer", result.stdout)
         self.assertEqual(self.restarts(), 0)
+
+    def test_status_failure_stopped_ct_and_missing_curl_prevent_restart(self):
+        status_failure = self.run_script(STATUS_FAIL="1")
+        self.assertNotEqual(status_failure.returncode, 0)
+        self.assertIn("Could not determine CT 200 status", status_failure.stdout)
+        stopped = self.run_script(CT_STATUS="stopped")
+        self.assertNotEqual(stopped.returncode, 0)
+        self.assertIn("CT 200 is not running (reported: status: stopped)", stopped.stdout)
+        missing_curl = self.run_script(CURL_MISSING="1")
+        self.assertNotEqual(missing_curl.returncode, 0)
+        self.assertIn("curl is unavailable", missing_curl.stdout)
+        self.assertEqual(self.restarts(), 0)
+
+    def test_restart_command_failure_prints_recovery_checks(self):
+        result = self.run_script(RESTART_FAIL="1")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("restart command failed", result.stdout)
+        self.assertIn("pct exec 200 -- docker ps -a", result.stdout)
+        self.assertEqual(self.restarts(), 1)
+
+    def test_container_start_timeout_fails(self):
+        result = self.run_script(NO_RUNNING="1")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("did not start in time", result.stdout)
 
 
 if __name__ == "__main__":
