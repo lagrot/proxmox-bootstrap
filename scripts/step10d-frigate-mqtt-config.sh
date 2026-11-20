@@ -92,6 +92,8 @@ done
 [[ -f "${MQTT_CONFIG_HELPER}" ]] || record_error "Missing helper: ${MQTT_CONFIG_HELPER}"
 [[ "${FRIGATE_CT_ID}" =~ ^[0-9]+$ && "${MQTT_CT_ID}" =~ ^[0-9]+$ ]] \
   || record_error "Container IDs must be numeric"
+[[ "${FRIGATE_CT_ID}" != "${MQTT_CT_ID}" ]] \
+  || record_error "Frigate and MQTT must use different container IDs"
 if ! [[ "${MQTT_PORT}" =~ ^[0-9]{1,5}$ ]] || ((10#${MQTT_PORT:-0} < 1 || 10#${MQTT_PORT:-0} > 65535)); then
   record_error "MQTT_PORT must be an integer from 1 through 65535"
 fi
@@ -107,10 +109,12 @@ for ct_id in "${FRIGATE_CT_ID}" "${MQTT_CT_ID}"; do
   else
     record_error "CT ${ct_id} does not exist"
   fi
-  if pct status "${ct_id}" 2>/dev/null | grep -q "status: running"; then
+  if ! CT_STATUS="$(pct status "${ct_id}" 2>/dev/null)"; then
+    record_error "Could not determine CT ${ct_id} status"
+  elif [[ "${CT_STATUS}" == *"status: running"* ]]; then
     log_info "CT ${ct_id} is running"
   else
-    record_error "CT ${ct_id} is not running"
+    record_error "CT ${ct_id} is not running (reported: ${CT_STATUS})"
   fi
 done
 if [[ "${VALIDATION_ERRORS}" -gt 0 ]]; then

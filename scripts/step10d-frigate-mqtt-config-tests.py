@@ -106,7 +106,10 @@ class ScriptTransactionTests(unittest.TestCase):
         fake = r'''#!/bin/bash
 case "$1" in
   config) echo 'hostname: test-ct'; exit 0 ;;
-  status) echo 'status: running'; exit 0 ;;
+  status)
+    [[ "${STATUS_FAIL_CT:-}" != "$2" ]] || exit 1
+    printf 'status: %s\n' "${CT_STATUS:-running}"
+    exit 0 ;;
   exec)
     shift 3
     case "$1" in
@@ -150,7 +153,8 @@ esac
             path.chmod(0o755)
         self.env = dict(os.environ, PATH=str(self.root / "bin") + ":" + os.environ["PATH"],
                         TEST_CONFIG=str(self.config), TEST_BACKUPS=str(self.root / "backups"),
-                        COMPOSE_FAIL="0", LOG_FILE=str(self.root / "operation.log"))
+                        COMPOSE_FAIL="0", STATUS_FAIL_CT="", CT_STATUS="running",
+                        LOG_FILE=str(self.root / "operation.log"))
 
     def run_script(self, *args, **extra):
         return subprocess.run(["bash", str(self.root / "scripts/step10d-frigate-mqtt-config.sh"), *args],
@@ -198,6 +202,24 @@ esac
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("MQTT_PORT must be an integer", result.stdout)
         self.assertEqual(self.config.read_text(), "mqtt:\n  enabled: true\n  host: 192.0.2.9\n  port: 1883\n  user: frigate\n  password: secret-placeholder\ncameras: {}\n")
+
+    def test_ct_status_query_failure_and_stopped_ct_are_explicit(self):
+        result = self.run_script(STATUS_FAIL_CT="210")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("Could not determine CT 210 status", result.stdout)
+        self.assertEqual(self.config.read_text().split("host: ")[1].splitlines()[0], "192.0.2.9")
+        result = self.run_script(CT_STATUS="stopped")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("CT 200 is not running (reported: status: stopped)", result.stdout)
+
+    def test_duplicate_container_ids_are_rejected_before_guest_checks(self):
+        defaults = self.root / "config/defaults.conf"
+        defaults.write_text(defaults.read_text().replace('MQTT_CT_ID="210"', 'MQTT_CT_ID="200"'))
+        result = self.run_script()
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("must use different container IDs", result.stdout)
+        self.assertNotIn("Checking CT 200...", result.stdout)
+        self.assertEqual(self.config.read_text().split("host: ")[1].splitlines()[0], "192.0.2.9")
 
 
 if __name__ == "__main__":
