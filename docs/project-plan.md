@@ -180,8 +180,12 @@ device with the expected XFS filesystem before writing there, and changes
 ownership/mode only on those directories. It does not recursively alter
 retained media files or their subdirectories. If the SSD is not mounted or the
 source/filesystem do not match, stop and resolve storage before deployment.
-Step 04B confirms the host mount and CT bind mount match, then uses a unique
-temporary file for its write-access check and removes that exact file.
+Step 04B confirms the host mount uses the configured stable device and XFS,
+checks the CT bind mount, then uses a unique temporary file for its write-access
+check and removes that exact file. Its isolated checks are run with
+`python3 scripts/step04b-frigate-validation-tests.py`; they cover wrong or
+missing storage, CT status errors and stopped state, bind-mount mismatch, and
+write-test creation/removal failures.
 The Step 04 deployment checks are covered by
 `python3 scripts/step04-frigate-deploy-tests.py`; they use mocked Proxmox
 commands and temporary storage to verify missing/wrong mount, CT status errors,
@@ -197,7 +201,7 @@ existing-install protection, dry-run behavior and managed-directory scope.
 | Step 03B | Docker bootstrap in CT 200 | verified; dry-run and Proxmox status-error paths tested |
 | Step 03C | Hardware passthrough | verified; dry-run, apply-without-restart, restart consent and status-error paths tested |
 | Step 04 | Frigate deployment | verified; dedicated device/filesystem and CT status failure paths tested |
-| Step 04B | Frigate validation | verified |
+| Step 04B | Frigate validation | verified; mount identity and CT status failure paths tested |
 | Step 05 | MQTT LXC deployment | verified |
 | Step 05B | MQTT validation | verified |
 | Step 05C | MQTT authentication hardening | verified |

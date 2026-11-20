@@ -61,7 +61,7 @@ if [[ "${EUID}" -ne 0 ]]; then
 fi
 
 log_info "Checking required host commands..."
-for cmd in pct grep awk findmnt; do
+for cmd in pct grep awk findmnt readlink; do
   check_host_command "${cmd}"
 done
 
@@ -71,17 +71,19 @@ if [[ "${VALIDATION_ERRORS}" -gt 0 ]]; then
 fi
 
 log_info "Checking whether CT ${CT_ID} exists..."
-if pct config "${CT_ID}" >/dev/null 2>&1; then
+if CT_CONFIG="$(pct config "${CT_ID}" 2>/dev/null)"; then
   log_info "CT ${CT_ID} exists"
 else
   record_error "CT ${CT_ID} does not exist"
 fi
 
 log_info "Checking whether CT ${CT_ID} is running..."
-if pct status "${CT_ID}" | grep -q "status: running"; then
+if ! CT_STATUS="$(pct status "${CT_ID}" 2>/dev/null)"; then
+  record_error "Could not determine CT ${CT_ID} status"
+elif [[ "$CT_STATUS" == *"status: running"* ]]; then
   log_info "CT ${CT_ID} is running"
 else
-  record_error "CT ${CT_ID} is not running"
+  record_error "CT ${CT_ID} is not running (reported: ${CT_STATUS})"
 fi
 
 if [[ "${VALIDATION_ERRORS}" -gt 0 ]]; then
@@ -95,11 +97,27 @@ if [[ "${FRIGATE_MEDIA_DIR}" != "${FRIGATE_MOUNTPOINT}" ]]; then
 elif ! findmnt --mountpoint "${FRIGATE_MOUNTPOINT}" >/dev/null 2>&1; then
   record_error "${FRIGATE_MOUNTPOINT} is not mounted on the Proxmox host"
 else
-  log_info "Dedicated Frigate filesystem is mounted at ${FRIGATE_MOUNTPOINT}"
+  if ! MOUNT_INFO="$(findmnt -n -o SOURCE,FSTYPE --mountpoint "${FRIGATE_MOUNTPOINT}")"; then
+    record_error "Could not identify the filesystem mounted at ${FRIGATE_MOUNTPOINT}"
+  else
+    read -r MOUNT_SOURCE MOUNT_FSTYPE <<<"${MOUNT_INFO}"
+    if [[ -z "${MOUNT_SOURCE:-}" || -z "${MOUNT_FSTYPE:-}" ]]; then
+      record_error "Could not parse mounted filesystem details at ${FRIGATE_MOUNTPOINT}"
+    elif ! EXPECTED_DEVICE="$(readlink -f "${FRIGATE_DEVICE_BY_ID}")"; then
+      record_error "Configured Frigate device is unavailable: ${FRIGATE_DEVICE_BY_ID}"
+    elif ! ACTUAL_DEVICE="$(readlink -f "${MOUNT_SOURCE}")"; then
+      record_error "Could not resolve mounted Frigate source: ${MOUNT_SOURCE}"
+    elif [[ "${ACTUAL_DEVICE}" != "${EXPECTED_DEVICE}" ]]; then
+      record_error "Wrong filesystem mounted at ${FRIGATE_MOUNTPOINT}: expected ${EXPECTED_DEVICE}, got ${ACTUAL_DEVICE}"
+    elif [[ "${MOUNT_FSTYPE}" != "${FRIGATE_FILESYSTEM}" ]]; then
+      record_error "Wrong Frigate filesystem type: expected ${FRIGATE_FILESYSTEM}, got ${MOUNT_FSTYPE}"
+    else
+      log_info "Dedicated Frigate device and ${MOUNT_FSTYPE} filesystem verified at ${FRIGATE_MOUNTPOINT}"
+    fi
+  fi
 fi
 
 log_info "Checking CT ${CT_ID} bind mount configuration..."
-CT_CONFIG="$(pct config "${CT_ID}")"
 if grep -Fq "mp0: ${FRIGATE_MOUNTPOINT},mp=${FRIGATE_MEDIA_DIR}" <<<"${CT_CONFIG}"; then
   log_info "CT ${CT_ID} binds ${FRIGATE_MOUNTPOINT} at ${FRIGATE_MEDIA_DIR}"
 else

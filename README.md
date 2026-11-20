@@ -264,7 +264,7 @@ The `old/` directory contains scripts that are kept for historical reference but
 | Step 03B | Docker bootstrap in CT 200 | verified; dry-run and status-error paths tested |
 | Step 03C | Hardware passthrough | verified; dry-run and explicit restart-consent paths tested |
 | Step 04 | Frigate deployment | verified; dedicated device/filesystem and CT status failure paths tested |
-| Step 04B | Frigate validation | verified |
+| Step 04B | Frigate validation | verified; mount identity and CT status failure paths tested |
 | Step 05 | MQTT LXC deployment | verified |
 | Step 05B | MQTT validation | verified |
 | Step 05C | MQTT authentication hardening | verified |
